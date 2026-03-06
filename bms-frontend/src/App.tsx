@@ -21,6 +21,8 @@ import Profile from './pages/Profile'
 import LoginHistory from './pages/LoginHistory'
 import Owners from './pages/Owners'
 import Buildings from './pages/Buildings'
+import Visitors from './pages/Visitors'
+import Utilities from './pages/Utilities'
 
 export default function App() {
   return (
@@ -77,6 +79,24 @@ export default function App() {
           <ProtectedRoute>
             <NavBar />
             <Leases />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/utilities"
+        element={
+          <ProtectedRoute>
+            <NavBar />
+            <Utilities />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/visitors"
+        element={
+          <ProtectedRoute>
+            <NavBar />
+            <Visitors />
           </ProtectedRoute>
         }
       />

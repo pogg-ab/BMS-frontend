@@ -24,8 +24,25 @@ export function listPendingApplications(params?: any) {
   return axios.get('/applications/pending', { params }).then(r => (r.data && r.data.data ? r.data.data : r.data))
 }
 
-export function getTenant(id: string | number) {
-  return axios.get(`/tenants/${id}`).then(r => r.data)
+export async function getTenant(id: string | number) {
+  try {
+    const res = await axios.get(`/tenants/${id}`)
+    return res.data
+  } catch (err: any) {
+    // If the server doesn't expose GET /tenants/:id, try a safe fallback
+    // by querying the tenants list with an id filter. This handles
+    // backends that only support filtered list endpoints.
+    if (err?.response?.status === 404) {
+      try {
+        const list = await axios.get('/tenants', { params: { id } }).then(r => (r.data && r.data.data ? r.data.data : r.data))
+        if (Array.isArray(list)) return list[0] || null
+        return list || null
+      } catch (e) {
+        // swallow and rethrow original error below
+      }
+    }
+    throw err
+  }
 }
 
 export function updateTenant(id: string | number, dto: any) {
@@ -33,7 +50,12 @@ export function updateTenant(id: string | number, dto: any) {
 }
 
 export function createDocument(dto: any) {
-  // expects multipart/form-data potentially
+  // expects multipart/form-data
+  // When sending FormData, do NOT set Content-Type manually so the browser
+  // can append the correct multipart boundary header.
+  if (dto instanceof FormData) {
+    return axios.post('/documents', dto).then(r => r.data)
+  }
   return axios.post('/documents', dto).then(r => r.data)
 }
 

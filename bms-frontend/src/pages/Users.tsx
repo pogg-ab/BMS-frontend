@@ -88,10 +88,10 @@ export default function Users() {
     try {
       if (editing) {
         await updateUser(editing.id, { name, email })
-        if (roleId) await assignRole({ user_id: editing.id, role_id: roleId })
+        if (roleId) await assignRole({ user_id: editing.id, role_id: Number(roleId) })
         alert('User updated')
       } else {
-        await createUser({ name, email, password, role_id: roleId, status: 'active' })
+        await createUser({ name, email, password, role_id: roleId ? Number(roleId) : undefined, status: 'active' })
         alert('User created')
       }
       setShowCreate(false)
@@ -126,7 +126,7 @@ export default function Users() {
     const input = prompt('Enter role id to assign:')
     if (!input) return
     try {
-      await assignRole({ user_id: id, role_id: input })
+      await assignRole({ user_id: id, role_id: Number(input) })
       alert('Role assigned')
       load()
     } catch (e: any) {

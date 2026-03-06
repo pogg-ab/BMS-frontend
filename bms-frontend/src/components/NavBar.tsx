@@ -21,6 +21,8 @@ export default function NavBar() {
           <NavItem to="/units">Units</NavItem>
           <NavItem to="/tenants">Tenants</NavItem>
           <NavItem to="/leases">Leases</NavItem>
+          <NavItem to="/utilities">Utilities</NavItem>
+          <NavItem to="/visitors">Visitors</NavItem>
           <NavItem to="/maintenance">Maintenance</NavItem>
           <NavItem to="/finance">Finance</NavItem>
           <NavItem to="/documents">Documents</NavItem>
