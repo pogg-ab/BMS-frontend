@@ -23,6 +23,8 @@ import Owners from './pages/Owners'
 import Buildings from './pages/Buildings'
 import Visitors from './pages/Visitors'
 import Utilities from './pages/Utilities'
+import Automations from './pages/Automations'
+import Notifications from './pages/Notifications'
 
 export default function App() {
   return (
@@ -206,6 +208,24 @@ export default function App() {
           <ProtectedRoute>
             <NavBar />
             <LoginHistory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/automations"
+        element={
+          <ProtectedRoute>
+            <NavBar />
+            <Automations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <NavBar />
+            <Notifications />
           </ProtectedRoute>
         }
       />
