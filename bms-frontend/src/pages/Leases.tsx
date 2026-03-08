@@ -15,7 +15,7 @@ import { listUnits } from '../api/units'
 
 export default function Leases() {
   const toast = useToast()
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:2546'
+  const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000'
   const [leases, setLeases] = useState<any[]>([])
   const [tenants, setTenants] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
@@ -90,7 +90,7 @@ export default function Leases() {
     try {
       const list: any = await listLeases({ page: 1, per_page: 50 })
       setLeases(Array.isArray(list) ? list : [])
-    } catch (e:any) { console.error(e); toast.addToast('Failed to load leases', 'error') }
+    } catch (e:any) { console.error(e);      toast.addToast('Failed to fetch leases. Please try again later.', 'error') }
     finally { setLoading(false) }
   }
 
@@ -125,7 +125,7 @@ export default function Leases() {
     if (!selectedLeaseId) { toast.addToast('Select lease id', 'error'); return }
     try {
       // API expects activation by path id; no request body required per docs
-      await activateLease(selectedLeaseId)
+      await activateLease(selectedLeaseId, {})
       toast.addToast('Lease activated', 'success')
       loadLeases()
     } catch (e:any) { console.error(e); toast.addToast('Activate failed', 'error') }
@@ -135,7 +135,7 @@ export default function Leases() {
     e?.preventDefault()
     if (!activateOnlyLeaseId) { toast.addToast('Select lease to activate', 'error'); return }
     try {
-      await activateLease(activateOnlyLeaseId)
+      await activateLease(activateOnlyLeaseId, {})
       toast.addToast('Lease activated', 'success')
       setActivateOnlyLeaseId('')
       loadLeases()
@@ -440,7 +440,7 @@ export default function Leases() {
                     <td className="p-2">{l.status}</td>
                     <td className="p-2">
                       {l.doc_path ? (
-                        <a href={`${apiBase.replace(/\/$/, '')}${l.doc_path}`} target="_blank" rel="noreferrer" className="mr-2 text-indigo-600">View</a>
+                        <a href={`${API_URL}/leases/${l.id}/pdf`} target="_blank" rel="noreferrer" className="mr-2 text-indigo-600">View</a>
                       ) : null}
                       <button onClick={() => handleDownload(l.id)} className="mr-2 text-green-600">Download</button>
                     </td>

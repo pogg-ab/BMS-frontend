@@ -460,8 +460,8 @@ export default function Tenants() {
                   <ul className="list-disc pl-6">
                     {docsList.map(d => {
                       const fileUrl = d?.file_url || d?.fileUrl || d?.url || ''
-                      const base = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:2546').replace(/\/$/, '')
-                      const href = fileUrl && fileUrl.startsWith('/') ? `${base}${fileUrl}` : fileUrl
+                      const baseUrl = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
+                      const href = fileUrl && fileUrl.startsWith('/') ? `${baseUrl}${fileUrl}` : fileUrl
                       return (
                         <li key={d.id} className="mb-1">
                           <span className="font-medium">{d.type || d.name || 'Document'}</span>
