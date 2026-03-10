@@ -18,7 +18,7 @@ export default function Dashboard() {
   }, [])
 
   function Money({ v }: { v?: number }) {
-    return <span>₦{Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+    return <span>ETB {Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
   }
 
   return (
@@ -62,7 +62,7 @@ export default function Dashboard() {
             <h3 className="font-semibold mb-3">Top Contractors</h3>
             {loading ? <div>Loading...</div> : (
               <div className="space-y-2">
-                {(data?.maintenance?.contractorStats || []).map((c:any) => (
+                {(data?.maintenance?.contractorStats || []).map((c: any) => (
                   <div key={c.contractor_id || c.contractorId || c.contractorId} className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-medium">{c.name || c.contractor_id || c.contractorId}</div>
@@ -74,12 +74,6 @@ export default function Dashboard() {
                 {(!(data?.maintenance?.contractorStats) || (data.maintenance.contractorStats && data.maintenance.contractorStats.length === 0)) && <div className="text-sm text-gray-500">No contractor data</div>}
               </div>
             )}
-          </div>
-        </div>
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold mb-2">Raw response (from /reports/dashboard)</h3>
-          <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-auto" style={{ maxHeight: 360 }}>
-            <pre className="text-xs font-mono whitespace-pre-wrap">{JSON.stringify(data || { message: 'No data yet' }, null, 2)}</pre>
           </div>
         </div>
       </div>

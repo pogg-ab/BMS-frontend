@@ -172,7 +172,7 @@ export default function Maintenance() {
           const payload = JSON.parse(atob(token.split('.')[1]))
           assignedBy = payload.sub || payload.id || 'system'
         }
-      } catch (_) {}
+      } catch (_) { }
 
       await maintenanceApi.convertToWorkOrder({
         request_id: woRequestId,
@@ -264,11 +264,10 @@ export default function Maintenance() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                tab === t.key
+              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
                   ? 'border-blue-600 text-blue-600 bg-blue-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               {t.label}
             </button>
@@ -408,12 +407,11 @@ export default function Maintenance() {
                         <td className="p-3">{unitLabel(req.unit)}</td>
                         <td className="p-3 capitalize">{req.category}</td>
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            req.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                            req.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                            req.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
-                          }`}>{req.priority}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${req.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                              req.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                req.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-green-100 text-green-700'
+                            }`}>{req.priority}</span>
                         </td>
                         <td className="p-3 max-w-[200px] truncate" title={req.description}>{req.description}</td>
                         <td className="p-3">
@@ -559,8 +557,8 @@ export default function Maintenance() {
                             {wo.status}
                           </span>
                         </td>
-                        <td className="p-3">{wo.cost_estimate ? `₦${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
-                        <td className="p-3">{wo.actual_cost ? `₦${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
+                        <td className="p-3">{wo.cost_estimate ? `ETB ${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
+                        <td className="p-3">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
                         <td className="p-3 space-x-2">
                           {wo.status === 'assigned' && (
                             <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'in_progress')} className="text-orange-600 hover:underline text-xs">
@@ -714,7 +712,7 @@ export default function Maintenance() {
                           <tr key={cs.contractor_id || i} className="border-b hover:bg-gray-50">
                             <td className="p-3 font-medium">{cs.name}</td>
                             <td className="p-3">{cs.completedOrders}</td>
-                            <td className="p-3">{cs.avgCost ? `₦${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
+                            <td className="p-3">{cs.avgCost ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
                           </tr>
                         ))}
                       </tbody>

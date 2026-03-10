@@ -151,11 +151,11 @@ export default function Finance() {
 
   function invoiceLabel(inv: any) {
     if (!inv) return ''
-    return `${inv.invoice_no || inv.id} — ${inv.tenant?.first_name || inv.tenant?.name || ''} — ₦${Number(inv.total_amount || 0).toLocaleString()}`
+    return `${inv.invoice_no || inv.id} — ${inv.tenant?.first_name || inv.tenant?.name || ''} — ETB ${Number(inv.total_amount || 0).toLocaleString()}`
   }
 
   function fmtMoney(v: any) {
-    return `₦${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    return `ETB ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   // ── Invoice CRUD ─────────────────────────────────────────
@@ -342,11 +342,10 @@ export default function Finance() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                tab === t.key
+              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
                   ? 'border-blue-600 text-blue-600 bg-blue-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               {t.label}
             </button>
@@ -530,13 +529,12 @@ export default function Finance() {
                         <td className="p-3">{fmtMoney(inv.tax_amount)}</td>
                         <td className="p-3 font-semibold">{fmtMoney(inv.total_amount)}</td>
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            inv.status === 'paid' ? 'bg-green-100 text-green-700' :
-                            inv.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                            inv.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
-                            inv.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>{inv.status}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${inv.status === 'paid' ? 'bg-green-100 text-green-700' :
+                              inv.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                inv.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
+                                  inv.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-blue-100 text-blue-700'
+                            }`}>{inv.status}</span>
                         </td>
                         <td className="p-3">
                           {inv.status !== 'paid' && inv.status !== 'cancelled' && (

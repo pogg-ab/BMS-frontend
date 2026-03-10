@@ -95,7 +95,7 @@ export default function Users() {
         alert('User created')
       }
       setShowCreate(false)
-      load()
+      await load() // Await load to ensure state completes before ending handler
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Operation failed')
     }
@@ -191,7 +191,7 @@ export default function Users() {
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <select value={roleId} onChange={e => setRoleId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
                 <option value="">(none)</option>
-                {roles.map((r:any) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
+                {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
@@ -220,10 +220,10 @@ export default function Users() {
               {users.map((u) => (
                 <tr key={String(u.id)} className="border-b hover:bg-slate-50">
                   <td className="py-2">{u.name || '-'}</td>
-                    <td className="py-2">{u.email || '-'}</td>
-                    <td className="py-2">{u.roles && u.roles.length ? u.roles.join(', ') : '-'}</td>
-                    <td className="py-2">{u.is_active ? 'Yes' : 'No'}</td>
-                    <td className="py-2">
+                  <td className="py-2">{u.email || '-'}</td>
+                  <td className="py-2">{u.roles && u.roles.length ? u.roles.join(', ') : '-'}</td>
+                  <td className="py-2">{u.is_active ? 'Yes' : 'No'}</td>
+                  <td className="py-2">
                     <button className="mr-2 text-primary" onClick={() => openEdit(u)}>Edit</button>
                     {u.is_active ? (
                       <button className="mr-2 text-red-600" onClick={() => handleDeactivate(u.id)}>Deactivate</button>

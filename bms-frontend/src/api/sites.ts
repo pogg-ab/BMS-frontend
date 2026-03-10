@@ -2,6 +2,9 @@ import axios from './axios'
 
 export interface SiteCreateDTO {
   name: string
+  city: string
+  subcity: string
+  location_lat_long: string
   code?: string
   address?: string
   timezone?: string

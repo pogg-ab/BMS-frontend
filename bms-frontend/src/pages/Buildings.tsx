@@ -6,8 +6,9 @@ type Building = {
   name: string
   code?: string
   address?: string
-  site_id?: number
-  floors?: number
+  siteId?: string
+  ownerId?: string
+  type?: string
   units_count?: number
   is_active?: boolean
 }
@@ -22,8 +23,13 @@ export default function Buildings() {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [address, setAddress] = useState('')
-  const [siteId, setSiteId] = useState<number | undefined>(undefined)
-  const [floors, setFloors] = useState<number | undefined>(undefined)
+  const [siteId, setSiteId] = useState<string>('')
+  const [ownerId, setOwnerId] = useState<string>('')
+  const [type, setType] = useState<string>('RESIDENTIAL') // default enum value
+
+  // For dropdowns
+  const [sites, setSites] = useState<any[]>([])
+  const [owners, setOwners] = useState<any[]>([])
 
   const [detailId, setDetailId] = useState<string | number | null>(null)
   const [detail, setDetail] = useState<any>(null)
@@ -34,13 +40,17 @@ export default function Buildings() {
     setLoading(true)
     try {
       const res = await listBuildings({ page, per_page: 25 })
-      // normalize possible shapes
       let list: any[] = []
       if (Array.isArray(res)) list = res
       else if (res && Array.isArray(res.data)) list = res.data
       else list = []
       setBuildings(list)
-    } catch (e:any) {
+
+      // Fetch sites and owners for dropdowns silently
+      import('../api/sites').then(m => m.listSites().then(s => setSites(Array.isArray(s) ? s : []))).catch(console.error)
+      import('../api/owners').then(m => m.listOwners().then(o => setOwners(Array.isArray(o) ? o : (o.data || [])))).catch(console.error)
+
+    } catch (e: any) {
       console.error('load buildings', e)
       alert('Failed to load buildings')
     } finally {
@@ -55,8 +65,9 @@ export default function Buildings() {
     setName('')
     setCode('')
     setAddress('')
-    setSiteId(undefined)
-    setFloors(undefined)
+    setSiteId('')
+    setOwnerId('')
+    setType('RESIDENTIAL')
     setShowForm(true)
   }
 
@@ -65,26 +76,29 @@ export default function Buildings() {
     setName(b.name || '')
     setCode(b.code || '')
     setAddress(b.address || '')
-    setSiteId(b.site_id)
-    setFloors(b.floors)
+    setSiteId(b.siteId || (b as any).site_id || '')
+    setOwnerId(b.ownerId || (b as any).owner_id || '')
+    setType(b.type || 'RESIDENTIAL')
     setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
+      const payload = { name, code, address, siteId, ownerId, type }
       if (editing) {
-        await updateBuilding(editing.id, { name, code, address, site_id: siteId, floors })
+        await updateBuilding(editing.id, payload)
         alert('Building updated')
       } else {
-        await createBuilding({ name, code, address, site_id: siteId, floors })
+        await createBuilding(payload)
         alert('Building created')
       }
       setShowForm(false)
       load()
-    } catch (err:any) {
+    } catch (err: any) {
       console.error('submit building', err)
-      alert(err?.response?.data?.message || 'Operation failed')
+      const msg = err?.response?.data?.message
+      alert(Array.isArray(msg) ? msg.join(',') : (msg || 'Operation failed'))
     }
   }
 
@@ -94,7 +108,7 @@ export default function Buildings() {
       await deleteBuilding(id)
       alert('Building deleted')
       load()
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('delete building', e)
       alert(e?.response?.data?.message || 'Failed to delete')
     }
@@ -110,7 +124,7 @@ export default function Buildings() {
       setAmenities(Array.isArray(a) ? a : (a?.data || []))
       const ad = await listAdmins(id)
       setAdmins(Array.isArray(ad) ? ad : (ad?.data || []))
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('load detail', e)
       alert('Failed to load building details')
     }
@@ -123,7 +137,7 @@ export default function Buildings() {
       await assignAdmin(buildingId, input)
       alert('Admin assigned')
       openDetails(buildingId)
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('assign admin', e)
       alert(e?.response?.data?.message || 'Failed to assign admin')
     }
@@ -135,7 +149,7 @@ export default function Buildings() {
       await revokeAdmin(buildingId, userId)
       alert('Admin revoked')
       openDetails(buildingId)
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('revoke admin', e)
       alert(e?.response?.data?.message || 'Failed to revoke admin')
     }
@@ -156,27 +170,43 @@ export default function Buildings() {
           <form onSubmit={handleSubmit} className="space-y-3 mt-3">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input value={name} onChange={e=>setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Code</label>
-              <input value={code} onChange={e=>setCode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <input value={address} onChange={e=>setAddress(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+              <input value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Site ID</label>
-                <input type="number" value={siteId ?? ''} onChange={e=>setSiteId(e.target.value ? Number(e.target.value) : undefined)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+                <label className="block text-sm font-medium text-gray-700">Type</label>
+                <select required value={type} onChange={e => setType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
+                  <option value="RESIDENTIAL">Residential</option>
+                  <option value="COMMERCIAL">Commercial</option>
+                  <option value="MIXED">Mixed</option>
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Floors</label>
-                <input type="number" value={floors ?? ''} onChange={e=>setFloors(e.target.value ? Number(e.target.value) : undefined)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+                <label className="block text-sm font-medium text-gray-700">Code</label>
+                <input required value={code} onChange={e => setCode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <input required value={address} onChange={e => setAddress(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Site</label>
+                <select required value={siteId} onChange={e => setSiteId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
+                  <option value="">-- select site --</option>
+                  {sites.map(s => <option key={s.id} value={s.id}>{s.name} {s.code ? `(${s.code})` : ''}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Owner</label>
+                <select required value={ownerId} onChange={e => setOwnerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
+                  <option value="">-- select owner --</option>
+                  {owners.map(o => <option key={o.id} value={o.id}>{o.name || `${o.first_name} ${o.last_name}`} {o.email ? `(${o.email})` : ''}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
               <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
               <button type="button" className="px-3 py-1 border rounded" onClick={() => setShowForm(false)}>Cancel</button>
             </div>

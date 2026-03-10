@@ -13,7 +13,7 @@ import {
   sendMessage,
   getMessages,
   createApplication,
-  
+
 } from '../api/tenants'
 import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
@@ -32,7 +32,8 @@ export default function Tenants() {
   const [loading, setLoading] = useState(false)
 
   const [showRegister, setShowRegister] = useState(false)
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
@@ -85,10 +86,10 @@ export default function Tenants() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await registerTenant({ name, email, password, phone })
+      await registerTenant({ first_name: firstName, last_name: lastName, email, password, phone })
       toast.addToast('Registered', 'success')
       setShowRegister(false)
-      setName(''); setEmail(''); setPassword(''); setPhone('')
+      setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setPhone('')
       load()
     } catch (err: any) {
       console.error(err)
@@ -112,7 +113,7 @@ export default function Tenants() {
       // load related lists (best-effort)
       try { const msgs = await getMessages(id); setMessages(Array.isArray(msgs) ? msgs : (msgs?.data || msgs || [])) } catch { setMessages([]) }
       // announcements removed from UI
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e)
       toast.addToast('Failed to load tenant', 'error')
     }
@@ -144,7 +145,7 @@ export default function Tenants() {
       // refresh list for selected tenant
       try { await handleListDocs() } catch { /* ignore */ }
       return res
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('Upload error', e)
       const server = e?.response?.data
       let msg = e?.message || 'Upload failed'
@@ -170,7 +171,7 @@ export default function Tenants() {
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       console.debug('Documents list response', list)
       setDocsList(list || [])
-    } catch (e:any) { console.error(e); toast.addToast('Failed to list documents', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Failed to list documents', 'error') }
   }
 
   async function handleGetMessages() {
@@ -179,7 +180,7 @@ export default function Tenants() {
       const res = await getMessages(selectedTenantId)
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       setAdminMessages(list)
-    } catch (e:any) { console.error(e); toast.addToast('Failed to load messages', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Failed to load messages', 'error') }
   }
 
   async function handleListAnnouncements() {
@@ -187,10 +188,10 @@ export default function Tenants() {
       const res = await listAnnouncements({})
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       setAdminAnnouncements(list)
-    } catch (e:any) { console.error(e); toast.addToast('Failed to load announcements', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Failed to load announcements', 'error') }
   }
 
-  
+
 
   // Verify a single document by id (used from the documents list)
   async function handleVerifyDocument(id: string | number) {
@@ -199,7 +200,7 @@ export default function Tenants() {
       toast.addToast('Document verified', 'success')
       // refresh list to reflect verification state
       try { await handleListDocs() } catch { /* ignore */ }
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('Verify failed', e)
       const server = e?.response?.data
       let msg = e?.message || 'Verify failed'
@@ -220,7 +221,7 @@ export default function Tenants() {
       const res = await listPendingApplications()
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       setApplications(list)
-    } catch (e:any) { console.error(e); toast.addToast('Failed to load applications', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Failed to load applications', 'error') }
   }
 
   async function handleCreateApplication(e: React.FormEvent) {
@@ -229,7 +230,7 @@ export default function Tenants() {
     if (appUnitId) {
       const unit = units.find(u => String(u.id) === String(appUnitId))
       const status = (unit?.status || '').toString().toLowerCase()
-      if (unit && !['vacant','available','free','empty','unoccupied',''].includes(status)) {
+      if (unit && !['vacant', 'available', 'free', 'empty', 'unoccupied', ''].includes(status)) {
         toast.addToast('Selected unit is not vacant - choose another unit', 'error')
         return
       }
@@ -247,7 +248,7 @@ export default function Tenants() {
       setAppUnitId('')
       setAppBuildingId('')
       setAppMoveInDate('')
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('Create application error', e)
       const server = e?.response?.data
       let msg = e?.message || 'Create application failed'
@@ -289,7 +290,7 @@ export default function Tenants() {
       await createAnnouncement(payload)
       toast.addToast('Announcement created', 'success')
       setAnnounceTitle(''); setAnnounceMessage(''); setAnnounceTarget('all'); setAnnounceBuildingId(''); setAnnounceSiteId('')
-    } catch (e:any) { console.error(e); toast.addToast('Create announcement failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Create announcement failed', 'error') }
   }
 
   async function handleSendMessage(e: React.FormEvent) {
@@ -301,11 +302,11 @@ export default function Tenants() {
       await sendMessage({ tenant_id: selectedTenantId, content })
       toast.addToast('Message sent', 'success')
       setMsgSubject(''); setMsgBody('')
-    } catch (e:any) { console.error(e); toast.addToast('Send message failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Send message failed', 'error') }
   }
 
   return (
-    <PageLayout title={'Tenants'} subtitle={'Minimal tenants view (endpoints wired)'} actions={<button onClick={() => setShowRegister(true)} className="flex items-center px-3 py-2 bg-white text-blue-600 rounded"> <FiUserPlus className="mr-2"/> Register</button>}>
+    <PageLayout title={'Tenants'} subtitle={'Minimal tenants view (endpoints wired)'} actions={<button onClick={() => setShowRegister(true)} className="flex items-center px-3 py-2 bg-white text-blue-600 rounded"> <FiUserPlus className="mr-2" /> Register</button>}>
       <div className="bg-white rounded shadow p-6">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Tenants</h2>
@@ -326,7 +327,7 @@ export default function Tenants() {
                       <td className="py-2">{t.email}</td>
                       <td className="py-2">{t.status || '-'}</td>
                       <td className="py-2">
-                        <button onClick={() => openDetail(t)} className="mr-2 text-blue-600 hover:underline"><FiEye/></button>
+                        <button onClick={() => openDetail(t)} className="mr-2 text-blue-600 hover:underline"><FiEye /></button>
                       </td>
                     </tr>
                   ))}
@@ -423,7 +424,7 @@ export default function Tenants() {
 
               {/* applications moved to separate card below */}
             </aside>
-            
+
             {/* Documents (separate card) */}
             <div className="md:col-span-3 bg-white p-4 rounded shadow-sm mb-4">
               <h3 className="font-semibold mb-3">Documents</h3>
@@ -541,7 +542,7 @@ export default function Tenants() {
                         <option value="">-- optional --</option>
                         {units.map(u => {
                           const status = (u.status || '').toString()
-                          const available = ['vacant','available','free','empty','unoccupied'].includes(status.toLowerCase()) || status === ''
+                          const available = ['vacant', 'available', 'free', 'empty', 'unoccupied'].includes(status.toLowerCase()) || status === ''
                           const label = `${u.unit_number || u.unit_number || u.name || u.number || u.id}${status ? ' — ' + status : ''}`
                           return (<option key={u.id} value={String(u.id)} disabled={!available}>{label}</option>)
                         })}
@@ -567,12 +568,13 @@ export default function Tenants() {
             <div className="bg-white rounded p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold mb-3">Register Tenant</h3>
               <form onSubmit={handleRegister} className="space-y-3">
-                <input required placeholder="Name" value={name} onChange={e=>setName(e.target.value)} className="w-full p-2 border rounded" />
-                <input required type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-2 border rounded" />
-                <input required type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-2 border rounded" />
-                <input placeholder="Phone" value={phone} onChange={e=>setPhone(e.target.value)} className="w-full p-2 border rounded" />
+                <input required placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full p-2 border rounded" />
+                <input required placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full p-2 border rounded" />
+                <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 border rounded" />
+                <input required type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 border rounded" />
+                <input required placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2 border rounded" />
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={()=>setShowRegister(false)} className="px-3 py-2 border rounded">Cancel</button>
+                  <button type="button" onClick={() => setShowRegister(false)} className="px-3 py-2 border rounded">Cancel</button>
                   <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Register</button>
                 </div>
               </form>
@@ -586,7 +588,7 @@ export default function Tenants() {
             <div className="bg-white rounded p-6 w-full max-w-2xl">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-semibold">Tenant #{detailTenant.id} - {detailTenant.first_name || detailTenant.name}</h3>
-                <button onClick={()=>setDetailTenant(null)} className="px-2 py-1 border rounded">Close</button>
+                <button onClick={() => setDetailTenant(null)} className="px-2 py-1 border rounded">Close</button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

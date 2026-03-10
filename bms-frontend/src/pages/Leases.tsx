@@ -12,6 +12,7 @@ import {
 } from '../api/leases'
 import { listTenants } from '../api/tenants'
 import { listUnits } from '../api/units'
+import { listBuildings } from '../api/buildings'
 
 export default function Leases() {
   const toast = useToast()
@@ -19,20 +20,21 @@ export default function Leases() {
   const [leases, setLeases] = useState<any[]>([])
   const [tenants, setTenants] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  function tenantLabel(t:any) {
+  function tenantLabel(t: any) {
     if (!t) return ''
     if (typeof t === 'string' || typeof t === 'number') return String(t)
     return t.name || t.full_name || ((t.first_name || t.last_name) ? `${t.first_name || ''} ${t.last_name || ''}`.trim() : String(t.id))
   }
 
-  function unitLabel(u:any) {
+  function unitLabel(u: any) {
     if (!u) return ''
     return u.unit_number || u.name || String(u.id)
   }
 
-  function leaseTenantLabel(l:any) {
+  function leaseTenantLabel(l: any) {
     if (!l) return ''
     if (l.tenant) return tenantLabel(l.tenant)
     return l.tenant_name || l.tenant_id || ''
@@ -41,12 +43,12 @@ export default function Leases() {
   // Create form
   const [unitId, setUnitId] = useState('')
   const [tenantId, setTenantId] = useState('')
+  const [leaseBuildingId, setLeaseBuildingId] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [rent, setRent] = useState('')
-  const [deposit, setDeposit] = useState('')
-  const [paymentSchedule, setPaymentSchedule] = useState('monthly')
-  const [terms, setTerms] = useState('')
+  const [serviceCharge, setServiceCharge] = useState('')
+  const [billingCycle, setBillingCycle] = useState('monthly')
 
   // Activation / termination / renew
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | number>('')
@@ -56,7 +58,7 @@ export default function Leases() {
 
   // Upload
   const [leaseFile, setLeaseFile] = useState<File | null>(null)
-  
+
   const [activateOnlyLeaseId, setActivateOnlyLeaseId] = useState<string | number>('')
   const [terminateOnlyLeaseId, setTerminateOnlyLeaseId] = useState<string | number>('')
   const [terminateOnlyDate, setTerminateOnlyDate] = useState('')
@@ -68,7 +70,7 @@ export default function Leases() {
   const [renewOnlyBillingCycle, setRenewOnlyBillingCycle] = useState('monthly')
   const [uploadOnlyLeaseId, setUploadOnlyLeaseId] = useState<string | number>('')
   const [uploadOnlyFile, setUploadOnlyFile] = useState<File | null>(null)
-  
+
 
   useEffect(() => { loadLeases(); loadLookups() }, [])
 
@@ -77,12 +79,17 @@ export default function Leases() {
       const t: any = await listTenants({ page: 1, per_page: 200 })
       const tenantsList = Array.isArray(t) ? t : (t?.data || t || [])
       setTenants(tenantsList)
-    } catch (e:any) { console.error('load tenants', e) }
+    } catch (e: any) { console.error('load tenants', e) }
     try {
       const u: any = await listUnits({ page: 1, per_page: 500 })
       const unitsList = Array.isArray(u) ? u : (u?.data || u || [])
       setUnits(unitsList)
-    } catch (e:any) { console.error('load units', e) }
+    } catch (e: any) { console.error('load units', e) }
+    try {
+      const b: any = await listBuildings({ page: 1, per_page: 200 })
+      const bList = Array.isArray(b) ? b : (b?.data || b || [])
+      setAllBuildings(bList)
+    } catch (e: any) { console.error('load buildings', e) }
   }
 
   async function loadLeases() {
@@ -90,7 +97,7 @@ export default function Leases() {
     try {
       const list: any = await listLeases({ page: 1, per_page: 50 })
       setLeases(Array.isArray(list) ? list : [])
-    } catch (e:any) { console.error(e);      toast.addToast('Failed to fetch leases. Please try again later.', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Failed to fetch leases. Please try again later.', 'error') }
     finally { setLoading(false) }
   }
 
@@ -98,24 +105,24 @@ export default function Leases() {
     e.preventDefault()
     try {
       const payload: any = {
-        unit_id: Number(unitId),
-        tenant_id: Number(tenantId),
+        unit_id: unitId,
+        tenant_id: tenantId,
+        building_id: leaseBuildingId,
         start_date: startDate,
         end_date: endDate,
-        rent: Number(rent),
+        rent_amount: Number(rent),
       }
-      if (deposit) payload.deposit = Number(deposit)
-      if (paymentSchedule) payload.payment_schedule = paymentSchedule
-      if (terms) payload.terms = terms
+      if (serviceCharge) payload.service_charge = Number(serviceCharge)
+      if (billingCycle) payload.billing_cycle = billingCycle
       const res = await createLease(payload)
       toast.addToast('Lease draft created', 'success')
       loadLeases()
       return res
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('Create lease error', e)
       const server = e?.response?.data
       let msg = e?.message || 'Create lease failed'
-      try { if (server) msg = Array.isArray(server?.message) ? server.message.join('; ') : (server?.message || JSON.stringify(server)) } catch {}
+      try { if (server) msg = Array.isArray(server?.message) ? server.message.join('; ') : (server?.message || JSON.stringify(server)) } catch { }
       toast.addToast(msg, 'error')
     }
   }
@@ -128,7 +135,7 @@ export default function Leases() {
       await activateLease(selectedLeaseId, {})
       toast.addToast('Lease activated', 'success')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Activate failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Activate failed', 'error') }
   }
 
   async function handleActivateOnly(e?: React.FormEvent) {
@@ -139,7 +146,7 @@ export default function Leases() {
       toast.addToast('Lease activated', 'success')
       setActivateOnlyLeaseId('')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Activate failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Activate failed', 'error') }
   }
 
   async function handleTerminateOnly(e?: React.FormEvent) {
@@ -153,7 +160,7 @@ export default function Leases() {
       setTerminateOnlyDate('')
       setTerminateOnlyReason('')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Terminate failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Terminate failed', 'error') }
   }
 
   async function handleRenewOnly(e?: React.FormEvent) {
@@ -175,7 +182,7 @@ export default function Leases() {
       setRenewOnlyRent('')
       setRenewOnlyBillingCycle('monthly')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Renew failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Renew failed', 'error') }
   }
 
   async function handleUploadOnly(e?: React.FormEvent) {
@@ -193,7 +200,7 @@ export default function Leases() {
       setUploadOnlyLeaseId('')
       setUploadOnlyFile(null)
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Upload failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Upload failed', 'error') }
   }
 
   async function handleTerminate(e: React.FormEvent) {
@@ -205,7 +212,7 @@ export default function Leases() {
       await terminateLease(selectedLeaseId, payload)
       toast.addToast('Lease terminated', 'success')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Terminate failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Terminate failed', 'error') }
   }
 
   async function handleRenew(e: React.FormEvent) {
@@ -215,7 +222,7 @@ export default function Leases() {
       await renewLease(selectedLeaseId, { new_start_date: startDate, new_end_date: endDate, rent: Number(rent), created_by: Number(actorId) || undefined })
       toast.addToast('Renewal created', 'success')
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Renew failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Renew failed', 'error') }
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -230,7 +237,7 @@ export default function Leases() {
         toast.addToast('Choose a file to upload', 'error')
       }
       loadLeases()
-    } catch (e:any) { console.error(e); toast.addToast('Upload failed', 'error') }
+    } catch (e: any) { console.error(e); toast.addToast('Upload failed', 'error') }
   }
 
   async function handleDownload(id: string | number) {
@@ -278,7 +285,7 @@ export default function Leases() {
 
       const url = URL.createObjectURL(blob)
       window.open(url, '_blank')
-    } catch (err:any) {
+    } catch (err: any) {
       console.error('handleDownload error', err)
       const resp = err?.response
       if (resp) {
@@ -315,31 +322,37 @@ export default function Leases() {
           <div className="p-4 border rounded">
             <h3 className="font-semibold mb-3">Create Lease Draft</h3>
             <form onSubmit={handleCreate} className="space-y-2">
-              <select value={unitId} onChange={e => setUnitId(e.target.value)} className="w-full p-2 border rounded">
-                <option value="">Select unit</option>
-                {units.map((u:any) => (
-                  <option key={u.id} value={String(u.id)}>{unitLabel(u)}{u.unit_number ? ` (${u.id})` : ''}</option>
-                ))}
-              </select>
-              <select value={tenantId} onChange={e => setTenantId(e.target.value)} className="w-full p-2 border rounded">
+              <select value={tenantId} onChange={e => setTenantId(e.target.value)} className="w-full p-2 border rounded" required>
                 <option value="">Select tenant</option>
-                {tenants.map((t:any) => (
+                {tenants.map((t: any) => (
                   <option key={t.id} value={String(t.id)}>{tenantLabel(t)}{t.id ? ` (${t.id})` : ''}</option>
                 ))}
               </select>
+              <select value={leaseBuildingId} onChange={e => setLeaseBuildingId(e.target.value)} className="w-full p-2 border rounded" required>
+                <option value="">Select building</option>
+                {allBuildings.map((b: any) => (
+                  <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>
+                ))}
+              </select>
+              <select value={unitId} onChange={e => setUnitId(e.target.value)} className="w-full p-2 border rounded" required>
+                <option value="">Select unit</option>
+                {units.map((u: any) => (
+                  <option key={u.id} value={String(u.id)}>{unitLabel(u)}{u.unit_number ? ` (${u.id})` : ''}</option>
+                ))}
+              </select>
               <div className="flex gap-2">
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 p-2 border rounded" />
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 p-2 border rounded" />
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 p-2 border rounded" required />
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 p-2 border rounded" required />
               </div>
               <div className="flex gap-2">
-                <input placeholder="Rent" value={rent} onChange={e => setRent(e.target.value)} className="flex-1 p-2 border rounded" />
-                <input placeholder="Deposit" value={deposit} onChange={e => setDeposit(e.target.value)} className="flex-1 p-2 border rounded" />
+                <input placeholder="Rent Amount (ETB)" value={rent} onChange={e => setRent(e.target.value)} className="flex-1 p-2 border rounded" required />
+                <input placeholder="Service Charge (optional)" value={serviceCharge} onChange={e => setServiceCharge(e.target.value)} className="flex-1 p-2 border rounded" />
               </div>
-              <select value={paymentSchedule} onChange={e => setPaymentSchedule(e.target.value)} className="w-full p-2 border rounded">
+              <select value={billingCycle} onChange={e => setBillingCycle(e.target.value)} className="w-full p-2 border rounded">
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
               </select>
-              <textarea placeholder="Terms" value={terms} onChange={e => setTerms(e.target.value)} className="w-full p-2 border rounded" />
               <div className="flex justify-end">
                 <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Create</button>
               </div>
@@ -353,7 +366,7 @@ export default function Leases() {
               <div className="flex gap-2">
                 <select value={String(activateOnlyLeaseId)} onChange={e => setActivateOnlyLeaseId(e.target.value)} className="flex-1 p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l:any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
                 </select>
                 <button type="submit" className="px-3 py-2 bg-green-600 text-white rounded">Activate</button>
               </div>
@@ -363,7 +376,7 @@ export default function Leases() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <select value={String(terminateOnlyLeaseId)} onChange={e => setTerminateOnlyLeaseId(e.target.value)} className="col-span-1 md:col-span-1 p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l:any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
                 </select>
                 <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="p-2 border rounded" />
                 <input placeholder="Reason" value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="p-2 border rounded" />
@@ -377,7 +390,7 @@ export default function Leases() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <select value={String(renewOnlyLeaseId)} onChange={e => setRenewOnlyLeaseId(e.target.value)} className="p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l:any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
                 </select>
                 <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="p-2 border rounded" />
                 <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="p-2 border rounded" />
@@ -397,7 +410,7 @@ export default function Leases() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
                 <select value={String(uploadOnlyLeaseId)} onChange={e => setUploadOnlyLeaseId(e.target.value)} className="p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l:any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
                 </select>
                 <input type="file" onChange={e => setUploadOnlyFile(e.target.files?.[0] || null)} className="p-1" />
               </div>
@@ -405,7 +418,7 @@ export default function Leases() {
                 <button type="submit" className="px-3 py-2 bg-gray-700 text-white rounded">Attach</button>
               </div>
             </form>
-            
+
             {/* Download button removed per UX request; use row-level Download or View links */}
           </div>
         </div>
@@ -428,7 +441,7 @@ export default function Leases() {
                 </tr>
               </thead>
               <tbody>
-                {leases.map((l:any) => (
+                {leases.map((l: any) => (
                   <tr key={l.id} className="border-b hover:bg-gray-50">
                     <td className="p-2">{l.id}</td>
                     <td className="p-2">{l.lease_number || ''}</td>
@@ -454,4 +467,4 @@ export default function Leases() {
     </PageLayout>
   )
 }
- 
+

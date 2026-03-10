@@ -5,6 +5,9 @@ export default function Sites() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [subcity, setSubcity] = useState('')
+  const [locationLatLong, setLocationLatLong] = useState('')
   const [code, setCode] = useState('')
   const [address, setAddress] = useState('')
   const [timezone, setTimezone] = useState('')
@@ -18,7 +21,7 @@ export default function Sites() {
       const res = await listSites({ page: 1, per_page: 200 })
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       setItems(list)
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('load sites', e, e?.response?.data)
       const msg = e?.response?.data || e?.message || 'Failed to load sites'
       alert(typeof msg === 'string' ? msg : JSON.stringify(msg))
@@ -27,11 +30,17 @@ export default function Sites() {
 
   useEffect(() => { load() }, [])
 
-  async function handleCreate(e:React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await createSite({ name, code, address, timezone, currency, contact_email: contactEmail, notes })
+      await createSite({
+        name, city, subcity, location_lat_long: locationLatLong,
+        code, address, timezone, currency, contact_email: contactEmail, notes
+      })
       setName('')
+      setCity('')
+      setSubcity('')
+      setLocationLatLong('')
       setCode('')
       setAddress('')
       setTimezone('')
@@ -40,20 +49,20 @@ export default function Sites() {
       setNotes('')
       load()
       alert('Site created')
-    } catch (err:any) {
+    } catch (err: any) {
       console.error('create site', err)
       const msg = err?.response?.data?.message
       alert(Array.isArray(msg) ? msg.join(',') : (msg || 'Failed to create site'))
     }
   }
 
-  async function handleDelete(id:any) {
+  async function handleDelete(id: any) {
     if (!confirm('Delete site?')) return
     try {
       await deleteSite(id)
       alert('Site deleted')
       load()
-    } catch (e:any) {
+    } catch (e: any) {
       console.error('delete site', e)
       alert(e?.response?.data?.message || 'Failed to delete site')
     }
@@ -69,33 +78,45 @@ export default function Sites() {
         <form onSubmit={handleCreate} className="grid grid-cols-4 gap-3 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input value={name} onChange={e=>setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input required value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">City</label>
+            <input required value={city} onChange={e => setCity(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Subcity</label>
+            <input required value={subcity} onChange={e => setSubcity(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Location Lat/Long</label>
+            <input required value={locationLatLong} onChange={e => setLocationLatLong(e.target.value)} placeholder="e.g. 9.145, 40.489" className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Code</label>
-            <input value={code} onChange={e=>setCode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={code} onChange={e => setCode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Address</label>
-            <input value={address} onChange={e=>setAddress(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={address} onChange={e => setAddress(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Timezone</label>
-            <input value={timezone} onChange={e=>setTimezone(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={timezone} onChange={e => setTimezone(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Currency</label>
-            <input value={currency} onChange={e=>setCurrency(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={currency} onChange={e => setCurrency(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
-          <div>
+          <div className="col-span-2">
             <label className="block text-sm font-medium text-gray-700">Contact Email</label>
-            <input value={contactEmail} onChange={e=>setContactEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
           <div className="col-span-4">
             <label className="block text-sm font-medium text-gray-700">Notes</label>
-            <input value={notes} onChange={e=>setNotes(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+            <input value={notes} onChange={e => setNotes(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="col-span-4 flex items-center gap-2">
             <button className="button ml-auto" type="submit">Create</button>
           </div>
         </form>
@@ -117,7 +138,7 @@ export default function Sites() {
               </tr>
             </thead>
             <tbody>
-              {items.map(s=> (
+              {items.map(s => (
                 <tr key={s.id} className="border-b hover:bg-slate-50">
                   <td className="py-2">{s.name}</td>
                   <td className="py-2">{s.city || '-'}</td>
@@ -126,7 +147,7 @@ export default function Sites() {
                   <td className="py-2">
                     {Array.isArray(s.buildings) && s.buildings.length > 0 ? (
                       <ul className="list-disc pl-5">
-                        {s.buildings.map((b:any) => (
+                        {s.buildings.map((b: any) => (
                           <li key={b.id}>{b.name}{b.code ? ` — ${b.code}` : ''}{b.type ? ` (${b.type})` : ''}</li>
                         ))}
                       </ul>
@@ -134,7 +155,7 @@ export default function Sites() {
                   </td>
                   <td className="py-2">
                     <div className="flex items-center gap-3">
-                      <button className="text-red-700" onClick={()=>handleDelete(s.id)}>Delete</button>
+                      <button className="text-red-700" onClick={() => handleDelete(s.id)}>Delete</button>
                     </div>
                   </td>
                 </tr>
