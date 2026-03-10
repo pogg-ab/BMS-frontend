@@ -18,6 +18,8 @@ export default function Users() {
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [roles, setRoles] = useState<any[]>([])
+  const [assignRoleUserId, setAssignRoleUserId] = useState<string | number>('')
+  const [assignRoleRoleId, setAssignRoleRoleId] = useState<string>('')
 
   // form state (shared for create/edit)
   const [name, setName] = useState('')
@@ -91,11 +93,11 @@ export default function Users() {
         if (roleId) await assignRole({ user_id: editing.id, role_id: Number(roleId) })
         alert('User updated')
       } else {
-        await createUser({ name, email, password, role_id: roleId ? Number(roleId) : undefined, status: 'active' })
+        await createUser({ name, email, password, role_id: roleId ? Number(roleId) : undefined, status: 'ACTIVE' })
         alert('User created')
       }
       setShowCreate(false)
-      await load() // Await load to ensure state completes before ending handler
+      load()
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Operation failed')
     }
@@ -104,7 +106,7 @@ export default function Users() {
   async function handleDeactivate(id: string | number) {
     if (!confirm('Deactivate this user?')) return
     try {
-      await updateUser(id, { status: 'inactive' })
+      await updateUser(id, { status: 'INACTIVE' })
       alert('User deactivated')
       load()
     } catch (e: any) {
@@ -122,12 +124,14 @@ export default function Users() {
     }
   }
 
-  async function handleAssignRolePrompt(id: string | number) {
-    const input = prompt('Enter role id to assign:')
-    if (!input) return
+  async function handleAssignRoleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!assignRoleUserId || !assignRoleRoleId) return
     try {
-      await assignRole({ user_id: id, role_id: Number(input) })
+      await assignRole({ user_id: assignRoleUserId, role_id: Number(assignRoleRoleId) })
       alert('Role assigned')
+      setAssignRoleUserId('')
+      setAssignRoleRoleId('')
       load()
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Failed to assign role')
@@ -148,7 +152,7 @@ export default function Users() {
       // fallback: if delete not allowed, mark user inactive as a safe fallback
       if (status === 405 || status === 501 || status === 404) {
         try {
-          await updateUser(id, { status: 'inactive' })
+          await updateUser(id, { status: 'INACTIVE' })
           alert('User marked inactive (delete not supported)')
           load()
           return
@@ -163,7 +167,10 @@ export default function Users() {
   return (
     <div className="container">
       <div className="header">
-        <h1 className="text-2xl font-bold">Users</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Users</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Manage system administrators and staff access</p>
+        </div>
         <div>
           <button className="button" onClick={openCreate}>Create User</button>
         </div>
@@ -203,40 +210,71 @@ export default function Users() {
       )}
 
       <div className="card">
-        {loading && <div>Loading...</div>}
-        {!loading && users.length === 0 && <div className="muted">No users found</div>}
+        {loading && <div className="py-12 flex justify-center text-slate-500">Loading users...</div>}
+        {!loading && users.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No users found</div>}
         {!loading && users.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2">Name</th>
-                <th className="py-2">Email</th>
-                <th className="py-2">Role</th>
-                <th className="py-2">Active</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={String(u.id)} className="border-b hover:bg-slate-50">
-                  <td className="py-2">{u.name || '-'}</td>
-                  <td className="py-2">{u.email || '-'}</td>
-                  <td className="py-2">{u.roles && u.roles.length ? u.roles.join(', ') : '-'}</td>
-                  <td className="py-2">{u.is_active ? 'Yes' : 'No'}</td>
-                  <td className="py-2">
-                    <button className="mr-2 text-primary" onClick={() => openEdit(u)}>Edit</button>
-                    {u.is_active ? (
-                      <button className="mr-2 text-red-600" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
-                    ) : (
-                      <button className="mr-2 text-green-600" onClick={() => handleActivate(u.id)}>Activate</button>
-                    )}
-                    <button className="text-red-700 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
-                    <button className="text-primary ml-2" onClick={() => handleAssignRolePrompt(u.id)}>Assign Role</button>
-                  </td>
+          <div className="table-container">
+            <table className="w-full text-sm text-left whitespace-nowrap">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 font-medium tracking-wider">Name</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Email</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Role</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                  <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {users.map((u) => (
+                  <tr key={String(u.id)} className="hover:bg-slate-50/50 transition-colors duration-150">
+                    <td className="px-6 py-4 font-medium text-slate-900">{u.name || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600">{u.email || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                        {u.roles && u.roles.length ? u.roles.join(', ') : '-'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {u.is_active ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openEdit(u)}>Edit</button>
+                      {u.is_active ? (
+                        <button className="text-amber-600 hover:text-amber-900 font-medium text-xs px-2" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
+                      ) : (
+                        <button className="text-emerald-600 hover:text-emerald-900 font-medium text-xs px-2" onClick={() => handleActivate(u.id)}>Activate</button>
+                      )}
+                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs px-2" onClick={() => handleDelete(u.id)}>Delete</button>
+                      <button className="text-slate-600 hover:text-slate-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2" onClick={() => { setAssignRoleUserId(u.id); setAssignRoleRoleId('') }}>Role</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {assignRoleUserId && (
+          <form onSubmit={handleAssignRoleSubmit} className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-end gap-3">
+            <div className="text-sm font-medium text-slate-700">
+              Assign role to user <span className="font-bold text-slate-900">#{String(assignRoleUserId)}</span>
+            </div>
+            <select
+              value={assignRoleRoleId}
+              onChange={e => setAssignRoleRoleId(e.target.value)}
+              className="p-2 border rounded text-sm flex-1 min-w-[150px]"
+              required
+            >
+              <option value="">Select role</option>
+              {roles.map((r: any) => <option key={r.id} value={String(r.id)}>{r.name || `Role #${r.id}`}</option>)}
+            </select>
+            <button type="submit" className="button text-sm">Assign</button>
+            <button type="button" className="button-secondary text-sm" onClick={() => setAssignRoleUserId('')}>Cancel</button>
+          </form>
         )}
       </div>
     </div>

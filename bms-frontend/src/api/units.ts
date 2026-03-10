@@ -6,7 +6,10 @@ export async function listUnits(params: any = {}) {
 }
 
 export async function createUnit(dto: any) {
-  const res = await api.post('/units', dto)
+  const payload = { ...dto }
+  if (payload.status) payload.status = payload.status.toUpperCase()
+  if (payload.type) payload.type = payload.type.toUpperCase()
+  const res = await api.post('/units', payload)
   return res.data
 }
 
@@ -21,7 +24,10 @@ export async function getUnit(id: string | number) {
 }
 
 export async function updateUnit(id: string | number, dto: any) {
-  const res = await api.put(`/units/${id}`, dto)
+  const payload = { ...dto }
+  if (payload.status) payload.status = payload.status.toUpperCase()
+  if (payload.type) payload.type = payload.type.toUpperCase()
+  const res = await api.put(`/units/${id}`, payload)
   return res.data
 }
 

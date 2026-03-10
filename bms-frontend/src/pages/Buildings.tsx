@@ -25,11 +25,13 @@ export default function Buildings() {
   const [address, setAddress] = useState('')
   const [siteId, setSiteId] = useState<string>('')
   const [ownerId, setOwnerId] = useState<string>('')
-  const [type, setType] = useState<string>('RESIDENTIAL') // default enum value
+  const [type, setType] = useState<string>('residential') // default enum value
 
   // For dropdowns
   const [sites, setSites] = useState<any[]>([])
   const [owners, setOwners] = useState<any[]>([])
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [assignAdminUserId, setAssignAdminUserId] = useState('')
 
   const [detailId, setDetailId] = useState<string | number | null>(null)
   const [detail, setDetail] = useState<any>(null)
@@ -49,6 +51,10 @@ export default function Buildings() {
       // Fetch sites and owners for dropdowns silently
       import('../api/sites').then(m => m.listSites().then(s => setSites(Array.isArray(s) ? s : []))).catch(console.error)
       import('../api/owners').then(m => m.listOwners().then(o => setOwners(Array.isArray(o) ? o : (o.data || [])))).catch(console.error)
+      import('../api/users').then(m => m.listUsers({ page: 1, per_page: 500 }).then((u: any) => {
+        const list = Array.isArray(u) ? u : (u?.data || u?.users || [])
+        setAllUsers(list)
+      })).catch(console.error)
 
     } catch (e: any) {
       console.error('load buildings', e)
@@ -67,7 +73,7 @@ export default function Buildings() {
     setAddress('')
     setSiteId('')
     setOwnerId('')
-    setType('RESIDENTIAL')
+    setType('residential')
     setShowForm(true)
   }
 
@@ -78,7 +84,7 @@ export default function Buildings() {
     setAddress(b.address || '')
     setSiteId(b.siteId || (b as any).site_id || '')
     setOwnerId(b.ownerId || (b as any).owner_id || '')
-    setType(b.type || 'RESIDENTIAL')
+    setType(b.type || 'residential')
     setShowForm(true)
   }
 
@@ -131,11 +137,11 @@ export default function Buildings() {
   }
 
   async function handleAssignAdmin(buildingId: string | number) {
-    const input = prompt('Enter user id to assign as admin:')
-    if (!input) return
+    if (!assignAdminUserId) { alert('Select a user first'); return }
     try {
-      await assignAdmin(buildingId, input)
+      await assignAdmin(buildingId, assignAdminUserId)
       alert('Admin assigned')
+      setAssignAdminUserId('')
       openDetails(buildingId)
     } catch (e: any) {
       console.error('assign admin', e)
@@ -176,9 +182,9 @@ export default function Buildings() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Type</label>
                 <select required value={type} onChange={e => setType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
-                  <option value="RESIDENTIAL">Residential</option>
-                  <option value="COMMERCIAL">Commercial</option>
-                  <option value="MIXED">Mixed</option>
+                  <option value="residential">Residential</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="mixed">Mixed</option>
                 </select>
               </div>
               <div>
@@ -293,8 +299,18 @@ export default function Buildings() {
                     ))}
                   </ul>
                 )}
-                <div className="mt-4">
-                  <button className="button" onClick={() => handleAssignAdmin(detailId)}>Assign Admin (by user id)</button>
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <select
+                    value={assignAdminUserId}
+                    onChange={e => setAssignAdminUserId(e.target.value)}
+                    className="p-2 border rounded text-sm flex-1 min-w-[200px]"
+                  >
+                    <option value="">Select user to assign as admin</option>
+                    {allUsers.map((u: any) => (
+                      <option key={u.id} value={String(u.id)}>{u.name || u.email || `User #${u.id}`}</option>
+                    ))}
+                  </select>
+                  <button className="button text-sm" onClick={() => handleAssignAdmin(detailId!)}>Assign Admin</button>
                 </div>
               </div>
             ) : (

@@ -139,6 +139,21 @@ export default function Finance() {
     })
   }, [leases, invLeaseSearch])
 
+  // Derive pending payments from loaded invoices for the verify dropdown
+  const pendingPayments = useMemo(() => {
+    const all: any[] = []
+    invoices.forEach(inv => {
+      if (Array.isArray(inv.payments)) {
+        inv.payments.forEach((p: any) => {
+          if (p.status === 'pending' || !p.status) {
+            all.push({ ...p, _invoice: inv })
+          }
+        })
+      }
+    })
+    return all
+  }, [invoices])
+
   // ── Labels ───────────────────────────────────────────────
   function leaseLabel(l: any) {
     if (!l) return ''
@@ -343,8 +358,8 @@ export default function Finance() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               {t.label}
@@ -498,47 +513,47 @@ export default function Finance() {
           </div>
 
           {/* Invoices Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4">Invoices</h3>
-            {invLoading ? <div className="text-gray-500">Loading...</div> : invoices.length === 0 ? (
-              <div className="text-gray-400 text-sm">No invoices found</div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Invoices</h3>
+            {invLoading ? <div className="py-12 flex justify-center text-slate-500">Loading invoices...</div> : invoices.length === 0 ? (
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No invoices found</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50">
-                      <th className="p-3">Invoice #</th>
-                      <th className="p-3">Tenant</th>
-                      <th className="p-3">Unit</th>
-                      <th className="p-3">Due Date</th>
-                      <th className="p-3">Subtotal</th>
-                      <th className="p-3">Tax</th>
-                      <th className="p-3">Total</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Actions</th>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Invoice #</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Tenant</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Due Date</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Subtotal</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Tax</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Total</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-center">Status</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {invoices.map((inv: any) => (
-                      <tr key={inv.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{inv.invoice_no || inv.id}</td>
-                        <td className="p-3">{inv.tenant?.first_name || inv.tenant?.name || '-'}{inv.tenant?.last_name ? ` ${inv.tenant.last_name}` : ''}</td>
-                        <td className="p-3">{inv.unit?.unit_number || '-'}</td>
-                        <td className="p-3">{inv.due_date}</td>
-                        <td className="p-3">{fmtMoney(inv.subtotal)}</td>
-                        <td className="p-3">{fmtMoney(inv.tax_amount)}</td>
-                        <td className="p-3 font-semibold">{fmtMoney(inv.total_amount)}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${inv.status === 'paid' ? 'bg-green-100 text-green-700' :
-                              inv.status === 'overdue' ? 'bg-red-100 text-red-700' :
-                                inv.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
-                                  inv.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-blue-100 text-blue-700'
-                            }`}>{inv.status}</span>
+                      <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 font-medium text-slate-500">#{inv.invoice_no || inv.id}</td>
+                        <td className="px-6 py-4 text-slate-900 font-medium">{inv.tenant?.first_name || inv.tenant?.name || '-'}{inv.tenant?.last_name ? ` ${inv.tenant.last_name}` : ''}</td>
+                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">{inv.unit?.unit_number || '-'}</td>
+                        <td className="px-6 py-4 text-slate-600 text-xs">{new Date(inv.due_date).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-slate-600">{fmtMoney(inv.subtotal)}</td>
+                        <td className="px-6 py-4 text-slate-600">{fmtMoney(inv.tax_amount)}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">{fmtMoney(inv.total_amount)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            inv.status === 'overdue' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              inv.status === 'cancelled' || inv.status === 'voided' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                inv.status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                  'bg-blue-50 text-blue-700 border-blue-200'
+                            } shadow-sm`}>{inv.status}</span>
                         </td>
-                        <td className="p-3">
-                          {inv.status !== 'paid' && inv.status !== 'cancelled' && (
-                            <button onClick={() => handleVoidInvoice(inv.id)} className="text-red-600 hover:underline text-xs">
+                        <td className="px-6 py-4 text-right">
+                          {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
+                            <button onClick={() => handleVoidInvoice(inv.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium px-2">
                               Void
                             </button>
                           )}
@@ -620,14 +635,24 @@ export default function Finance() {
             <h3 className="font-semibold mb-4 text-lg">Verify Payment</h3>
             <form onSubmit={handleVerifyPayment} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment ID</label>
-                <input
-                  placeholder="Payment UUID"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
+                <select
                   value={verifyPaymentId}
                   onChange={e => setVerifyPaymentId(e.target.value)}
                   className="w-full p-2 border rounded"
                   required
-                />
+                >
+                  <option value="">Select payment to verify</option>
+                  {pendingPayments.length > 0 ? (
+                    pendingPayments.map((p: any) => (
+                      <option key={p.id} value={String(p.id)}>
+                        {p.reference_no || p.id} — {fmtMoney(p.amount)} — Inv #{p._invoice?.invoice_no || p._invoice?.id || p.invoice_id}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No pending payments found (record a payment first)</option>
+                  )}
+                </select>
               </div>
 
               <div>
@@ -696,16 +721,16 @@ export default function Finance() {
             </form>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Bank Accounts</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Bank Accounts</h3>
             {bankAccounts.length === 0 ? (
-              <div className="text-gray-400 text-sm">No bank accounts created yet. Created accounts will appear here.</div>
+              <div className="py-8 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No bank accounts created yet. Created accounts will appear here.</div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {bankAccounts.map((ba: any, i: number) => (
-                  <div key={ba.id || i} className="p-3 border rounded bg-gray-50">
-                    <div className="font-medium">{ba.bank_name}</div>
-                    <div className="text-sm text-gray-500">Acct: {ba.account_number} · Branch: {ba.branch}</div>
+                  <div key={ba.id || i} className="p-4 border border-slate-200/80 rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                    <div className="font-semibold text-slate-900">{ba.bank_name}</div>
+                    <div className="text-sm text-slate-500 mt-1 font-mono">Acct: <span className="text-slate-700">{ba.account_number}</span> · Branch: <span className="text-slate-700">{ba.branch}</span></div>
                   </div>
                 ))}
               </div>
@@ -832,8 +857,8 @@ export default function Finance() {
       {tab === 'reports' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Revenue Report */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Revenue Report</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Revenue Report</h3>
             <form onSubmit={handleRevenueReport} className="space-y-3 mb-4">
               <select value={revBuildingId} onChange={e => setRevBuildingId(e.target.value)} className="w-full p-2 border rounded">
                 <option value="">All Buildings</option>
@@ -848,30 +873,32 @@ export default function Finance() {
                 min="1"
                 max="12"
               />
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors w-full">
+              <button type="submit" className="button w-full">
                 Load Revenue
               </button>
             </form>
 
             {revenueData.length > 0 ? (
-              <table className="w-full text-sm border">
-                <thead>
-                  <tr className="text-left border-b bg-gray-50">
-                    <th className="p-2">Building</th>
-                    <th className="p-2">Total Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {revenueData.map((r: any, i: number) => (
-                    <tr key={i} className="border-b">
-                      <td className="p-2">{r.building_id || '-'}</td>
-                      <td className="p-2 font-semibold">{fmtMoney(r.total_revenue)}</td>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Building ID</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Total Revenue</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {revenueData.map((r: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 text-slate-700 font-medium">{r.building_id || '-'}</td>
+                        <td className="px-6 py-4 text-emerald-600 font-semibold">{fmtMoney(r.total_revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <div className="text-gray-400 text-sm">No revenue data. Click "Load Revenue" to query.</div>
+              <div className="py-8 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No revenue data. Click "Load Revenue" to query.</div>
             )}
           </div>
 

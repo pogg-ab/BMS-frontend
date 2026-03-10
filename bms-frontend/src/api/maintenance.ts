@@ -15,15 +15,17 @@ export async function submitRequest(dto: {
 }) {
   const res = await api.post('/maintenance/requests', {
     unit_id: dto.unit_id,
-    category: dto.category,
-    priority: dto.priority,
+    category: dto.category.toUpperCase(),
+    priority: dto.priority.toUpperCase(),
     description: dto.description,
   }, { params: { tenant_id: dto.tenant_id } })
   return res.data
 }
 
 export async function updateRequest(id: string, dto: any) {
-  const res = await api.patch(`/maintenance/requests/${id}`, dto)
+  const payload = { ...dto }
+  if (payload.status) payload.status = payload.status.toUpperCase()
+  const res = await api.patch(`/maintenance/requests/${id}`, payload)
   return res.data
 }
 
@@ -63,14 +65,15 @@ export async function convertToWorkOrder(dto: {
 }
 
 export async function updateWorkOrderStatus(id: string, status: string, proof?: File) {
+  const upperStatus = status.toUpperCase()
   if (proof) {
     const formData = new FormData()
-    formData.append('status', status)
+    formData.append('status', upperStatus)
     formData.append('proof', proof)
     const res = await api.patch(`/maintenance/work-orders/${id}`, formData)
     return res.data
   }
-  const res = await api.patch(`/maintenance/work-orders/${id}`, { status })
+  const res = await api.patch(`/maintenance/work-orders/${id}`, { status: upperStatus })
   return res.data
 }
 

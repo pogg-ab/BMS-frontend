@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useToast } from '../components/ToastProvider'
 import * as utilitiesApi from '../api/utilities'
+import { listUnits } from '../api/units'
 
 export default function Utilities() {
   const toast = useToast()
@@ -27,10 +28,15 @@ export default function Utilities() {
   const [readingPhoto, setReadingPhoto] = useState<File | null>(null)
   const [unitFilter, setUnitFilter] = useState('')
   const [meterFilter, setMeterFilter] = useState('')
+  const [allUnits, setAllUnits] = useState<any[]>([])
 
   useEffect(() => {
     loadMeters()
     loadReadings()
+    listUnits({ page: 1, per_page: 500 }).then((res: any) => {
+      const list = Array.isArray(res) ? res : (res?.data || [])
+      setAllUnits(list)
+    }).catch(console.error)
   }, [])
 
   const meterMap = React.useMemo(() => {
@@ -95,14 +101,11 @@ export default function Utilities() {
     e.preventDefault()
     try {
       const payload = {
-        serial_number: meterForm.serial_number,
-        meter_type: meterForm.meter_type,
-        manufacturer: meterForm.manufacturer,
-        model: meterForm.model,
-        unit_id: parseInt(meterForm.unit_id) || undefined,
-        installation_date: meterForm.installation_date || undefined,
+        serial_no: meterForm.serial_number,
+        type: meterForm.meter_type,
+        unit_id: String(meterForm.unit_id),
       }
-      const created = await utilitiesApi.createMeter(payload)
+      await utilitiesApi.createMeter(payload)
       toast.addToast('Meter created', 'success')
       setMeterForm({ serial_number: '', meter_type: 'electric', manufacturer: '', model: '', unit_id: '', installation_date: '' })
       loadMeters()
@@ -117,13 +120,10 @@ export default function Utilities() {
       const fd = new FormData()
       fd.append('meter_id', readingForm.meter_id)
       fd.append('reading_value', String(readingForm.reading_value))
-      fd.append('reading_unit', readingForm.reading_unit)
-      fd.append('reading_type', readingForm.reading_type)
-      if (readingForm.recorded_at) fd.append('recorded_at', readingForm.recorded_at)
-      if (readingForm.notes) fd.append('notes', readingForm.notes)
+      if (readingForm.recorded_at) fd.append('reading_date', readingForm.recorded_at)
       if (readingPhoto) fd.append('photo', readingPhoto)
 
-      const created = await utilitiesApi.createReading(fd)
+      await utilitiesApi.createReading(fd)
       toast.addToast('Reading recorded', 'success')
       setReadingForm({ meter_id: '', reading_value: '', reading_unit: 'kWh', reading_type: 'actual', recorded_at: '', notes: '' })
       setReadingPhoto(null)
@@ -150,7 +150,10 @@ export default function Utilities() {
             </select>
             <input value={meterForm.manufacturer} onChange={e => setMeterForm({ ...meterForm, manufacturer: e.target.value })} placeholder="Manufacturer" className="input" />
             <input value={meterForm.model} onChange={e => setMeterForm({ ...meterForm, model: e.target.value })} placeholder="Model" className="input" />
-            <input value={meterForm.unit_id} onChange={e => setMeterForm({ ...meterForm, unit_id: e.target.value })} placeholder="unit_id" className="input" />
+            <select value={meterForm.unit_id} onChange={e => setMeterForm({ ...meterForm, unit_id: e.target.value })} className="input" required>
+              <option value="">Select unit</option>
+              {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
+            </select>
             <input type="date" value={meterForm.installation_date} onChange={e => setMeterForm({ ...meterForm, installation_date: e.target.value })} className="input" />
             <div>
               <button className="btn btn-primary" type="submit">Create Meter</button>
@@ -161,15 +164,15 @@ export default function Utilities() {
         <div className="p-4 border rounded">
           <h2 className="font-medium">GET /utilities/meters</h2>
           <p className="text-sm text-gray-500">List meters (optional unit_id query)</p>
-            <div className="mt-3 flex items-center gap-2">
-              <select value={unitFilter} onChange={e => setUnitFilter(e.target.value)} className="input">
-                <option value="">(all units)</option>
-                {Array.from(new Set(meters.map(m => String(m.unit_id || '')))).filter(Boolean).map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-              <button className="btn" onClick={() => loadMeters(unitFilter ? { unit_id: unitFilter } : undefined)}>Refresh</button>
-            </div>
+          <div className="mt-3 flex items-center gap-2">
+            <select value={unitFilter} onChange={e => setUnitFilter(e.target.value)} className="input">
+              <option value="">(all units)</option>
+              {allUnits.map((u: any) => (
+                <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>
+              ))}
+            </select>
+            <button className="btn" onClick={() => loadMeters(unitFilter ? { unit_id: unitFilter } : undefined)}>Refresh</button>
+          </div>
           <div className="mt-4 space-y-2">
             {meters.length === 0 && <div className="text-sm text-gray-600">No meters found</div>}
             {meters.map(m => (

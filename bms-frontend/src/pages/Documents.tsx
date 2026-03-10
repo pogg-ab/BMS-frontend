@@ -1,7 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import * as docApi from '../api/documents'
+import { listLeases } from '../api/leases'
+import { listTenants } from '../api/tenants'
+import { listBuildings } from '../api/buildings'
 
 type Tab = 'browse' | 'history'
 
@@ -34,9 +37,42 @@ export default function Documents() {
   const [versions, setVersions] = useState<any[]>([])
   const [histLoading, setHistLoading] = useState(false)
 
+  // Lookups for module ID dropdown
+  const [allLeases, setAllLeases] = useState<any[]>([])
+  const [allTenants, setAllTenants] = useState<any[]>([])
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
+
   useEffect(() => {
     if (tab === 'browse') loadDocuments()
   }, [tab, filterType])
+
+  useEffect(() => {
+    // Load lookups for dropdown
+    listLeases({ page: 1, per_page: 500 }).then((res: any) => setAllLeases(Array.isArray(res) ? res : [])).catch(console.error)
+    listTenants({ page: 1, per_page: 500 }).then((res: any) => {
+      const list = Array.isArray(res) ? res : (res?.data || [])
+      setAllTenants(list)
+    }).catch(console.error)
+    listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
+      const list = Array.isArray(res) ? res : (res?.data || [])
+      setAllBuildings(list)
+    }).catch(console.error)
+  }, [])
+
+  const moduleIdOptions = useMemo(() => {
+    switch (uploadModuleType) {
+      case 'lease':
+        return allLeases.map(l => ({ value: String(l.id), label: `Lease #${l.id} — ${l.tenant?.name || l.tenant?.first_name || l.tenant_id || ''}` }))
+      case 'tenant':
+        return allTenants.map(t => ({ value: String(t.id), label: `${t.first_name || ''} ${t.last_name || ''} (${t.email || t.id})` }))
+      case 'building':
+        return allBuildings.map(b => ({ value: String(b.id), label: `${b.name || b.code || `Building #${b.id}`}` }))
+      case 'maintenance':
+      case 'payment':
+      default:
+        return [] // fallback to text input for types without a loaded list
+    }
+  }, [uploadModuleType, allLeases, allTenants, allBuildings])
 
   async function loadDocuments() {
     setDocsLoading(true)
@@ -112,11 +148,10 @@ export default function Documents() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                tab === t.key
+              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
                   ? 'border-blue-600 text-blue-600 bg-blue-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               {t.label}
             </button>
@@ -171,13 +206,27 @@ export default function Documents() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Module ID</label>
-                    <input
-                      placeholder="e.g. lease or tenant ID"
-                      value={uploadModuleId}
-                      onChange={e => setUploadModuleId(e.target.value)}
-                      className="w-full p-2 border rounded"
-                      required
-                    />
+                    {moduleIdOptions.length > 0 ? (
+                      <select
+                        value={uploadModuleId}
+                        onChange={e => setUploadModuleId(e.target.value)}
+                        className="w-full p-2 border rounded"
+                        required
+                      >
+                        <option value="">Select {uploadModuleType}</option>
+                        {moduleIdOptions.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        placeholder={`Enter ${uploadModuleType} ID`}
+                        value={uploadModuleId}
+                        onChange={e => setUploadModuleId(e.target.value)}
+                        className="w-full p-2 border rounded"
+                        required
+                      />
+                    )}
                   </div>
                 </div>
 

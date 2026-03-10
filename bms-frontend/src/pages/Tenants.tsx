@@ -306,83 +306,106 @@ export default function Tenants() {
   }
 
   return (
-    <PageLayout title={'Tenants'} subtitle={'Minimal tenants view (endpoints wired)'} actions={<button onClick={() => setShowRegister(true)} className="flex items-center px-3 py-2 bg-white text-blue-600 rounded"> <FiUserPlus className="mr-2" /> Register</button>}>
-      <div className="bg-white rounded shadow p-6">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Tenants</h2>
-        </div>
+    <PageLayout
+      title="Tenants Portfolio"
+      subtitle="Manage tenant lifecycles, applications, and documents"
+      actions={
+        <button onClick={() => setShowRegister(true)} className="button">
+          <FiUserPlus className="mr-2" /> Register Tenant
+        </button>
+      }
+    >
+      <div className="space-y-6">
 
-        {loading ? (<div>Loading...</div>) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {loading ? (<div className="flex justify-center py-12 text-slate-500">Loading tenants...</div>) : (
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+
             {/* Tenants table (left / main) */}
-            <div className="md:col-span-2 bg-white p-4 rounded shadow-sm">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b"><th className="py-2">Name</th><th className="py-2">Email</th><th className="py-2">Status</th><th className="py-2">Actions</th></tr>
-                </thead>
-                <tbody>
-                  {tenants.map(t => (
-                    <tr key={t.id} className="border-b hover:bg-gray-50">
-                      <td className="py-2">{t.first_name || t.name}</td>
-                      <td className="py-2">{t.email}</td>
-                      <td className="py-2">{t.status || '-'}</td>
-                      <td className="py-2">
-                        <button onClick={() => openDetail(t)} className="mr-2 text-blue-600 hover:underline"><FiEye /></button>
-                      </td>
+            <div className="xl:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+              <h3 className="font-bold text-lg text-slate-800 mb-4">Active Tenants</h3>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Name</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Email</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {tenants.map(t => (
+                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 font-medium text-slate-900">{t.first_name || t.name}</td>
+                        <td className="px-6 py-4 text-slate-600">{t.email}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                            {t.status || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => openDetail(t)} className="text-indigo-600 hover:text-indigo-900 px-3 py-1 flex items-center justify-end gap-1 ml-auto transition-colors">
+                            <FiEye /> View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Admin actions card (right) */}
-            <aside className="md:col-span-1 bg-white p-4 rounded shadow-sm">
-              <h3 className="font-semibold mb-3">Admin Actions</h3>
+            <aside className="xl:col-span-1 space-y-6">
 
-              <div className="mb-3">
-                <label className="block text-sm text-gray-600 mb-1">Select tenant</label>
-                <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="w-full p-2 border rounded">
-                  <option value="">-- select tenant --</option>
-                  {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name} ({t.email})</option>))}
-                </select>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                <h3 className="font-bold text-slate-800 mb-4">Communications</h3>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Select tenant</label>
+                  <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
+                    <option value="">-- context --</option>
+                    {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name}</option>))}
+                  </select>
+                </div>
+
+                {/* Documents moved to a separate card below */}
+
+                {/* Announcements moved below messages (rendered after messages) */}
+
+                <form onSubmit={handleSendMessage}>
+                  <label className="block text-sm text-gray-600 mb-1">Message</label>
+                  <input placeholder="Subject" value={msgSubject} onChange={e => setMsgSubject(e.target.value)} className="w-full p-2 border rounded mb-2" />
+                  <textarea placeholder="Body" value={msgBody} onChange={e => setMsgBody(e.target.value)} className="w-full p-2 border rounded mb-2" />
+                  <div className="flex gap-2">
+                    <button type="submit" className="flex-1 px-3 py-2 bg-blue-600 text-white rounded">Send</button>
+                    <button type="button" onClick={handleGetMessages} className="px-3 py-2 bg-white border rounded">Load</button>
+                  </div>
+                </form>
+
+                {adminMessages.length > 0 ? (
+                  <div className="mt-3 text-sm">
+                    <strong>Messages</strong>
+                    <ul className="list-disc pl-6">
+                      {adminMessages.map((m: any) => (
+                        <li key={m.id} className="mb-2">
+                          <div className="font-medium">{m.subject || ''}</div>
+                          <div className="text-xs text-gray-700 whitespace-pre-wrap">{m.body || m.content || ''}</div>
+                          <div className="text-xs text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="mt-3 text-sm text-gray-500">No messages loaded</div>
+                )}
               </div>
 
-              {/* Documents moved to a separate card below */}
-
-              {/* Announcements moved below messages (rendered after messages) */}
-
-              <form onSubmit={handleSendMessage}>
-                <label className="block text-sm text-gray-600 mb-1">Message</label>
-                <input placeholder="Subject" value={msgSubject} onChange={e => setMsgSubject(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                <textarea placeholder="Body" value={msgBody} onChange={e => setMsgBody(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                <div className="flex gap-2">
-                  <button type="submit" className="flex-1 px-3 py-2 bg-blue-600 text-white rounded">Send</button>
-                  <button type="button" onClick={handleGetMessages} className="px-3 py-2 bg-white border rounded">Load</button>
-                </div>
-              </form>
-
-              {adminMessages.length > 0 ? (
-                <div className="mt-3 text-sm">
-                  <strong>Messages</strong>
-                  <ul className="list-disc pl-6">
-                    {adminMessages.map((m: any) => (
-                      <li key={m.id} className="mb-2">
-                        <div className="font-medium">{m.subject || ''}</div>
-                        <div className="text-xs text-gray-700 whitespace-pre-wrap">{m.body || m.content || ''}</div>
-                        <div className="text-xs text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="mt-3 text-sm text-gray-500">No messages loaded</div>
-              )}
-
               {/* Announcements accordion (moved below messages) */}
-              <div className="mt-3 mb-3 border rounded">
-                <button type="button" onClick={() => { setOpenAnnouncements(s => !s); if (!openAnnouncements) handleListAnnouncements() }} className="w-full text-left p-3 bg-gray-100 flex items-center justify-between">
-                  <span className="font-medium">Announcements</span>
-                  <span className="text-sm text-gray-600">{openAnnouncements ? '−' : '+'}</span>
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
+                <button type="button" onClick={() => { setOpenAnnouncements(s => !s); if (!openAnnouncements) handleListAnnouncements() }} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors">
+                  <span className="font-bold text-slate-800">Announcements</span>
+                  <span className="text-xl text-slate-400 font-light leading-none">{openAnnouncements ? '−' : '+'}</span>
                 </button>
                 {openAnnouncements && (
                   <div className="p-3">

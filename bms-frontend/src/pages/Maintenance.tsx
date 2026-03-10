@@ -238,6 +238,16 @@ export default function Maintenance() {
   // ── Status label styles ─────────────────────────────────
   function statusBadge(status: string) {
     const map: Record<string, string> = {
+      SUBMITTED: 'bg-blue-100 text-blue-700',
+      APPROVED: 'bg-indigo-100 text-indigo-700',
+      ASSIGNED: 'bg-yellow-100 text-yellow-700',
+      IN_PROGRESS: 'bg-orange-100 text-orange-700',
+      COMPLETED: 'bg-green-100 text-green-700',
+      CLOSED: 'bg-gray-100 text-gray-500',
+      CANCELLED: 'bg-red-100 text-red-600',
+      ACTIVE: 'bg-green-100 text-green-700',
+      INACTIVE: 'bg-gray-100 text-gray-500',
+      // Fallbacks just in case
       submitted: 'bg-blue-100 text-blue-700',
       approved: 'bg-indigo-100 text-indigo-700',
       assigned: 'bg-yellow-100 text-yellow-700',
@@ -252,7 +262,7 @@ export default function Maintenance() {
   }
 
   // Assignable requests for work order dropdown (only submitted or approved)
-  const assignableRequests = requests.filter(r => r.status === 'submitted' || r.status === 'approved')
+  const assignableRequests = requests.filter(r => r.status === 'SUBMITTED' || r.status === 'APPROVED' || r.status === 'submitted' || r.status === 'approved')
 
   // ── Render ───────────────────────────────────────────────
   return (
@@ -265,8 +275,8 @@ export default function Maintenance() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               {t.label}
@@ -361,19 +371,19 @@ export default function Maintenance() {
               <h3 className="font-semibold mb-3">Summary</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 border rounded bg-blue-50 text-center">
-                  <div className="text-2xl font-bold text-blue-700">{requests.filter(r => r.status === 'submitted').length}</div>
+                  <div className="text-2xl font-bold text-blue-700">{requests.filter(r => r.status === 'SUBMITTED' || r.status === 'submitted').length}</div>
                   <div className="text-xs text-gray-500">Open</div>
                 </div>
                 <div className="p-3 border rounded bg-yellow-50 text-center">
-                  <div className="text-2xl font-bold text-yellow-700">{requests.filter(r => r.status === 'in_progress' || r.status === 'assigned').length}</div>
+                  <div className="text-2xl font-bold text-yellow-700">{requests.filter(r => r.status === 'IN_PROGRESS' || r.status === 'ASSIGNED' || r.status === 'in_progress' || r.status === 'assigned').length}</div>
                   <div className="text-xs text-gray-500">In Progress</div>
                 </div>
                 <div className="p-3 border rounded bg-green-50 text-center">
-                  <div className="text-2xl font-bold text-green-700">{requests.filter(r => r.status === 'completed').length}</div>
+                  <div className="text-2xl font-bold text-green-700">{requests.filter(r => r.status === 'COMPLETED' || r.status === 'completed').length}</div>
                   <div className="text-xs text-gray-500">Completed</div>
                 </div>
                 <div className="p-3 border rounded bg-red-50 text-center">
-                  <div className="text-2xl font-bold text-red-600">{requests.filter(r => r.status === 'cancelled').length}</div>
+                  <div className="text-2xl font-bold text-red-600">{requests.filter(r => r.status === 'CANCELLED' || r.status === 'cancelled').length}</div>
                   <div className="text-xs text-gray-500">Cancelled</div>
                 </div>
               </div>
@@ -381,48 +391,48 @@ export default function Maintenance() {
           </div>
 
           {/* Requests Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4">All Requests</h3>
-            {reqLoading ? <div className="text-gray-500">Loading...</div> : requests.length === 0 ? (
-              <div className="text-gray-400 text-sm">No requests found</div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">All Requests</h3>
+            {reqLoading ? <div className="py-12 flex justify-center text-slate-500">Loading requests...</div> : requests.length === 0 ? (
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No requests found</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50">
-                      <th className="p-3">Tenant</th>
-                      <th className="p-3">Unit</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Priority</th>
-                      <th className="p-3">Description</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Actions</th>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Tenant</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Category</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Priority</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Description</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Date</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {requests.map((req: any) => (
-                      <tr key={req.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">{tenantLabel(req.tenant)}</td>
-                        <td className="p-3">{unitLabel(req.unit)}</td>
-                        <td className="p-3 capitalize">{req.category}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${req.priority === 'urgent' ? 'bg-red-100 text-red-700' :
-                              req.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                req.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-green-100 text-green-700'
+                      <tr key={req.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 text-slate-900 font-medium">{tenantLabel(req.tenant)}</td>
+                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">{unitLabel(req.unit)}</td>
+                        <td className="px-6 py-4 text-slate-600 capitalize">{req.category.replace('_', ' ')}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${req.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
+                            req.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                              req.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-emerald-50 text-emerald-700 border-emerald-200'
                             }`}>{req.priority}</span>
                         </td>
-                        <td className="p-3 max-w-[200px] truncate" title={req.description}>{req.description}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(req.status)}`}>
+                        <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={req.description}>{req.description}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(req.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
                             {req.status}
                           </span>
                         </td>
-                        <td className="p-3 text-xs text-gray-500">{req.created_at ? new Date(req.created_at).toLocaleDateString() : '-'}</td>
-                        <td className="p-3">
-                          {req.status !== 'completed' && req.status !== 'cancelled' && req.status !== 'closed' && (
-                            <button onClick={() => handleCancelRequest(req.id)} className="text-red-600 hover:underline text-xs">
+                        <td className="px-6 py-4 text-slate-500 text-xs">{req.created_at ? new Date(req.created_at).toLocaleDateString() : '-'}</td>
+                        <td className="px-6 py-4 text-right">
+                          {req.status !== 'COMPLETED' && req.status !== 'CANCELLED' && req.status !== 'CLOSED' && req.status !== 'completed' && req.status !== 'cancelled' && req.status !== 'closed' && (
+                            <button onClick={() => handleCancelRequest(req.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium px-2">
                               Cancel
                             </button>
                           )}
@@ -525,49 +535,49 @@ export default function Maintenance() {
           </div>
 
           {/* Work Orders Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4">All Work Orders</h3>
-            {woLoading ? <div className="text-gray-500">Loading...</div> : workOrders.length === 0 ? (
-              <div className="text-gray-400 text-sm">No work orders found</div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">All Work Orders</h3>
+            {woLoading ? <div className="py-12 flex justify-center text-slate-500">Loading work orders...</div> : workOrders.length === 0 ? (
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No work orders found</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50">
-                      <th className="p-3">Request</th>
-                      <th className="p-3">Contractor</th>
-                      <th className="p-3">Scheduled</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Cost Est.</th>
-                      <th className="p-3">Actual Cost</th>
-                      <th className="p-3">Actions</th>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Request</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Contractor</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Scheduled</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Cost Est.</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Actual Cost</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {workOrders.map((wo: any) => (
-                      <tr key={wo.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3">
-                          <div className="font-medium capitalize">{wo.request?.category || '-'}</div>
-                          <div className="text-xs text-gray-400">{tenantLabel(wo.request?.tenant)} · {unitLabel(wo.request?.unit)}</div>
+                      <tr key={wo.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-slate-900 capitalize">{wo.request?.category.replace('_', ' ') || '-'}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{tenantLabel(wo.request?.tenant)} · {unitLabel(wo.request?.unit)}</div>
                         </td>
-                        <td className="p-3">{wo.contractor?.name || '-'}</td>
-                        <td className="p-3 text-xs">{wo.scheduled_date ? new Date(wo.scheduled_date).toLocaleDateString() : '-'}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(wo.status)}`}>
+                        <td className="px-6 py-4 text-slate-700 font-medium">{wo.contractor?.name || '-'}</td>
+                        <td className="px-6 py-4 text-slate-600 text-xs">{wo.scheduled_date ? new Date(wo.scheduled_date).toLocaleDateString() : '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(wo.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
                             {wo.status}
                           </span>
                         </td>
-                        <td className="p-3">{wo.cost_estimate ? `ETB ${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
-                        <td className="p-3">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
-                        <td className="p-3 space-x-2">
-                          {wo.status === 'assigned' && (
-                            <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'in_progress')} className="text-orange-600 hover:underline text-xs">
-                              Start
+                        <td className="px-6 py-4 text-slate-600 font-medium">{wo.cost_estimate ? `ETB ${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
+                        <td className="px-6 py-4 text-slate-900 font-bold">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
+                        <td className="px-6 py-4 text-right">
+                          {(wo.status === 'ASSIGNED' || wo.status === 'assigned') && (
+                            <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'in_progress')} className="text-orange-600 hover:text-orange-900 text-xs font-medium px-2">
+                              Start Work
                             </button>
                           )}
-                          {wo.status === 'in_progress' && (
-                            <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'completed')} className="text-green-600 hover:underline text-xs">
-                              Complete + Proof
+                          {(wo.status === 'IN_PROGRESS' || wo.status === 'in_progress') && (
+                            <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'completed')} className="text-emerald-600 hover:text-emerald-900 text-xs font-medium px-2">
+                              Mark Complete (Proof)
                             </button>
                           )}
                         </td>
@@ -627,31 +637,31 @@ export default function Maintenance() {
             </form>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Contractors</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Contractors</h3>
             {contractors.length === 0 ? (
-              <div className="text-gray-400 text-sm">No contractors yet. Add one using the form.</div>
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No contractors yet. Add one using the form.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50">
-                      <th className="p-3">Name</th>
-                      <th className="p-3">Phone</th>
-                      <th className="p-3">Specialization</th>
-                      <th className="p-3">Rating</th>
-                      <th className="p-3">Status</th>
+              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-4 font-medium tracking-wider">Name</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Phone</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Specialization</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Rating</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {contractors.map((c: any) => (
-                      <tr key={c.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{c.name}</td>
-                        <td className="p-3">{c.phone}</td>
-                        <td className="p-3 capitalize">{c.specialization}</td>
-                        <td className="p-3">{c.rating ? `⭐ ${Number(c.rating).toFixed(1)}` : '-'}</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(c.status)}`}>
+                      <tr key={c.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 font-medium text-slate-900">{c.name}</td>
+                        <td className="px-6 py-4 text-slate-600">{c.phone}</td>
+                        <td className="px-6 py-4 text-slate-600 capitalize">{c.specialization.replace('_', ' ')}</td>
+                        <td className="px-6 py-4 text-amber-500 font-semibold">{c.rating ? `⭐ ${Number(c.rating).toFixed(1)}` : '-'}</td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(c.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
                             {c.status}
                           </span>
                         </td>
@@ -695,31 +705,31 @@ export default function Maintenance() {
               </div>
 
               {/* Contractor Performance */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-                <h3 className="font-semibold mb-4">Contractor Performance</h3>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+                <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Contractor Performance</h3>
                 {reportData.contractorStats?.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border">
-                      <thead>
-                        <tr className="text-left border-b bg-gray-50">
-                          <th className="p-3">Contractor</th>
-                          <th className="p-3">Completed</th>
-                          <th className="p-3">Avg. Cost</th>
+                  <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                    <table className="w-full text-sm text-left whitespace-nowrap">
+                      <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-4 font-medium tracking-wider">Contractor</th>
+                          <th className="px-6 py-4 font-medium tracking-wider">Jobs Completed</th>
+                          <th className="px-6 py-4 font-medium tracking-wider">Avg. Cost</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-slate-100">
                         {reportData.contractorStats.map((cs: any, i: number) => (
-                          <tr key={cs.contractor_id || i} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-medium">{cs.name}</td>
-                            <td className="p-3">{cs.completedOrders}</td>
-                            <td className="p-3">{cs.avgCost ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
+                          <tr key={cs.contractor_id || i} className="hover:bg-slate-50/50 transition-colors duration-150">
+                            <td className="px-6 py-4 font-medium text-slate-900">{cs.name}</td>
+                            <td className="px-6 py-4 text-emerald-600 font-semibold text-lg">{cs.completedOrders}</td>
+                            <td className="px-6 py-4 text-slate-700 font-mono">{cs.avgCost ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <div className="text-gray-400 text-sm">No performance data available yet.</div>
+                  <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No performance data available yet.</div>
                 )}
               </div>
             </>

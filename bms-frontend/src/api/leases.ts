@@ -3,16 +3,23 @@ import axios from './axios'
 export interface LeaseDraftDTO {
   unit_id: number | string
   tenant_id: number | string
+  building_id: number | string
   start_date: string
   end_date: string
   rent: number
   deposit?: number
   payment_schedule?: string
+  billing_cycle?: string
   terms?: string
 }
 
 export function createLease(dto: LeaseDraftDTO) {
-  return axios.post('/leases', dto).then(r => r.data)
+  const payload = { ...dto }
+  if (payload.payment_schedule) {
+    payload.billing_cycle = payload.payment_schedule.toUpperCase()
+    delete payload.payment_schedule
+  }
+  return axios.post('/leases', payload).then(r => r.data)
 }
 
 export function listLeases(params?: any) {
@@ -33,7 +40,24 @@ export function terminateLease(id: string | number, dto: any) {
 }
 
 export function renewLease(id: string | number, dto: any) {
-  return axios.post(`/leases/${id}/renew`, dto).then(r => r.data)
+  const payload = { ...dto }
+  // Map frontend fields (new_start_date, rent) to backend DTO fields (start_date, rent_amount)
+  if (payload.new_start_date) {
+    payload.start_date = payload.new_start_date
+    delete payload.new_start_date
+  }
+  if (payload.new_end_date) {
+    payload.end_date = payload.new_end_date
+    delete payload.new_end_date
+  }
+  if (payload.rent !== undefined) {
+    payload.rent_amount = payload.rent
+    delete payload.rent
+  }
+  if (payload.billing_cycle) {
+    payload.billing_cycle = payload.billing_cycle.toUpperCase()
+  }
+  return axios.post(`/leases/${id}/renew`, payload).then(r => r.data)
 }
 
 export function uploadLeaseDocument(id: string | number, payload: any) {

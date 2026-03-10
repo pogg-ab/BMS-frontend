@@ -316,11 +316,11 @@ export default function Leases() {
   }
 
   return (
-    <PageLayout title="Leases" subtitle="Lease management (create, activate, terminate, renew, upload, download)">
-      <div className="bg-white rounded shadow p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-4 border rounded">
-            <h3 className="font-semibold mb-3">Create Lease Draft</h3>
+    <PageLayout title="Leases" subtitle="Manage leasing lifecycles, payments, and associated documents">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Create Lease Draft</h3>
             <form onSubmit={handleCreate} className="space-y-2">
               <select value={tenantId} onChange={e => setTenantId(e.target.value)} className="w-full p-2 border rounded" required>
                 <option value="">Select tenant</option>
@@ -353,14 +353,14 @@ export default function Leases() {
                 <option value="quarterly">Quarterly</option>
                 <option value="yearly">Yearly</option>
               </select>
-              <div className="flex justify-end">
-                <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Create</button>
+              <div className="flex justify-end pt-2">
+                <button type="submit" className="button">Create Draft</button>
               </div>
             </form>
           </div>
 
-          <div className="p-4 border rounded">
-            <h3 className="font-semibold mb-3">Actions (Activate / Terminate / Renew / Attach / Download)</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Quick Actions</h3>
             <form onSubmit={handleActivateOnly} className="mb-3">
               <label className="block text-sm font-medium mb-1">Quick Activate (lease only)</label>
               <div className="flex gap-2">
@@ -423,44 +423,56 @@ export default function Leases() {
           </div>
         </div>
 
-        <div className="mt-6">
-          <h3 className="font-semibold mb-3">Leases</h3>
-          {loading ? <div>Loading...</div> : (
-            <table className="w-full text-sm border">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="p-2">ID</th>
-                  <th className="p-2">Lease</th>
-                  <th className="p-2">Unit</th>
-                  <th className="p-2">Tenant</th>
-                  <th className="p-2">Building</th>
-                  <th className="p-2">Dates</th>
-                  <th className="p-2">Rent</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Document</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leases.map((l: any) => (
-                  <tr key={l.id} className="border-b hover:bg-gray-50">
-                    <td className="p-2">{l.id}</td>
-                    <td className="p-2">{l.lease_number || ''}</td>
-                    <td className="p-2">{l.unit?.unit_number || l.unit_number || l.unit_id}</td>
-                    <td className="p-2">{tenantLabel(l.tenant)}</td>
-                    <td className="p-2">{l.building?.name || l.building?.code || ''}</td>
-                    <td className="p-2">{l.start_date} → {l.end_date}</td>
-                    <td className="p-2">{l.rent_amount || l.rent || l.rent_price || ''}</td>
-                    <td className="p-2">{l.status}</td>
-                    <td className="p-2">
-                      {l.doc_path ? (
-                        <a href={`${API_URL}/leases/${l.id}/pdf`} target="_blank" rel="noreferrer" className="mr-2 text-indigo-600">View</a>
-                      ) : null}
-                      <button onClick={() => handleDownload(l.id)} className="mr-2 text-green-600">Download</button>
-                    </td>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md mt-6">
+          <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Active & Historical Leases</h3>
+          {loading ? <div className="py-12 flex justify-center text-slate-500">Loading leases...</div> : (
+            <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 font-medium tracking-wider">ID</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Lease</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Tenant</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Building</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Dates</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Rent</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-center">Status</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">Document</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leases.map((l: any) => (
+                    <tr key={l.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                      <td className="px-6 py-4 font-medium text-slate-500">#{l.id}</td>
+                      <td className="px-6 py-4 font-medium text-slate-900">{l.lease_number || '-'}</td>
+                      <td className="px-6 py-4 text-slate-600 font-mono text-xs">{l.unit?.unit_number || l.unit_number || l.unit_id}</td>
+                      <td className="px-6 py-4 text-slate-600">{tenantLabel(l.tenant)}</td>
+                      <td className="px-6 py-4 text-slate-600">{l.building?.name || l.building?.code || '-'}</td>
+                      <td className="px-6 py-4 text-slate-600 text-xs">
+                        {l.start_date ? new Date(l.start_date).toLocaleDateString() : ''} → {l.end_date ? new Date(l.end_date).toLocaleDateString() : ''}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{l.rent_amount || l.rent || l.rent_price || '-'}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${l.status === 'ACTIVE' || l.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            l.status === 'DRAFT' || l.status === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              l.status === 'TERMINATED' || l.status === 'terminated' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}>
+                          {l.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {l.doc_path ? (
+                          <a href={`${API_URL}/leases/${l.id}/pdf`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2">View</a>
+                        ) : null}
+                        <button onClick={() => handleDownload(l.id)} className="text-emerald-600 hover:text-emerald-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2">Download</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

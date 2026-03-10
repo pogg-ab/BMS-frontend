@@ -9,6 +9,8 @@ import {
   deleteVisitor,
   checkoutVisitor,
 } from '../api/visitors'
+import { listUsers } from '../api/users'
+import { listSites } from '../api/sites'
 
 export default function Visitors() {
   const toast = useToast()
@@ -25,12 +27,26 @@ export default function Visitors() {
   const [siteId, setSiteId] = useState('')
   const [notes, setNotes] = useState('')
 
+  // Lookups for dropdowns
+  const [allUsers, setAllUsers] = useState<any[]>([])
+  const [allSites, setAllSites] = useState<any[]>([])
+
   // Get / Update / Delete / Checkout
   const [querySiteId, setQuerySiteId] = useState('')
   const [selectedId, setSelectedId] = useState<string | number>('')
   const [single, setSingle] = useState<any>(null)
 
-  useEffect(() => { loadVisitors() }, [])
+  useEffect(() => {
+    loadVisitors()
+    // Load lookups for dropdowns
+    listUsers({ page: 1, per_page: 500 }).then((res: any) => {
+      const list = Array.isArray(res) ? res : (res?.data || res?.users || [])
+      setAllUsers(list)
+    }).catch(console.error)
+    listSites({ page: 1, per_page: 200 }).then((res: any) => {
+      setAllSites(Array.isArray(res) ? res : (res?.data || []))
+    }).catch(console.error)
+  }, [])
 
   async function loadVisitors() {
     setLoading(true)
@@ -117,9 +133,15 @@ export default function Visitors() {
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="w-full p-2 border rounded" />
             <input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="ID number" className="w-full p-2 border rounded" />
             <input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="Purpose" className="w-full p-2 border rounded" />
-            <input value={hostUserId} onChange={e => setHostUserId(e.target.value)} placeholder="Host user id" className="w-full p-2 border rounded" />
+            <select value={hostUserId} onChange={e => setHostUserId(e.target.value)} className="w-full p-2 border rounded">
+              <option value="">Select host user (optional)</option>
+              {allUsers.map((u: any) => <option key={u.id} value={String(u.id)}>{u.name || u.email || `User #${u.id}`}</option>)}
+            </select>
             <input value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} placeholder="Vehicle number" className="w-full p-2 border rounded" />
-            <input value={siteId} onChange={e => setSiteId(e.target.value)} placeholder="Site id" className="w-full p-2 border rounded" />
+            <select value={siteId} onChange={e => setSiteId(e.target.value)} className="w-full p-2 border rounded" required>
+              <option value="">Select site</option>
+              {allSites.map((s: any) => <option key={s.id} value={String(s.id)}>{s.name || s.code || `Site #${s.id}`}</option>)}
+            </select>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes" className="w-full p-2 border rounded" />
             <div className="flex justify-end"><button className="px-3 py-2 bg-blue-600 text-white rounded" type="submit">Check-in</button></div>
           </form>
@@ -128,7 +150,10 @@ export default function Visitors() {
         <div className="bg-white rounded shadow p-6 lg:col-span-2">
           <h3 className="font-semibold mb-3">GET /visitors — List</h3>
           <div className="flex gap-2 mb-3">
-            <input value={querySiteId} onChange={e => setQuerySiteId(e.target.value)} placeholder="site_id (optional)" className="p-2 border rounded" />
+            <select value={querySiteId} onChange={e => setQuerySiteId(e.target.value)} className="p-2 border rounded">
+              <option value="">All sites</option>
+              {allSites.map((s: any) => <option key={s.id} value={String(s.id)}>{s.name || s.code || `Site #${s.id}`}</option>)}
+            </select>
             <button onClick={loadVisitors} className="px-3 py-2 bg-gray-700 text-white rounded">Reload</button>
           </div>
           {loading ? <div>Loading...</div> : (

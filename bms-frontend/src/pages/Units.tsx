@@ -4,17 +4,17 @@ import { listAmenities, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } fro
 import { listBuildings } from '../api/buildings'
 
 const UNIT_TYPES = [
-  { value: 'studio', label: 'Studio' },
+  { value: 'STUDIO', label: 'Studio' },
   { value: '1BR', label: '1 Bedroom' },
   { value: '2BR', label: '2 Bedroom' },
-  { value: 'office', label: 'Office' },
-  { value: 'shop', label: 'Shop' },
+  { value: 'OFFICE', label: 'Office' },
+  { value: 'SHOP', label: 'Shop' },
 ]
 const UNIT_STATUSES = [
-  { value: 'vacant', label: 'Vacant' },
-  { value: 'occupied', label: 'Occupied' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'reserved', label: 'Reserved' },
+  { value: 'VACANT', label: 'Vacant' },
+  { value: 'OCCUPIED', label: 'Occupied' },
+  { value: 'MAINTENANCE', label: 'Maintenance' },
+  { value: 'RESERVED', label: 'Reserved' },
 ]
 
 export default function Units() {
@@ -92,8 +92,8 @@ export default function Units() {
     setBathrooms(u.bathrooms ?? '')
     setSizeSqm(u.size_sqm ?? '')
     setRentPrice(u.rent_price ?? '')
-    setUnitType(u.type ?? 'studio')
-    setStatus(u.status ?? 'vacant')
+    setUnitType(u.type?.toUpperCase() ?? 'STUDIO')
+    setStatus(u.status?.toUpperCase() ?? 'VACANT')
     setDescription(u.description ?? '')
     setShowForm(true)
   }
@@ -197,16 +197,19 @@ export default function Units() {
   return (
     <div className="container">
       <div className="header">
-        <h1 className="text-2xl font-bold">Units</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Units</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Manage physical properties, floors, and basic configurations</p>
+        </div>
         <div>
           <button className="button" onClick={openCreate}>Create Unit</button>
         </div>
       </div>
 
-      <div className="card mb-4">
-        <div className="flex items-center gap-3">
-          <input type="file" accept=".csv" ref={fileRef} />
-          <button className="button" onClick={handleBulkUpload}>Upload CSV</button>
+      <div className="card mb-6">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <input type="file" accept=".csv" ref={fileRef} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors" />
+          <button className="button-secondary shrink-0" onClick={handleBulkUpload}>Upload CSV</button>
         </div>
       </div>
 
@@ -260,39 +263,53 @@ export default function Units() {
       )}
 
       <div className="card">
-        {loading && <div>Loading...</div>}
-        {!loading && units.length === 0 && <div className="muted">No units found</div>}
+        {loading && <div className="py-12 flex justify-center text-slate-500">Loading units...</div>}
+        {!loading && units.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No units found</div>}
         {!loading && units.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2">Unit</th>
-                <th className="py-2">Building</th>
-                <th className="py-2">Floor</th>
-                <th className="py-2">Beds</th>
-                <th className="py-2">Status</th>
-                <th className="py-2">Rent</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {units.map(u => (
-                <tr key={u.id} className="border-b hover:bg-slate-50">
-                  <td className="py-2">{u.unit_number}</td>
-                  <td className="py-2">{u.building?.name || u.building_id || '-'}</td>
-                  <td className="py-2">{u.floor ?? '-'}</td>
-                  <td className="py-2">{u.bedrooms ?? '-'}</td>
-                  <td className="py-2">{u.status}</td>
-                  <td className="py-2">{u.rent ?? '-'}</td>
-                  <td className="py-2">
-                    <button className="mr-2 text-primary" onClick={() => openDetails(u.id)}>Details</button>
-                    <button className="mr-2 text-primary" onClick={() => openEdit(u)}>Edit</button>
-                    <button className="text-red-700 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
-                  </td>
+          <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+            <table className="w-full text-sm text-left whitespace-nowrap">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Building</th>
+                  <th className="px-6 py-4 font-medium tracking-wider text-center">Floor / Beds</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                  <th className="px-6 py-4 font-medium tracking-wider">Rent (ETB)</th>
+                  <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {units.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                    <td className="px-6 py-4 font-medium text-slate-900">{u.unit_number || u.name}</td>
+                    <td className="px-6 py-4 text-slate-600">{u.building?.name || u.building_id || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600 text-center">
+                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200">{u.floor ?? '-'}</span>
+                      {' / '}
+                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200">{u.bedrooms ?? '-'}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.status === 'VACANT' || u.status === 'vacant' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          u.status === 'OCCUPIED' || u.status === 'occupied' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            u.status === 'MAINTENANCE' || u.status === 'maintenance' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                              'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}>
+                        {u.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-medium text-slate-700">
+                      {u.rent ? Number(u.rent).toLocaleString() : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openDetails(u.id)}>Details</button>
+                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openEdit(u)}>Edit</button>
+                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
