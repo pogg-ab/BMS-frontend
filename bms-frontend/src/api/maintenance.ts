@@ -7,18 +7,19 @@ export async function getRequests() {
 }
 
 export async function submitRequest(dto: {
-  tenant_id: string
+  tenant_id?: string
   unit_id: string
   category: string
   priority: string
   description: string
 }) {
   const res = await api.post('/maintenance/requests', {
+    tenant_id: dto.tenant_id,
     unit_id: dto.unit_id,
     category: dto.category.toUpperCase(),
     priority: dto.priority.toUpperCase(),
     description: dto.description,
-  }, { params: { tenant_id: dto.tenant_id } })
+  })
   return res.data
 }
 
@@ -44,6 +45,11 @@ export async function createContractor(dto: {
   return res.data
 }
 
+export async function updateContractor(id: string, dto: any) {
+  const res = await api.patch(`/maintenance/contractors/${id}`, dto)
+  return res.data
+}
+
 // --- Work Orders ---
 export async function getWorkOrders() {
   const res = await api.get('/maintenance/work-orders')
@@ -54,26 +60,36 @@ export async function convertToWorkOrder(dto: {
   request_id: string
   contractor_id: string
   scheduled_date: string
-  assigned_by: string
+  assigned_by?: string
+  cost_estimate?: number
 }) {
-  const res = await api.post('/maintenance/work-orders', {
+  const query = dto.assigned_by ? `?assigned_by=${dto.assigned_by}` : ''
+  const res = await api.post(`/maintenance/work-orders${query}`, {
     request_id: dto.request_id,
     contractor_id: dto.contractor_id,
     scheduled_date: dto.scheduled_date,
-  }, { params: { assigned_by: dto.assigned_by } })
+    cost_estimate: dto.cost_estimate,
+  })
   return res.data
 }
 
-export async function updateWorkOrderStatus(id: string, status: string, proof?: File) {
+export async function updateWorkOrderStatus(id: string, status: string, actual_cost?: number, proof?: File) {
   const upperStatus = status.toUpperCase()
+  const formData = new FormData()
+  formData.append('status', upperStatus)
+  if (actual_cost !== undefined) {
+    formData.append('actual_cost', String(actual_cost))
+  }
+  
   if (proof) {
-    const formData = new FormData()
-    formData.append('status', upperStatus)
     formData.append('proof', proof)
     const res = await api.patch(`/maintenance/work-orders/${id}`, formData)
     return res.data
   }
-  const res = await api.patch(`/maintenance/work-orders/${id}`, { status: upperStatus })
+
+  // If no proof, we still use PATCH but check if backend prefers JSON for non-file updates
+  // Assuming the backend handles multipart/form-data for both cases since @UseInterceptors(FileInterceptor) is likely present
+  const res = await api.patch(`/maintenance/work-orders/${id}`, formData)
   return res.data
 }
 

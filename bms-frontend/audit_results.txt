@@ -1,0 +1,14 @@
+--- BMS API Functional Audit ---
+[PASS] Authentication      | Token obtained
+[PASS] Users           | Status: 200 | Count: 1 | Latency: 7ms
+       First Item ID: 142f11ed-18c4-471b-8de9-bd3f94b80a3b
+[PASS] Sites           | Status: 200 | Count: 1 | Latency: 16ms
+       First Item ID: 1648325e-54bd-453b-8ce5-22c6a41115ed
+[PASS] Buildings       | Status: 200 | Count: 3 | Latency: 6ms
+       First Item ID: b1ade47c-f4f5-4a10-acb5-a4368cd23d20
+       Building Type: residential (Verified)
+[PASS] Units           | Status: 200 | Count: 0 | Latency: 9ms
+[PASS] Tenants         | Status: 200 | Count: 0 | Latency: 7ms
+[PASS] Leases          | Status: 200 | Count: 0 | Latency: 8ms
+[PASS] Amenities       | Status: 200 | Count: 0 | Latency: 5ms
+--- End of Audit ---

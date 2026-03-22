@@ -20,3 +20,9 @@ export function getRoles(): string[] {
   const p = decodeToken(t);
   return p?.roles || [];
 }
+
+export function getUserId(): string | null {
+  const t = localStorage.getItem('token');
+  const p = decodeToken(t);
+  return p?.sub || p?.id || null;
+}

@@ -30,7 +30,7 @@ export async function activateUser(id: string | number) {
   return res.data
 }
 
-export async function assignRole(payload: { user_id: number | string; role_id: number }) {
+export async function assignRole(payload: { user_id: number | string; role_id: number | string }) {
   const res = await api.post('/users/assign-role', payload)
   return res.data
 }

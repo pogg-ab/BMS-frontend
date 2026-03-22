@@ -23,5 +23,17 @@ export async function deactivateQr(id: string) {
 
 export function getExportPdfUrl(ids?: string[]) {
   const params = ids?.length ? `?ids=${ids.join(',')}` : ''
-  return `${BASE}/qr/export/pdf${params}`
+  return `/qr/export/pdf${params}`
+}
+
+export async function exportPdf(ids?: string[]) {
+  const url = getExportPdfUrl(ids)
+  const res = await api.get(url, { responseType: 'blob' })
+  return res.data
+}
+
+export async function downloadQrPng(token: string) {
+  const url = getQrPngUrl(token)
+  const res = await api.get(url, { responseType: 'blob' })
+  return res.data
 }

@@ -25,6 +25,14 @@ export function listPendingApplications(params?: any) {
   return axios.get('/applications/pending', { params }).then(r => (r.data && r.data.data ? r.data.data : r.data))
 }
 
+export function approveApplication(id: string | number) {
+  return axios.patch(`/applications/${id}/approve`).then(r => r.data)
+}
+
+export function rejectApplication(id: string | number) {
+  return axios.patch(`/applications/${id}/reject`).then(r => r.data)
+}
+
 export async function getTenant(id: string | number) {
   try {
     const res = await axios.get(`/tenants/${id}`)
@@ -89,6 +97,8 @@ export default {
   registerTenant,
   createApplication,
   listPendingApplications,
+  approveApplication,
+  rejectApplication,
   createDocument,
   listDocuments,
   verifyDocument,

@@ -25,15 +25,33 @@ import Visitors from './pages/Visitors'
 import Utilities from './pages/Utilities'
 import Automations from './pages/Automations'
 import Notifications from './pages/Notifications'
+import { LayoutProvider, useLayout } from './contexts/LayoutContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 
-/** Shared layout for all authenticated pages: sidebar + offset content area */
+/** Shared layout for all authenticated pages: sidebar + responsive offset content area */
+function AuthLayoutContent() {
+  const { sidebarCollapsed } = useLayout()
+  return (
+    <>
+      <NavBar />
+      <div 
+        className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-all duration-300"
+        style={{ paddingLeft: sidebarCollapsed ? 80 : 256 }}
+      >
+        <Outlet />
+      </div>
+    </>
+  )
+}
+
 function AuthLayout() {
   return (
     <ProtectedRoute>
-      <NavBar />
-      <div style={{ paddingLeft: 256 }} className="min-h-screen bg-gray-50">
-        <Outlet />
-      </div>
+      <LayoutProvider>
+        <NotificationProvider>
+          <AuthLayoutContent />
+        </NotificationProvider>
+      </LayoutProvider>
     </ProtectedRoute>
   )
 }
