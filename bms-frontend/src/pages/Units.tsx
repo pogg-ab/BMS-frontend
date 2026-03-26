@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { listUnits, createUnit, bulkUploadUnits, getUnit, updateUnit, deleteUnit, listUnitAmenities } from '../api/units'
 import { listAmenities, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
 import { listBuildings } from '../api/buildings'
+import api from '../api/axios'
 
 const UNIT_TYPES = [
   { value: 'STUDIO', label: 'Studio' },
@@ -34,7 +35,11 @@ export default function Units() {
   const [unitType, setUnitType] = useState('studio')
   const [status, setStatus] = useState('vacant')
   const [description, setDescription] = useState('')
-  const [buildings, setBuildings] = useState<any[]>([])
+  const [imageUrl, setImageUrl] = useState('')
+  const [isOtherType, setIsOtherType] = useState(false)
+  const [customType, setCustomType] = useState('')
+  const buildings = useRef<any[]>([])
+  const imageRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const [detailId, setDetailId] = useState<string | number | null>(null)
@@ -64,7 +69,7 @@ export default function Units() {
     load()
     listBuildings({ page: 1, per_page: 200 }).then((res: any) => {
       const list = Array.isArray(res) ? res : (res?.data || [])
-      setBuildings(list)
+      buildings.current = list
     }).catch(() => { })
   }, [page])
 
@@ -80,6 +85,9 @@ export default function Units() {
     setUnitType('studio')
     setStatus('vacant')
     setDescription('')
+    setImageUrl('')
+    setIsOtherType(false)
+    setCustomType('')
     setShowForm(true)
   }
 
@@ -92,16 +100,28 @@ export default function Units() {
     setBathrooms(u.bathrooms ?? '')
     setSizeSqm(u.size_sqm ?? '')
     setRentPrice(u.rent_price ?? '')
-    setUnitType(u.type?.toUpperCase() ?? 'STUDIO')
+    const actType = u.type?.toUpperCase() ?? 'STUDIO'
+    const isBuiltIn = UNIT_TYPES.find(t => t.value === actType)
+    if (!isBuiltIn) {
+      setUnitType('OTHER')
+      setIsOtherType(true)
+      setCustomType(u.type || '')
+    } else {
+      setUnitType(actType)
+      setIsOtherType(false)
+      setCustomType('')
+    }
     setStatus(u.status?.toUpperCase() ?? 'VACANT')
     setDescription(u.description ?? '')
+    setImageUrl(u.image_url ?? '')
     setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const dto: any = { unit_number: unitNumber, buildingId, floor, bedrooms, bathrooms, size_sqm: sizeSqm, type: unitType, status }
+      const finalType = isOtherType && customType ? customType : unitType
+      const dto: any = { unit_number: unitNumber, buildingId, floor, bedrooms, bathrooms, size_sqm: sizeSqm, type: finalType, status }
       if (rentPrice !== '') dto.rent_price = rentPrice
       if (description) dto.description = description
       if (editing) {
@@ -116,6 +136,20 @@ export default function Units() {
     } catch (err: any) {
       console.error('submit unit', err)
       alert(err?.response?.data?.message || 'Operation failed')
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/upload/image', fd)
+      if (res.data?.path) setImageUrl(res.data.path)
+    } catch (err) {
+      console.error('image upload failed', err)
+      alert('Image upload failed')
     }
   }
 
@@ -225,14 +259,26 @@ export default function Units() {
               <label className="form-label">Building</label>
               <select value={buildingId} onChange={e => setBuildingId(e.target.value)} className="form-select" required>
                 <option value="">Select building</option>
-                {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
+                {buildings.current.map((b: any) => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
               </select>
             </div>
-            <div>
-              <label className="form-label">Type</label>
-              <select value={unitType} onChange={e => setUnitType(e.target.value)} className="form-select" required>
-                {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+            <div className="flex gap-2 w-full">
+              <div className="flex-1">
+                <label className="form-label">Type</label>
+                <select value={unitType} onChange={e => {
+                  setUnitType(e.target.value)
+                  setIsOtherType(e.target.value === 'OTHER')
+                }} className="form-select" required>
+                  {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  <option value="OTHER">Other...</option>
+                </select>
+              </div>
+              {isOtherType && (
+                <div className="flex-1">
+                  <label className="form-label">Custom Type</label>
+                  <input value={customType} onChange={e => setCustomType(e.target.value)} className="form-input" required placeholder="Custom type" />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div>
@@ -265,6 +311,16 @@ export default function Units() {
             <div>
               <label className="form-label">Description</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} className="form-input h-20 pt-2" />
+            </div>
+            <div>
+              <label className="form-label">Image</label>
+              <div className="flex gap-2">
+                <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                <button type="button" className="button-secondary text-xs" onClick={() => imageRef.current?.click()}>
+                  Upload Image
+                </button>
+                {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="Preview" className="h-10 w-10 object-cover rounded" />}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
@@ -341,6 +397,12 @@ export default function Units() {
                 <p><strong>Bathrooms:</strong> {detail.bathrooms}</p>
                 <p><strong>Area (sqm):</strong> {detail.area_sqm}</p>
                 <p><strong>Rent:</strong> {detail.rent}</p>
+                {detail.image_url && (
+                  <div className="mt-3">
+                    <p className="font-medium mb-1">Image:</p>
+                    <img src={`http://localhost:3000${detail.image_url}`} alt="Unit" className="max-h-48 rounded shadow-sm border" />
+                  </div>
+                )}
                 <hr className="my-3" />
                 <h4 className="font-medium">Amenities</h4>
                 {amenities.length === 0 && <div className="muted">No amenities</div>}

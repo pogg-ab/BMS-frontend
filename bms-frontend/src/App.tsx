@@ -25,6 +25,7 @@ import Visitors from './pages/Visitors'
 import Utilities from './pages/Utilities'
 import Automations from './pages/Automations'
 import Notifications from './pages/Notifications'
+import PublicBuildingView from './pages/PublicBuildingView'
 import { LayoutProvider, useLayout } from './contexts/LayoutContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 
@@ -60,6 +61,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/public/building/:token" element={<PublicBuildingView />} />
       <Route element={<AuthLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/units" element={<Units />} />

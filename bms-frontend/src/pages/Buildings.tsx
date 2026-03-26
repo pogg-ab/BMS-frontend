@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { listBuildings, createBuilding, getBuilding, updateBuilding, deleteBuilding, listAmenities, assignAdmin, listAdmins, revokeAdmin } from '../api/buildings'
+import api from '../api/axios'
 
 type Building = {
   id: number | string
@@ -11,6 +12,7 @@ type Building = {
   type?: string
   units_count?: number
   is_active?: boolean
+  image_url?: string
 }
 
 export default function Buildings() {
@@ -26,6 +28,8 @@ export default function Buildings() {
   const [siteId, setSiteId] = useState<string>('')
   const [ownerId, setOwnerId] = useState<string>('')
   const [type, setType] = useState<string>('residential') // default enum value
+  const [imageUrl, setImageUrl] = useState<string>('')
+  const imageRef = useRef<HTMLInputElement | null>(null)
 
   // For dropdowns
   const [sites, setSites] = useState<any[]>([])
@@ -74,6 +78,7 @@ export default function Buildings() {
     setSiteId('')
     setOwnerId('')
     setType('residential')
+    setImageUrl('')
     setShowForm(true)
   }
 
@@ -85,13 +90,15 @@ export default function Buildings() {
     setSiteId(b.siteId || (b as any).site_id || '')
     setOwnerId(b.ownerId || (b as any).owner_id || '')
     setType(b.type || 'residential')
+    setImageUrl(b.image_url || '')
     setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const payload = { name, code, address, siteId, ownerId, type }
+      const payload: any = { name, code, address, siteId, ownerId, type }
+      if (imageUrl) payload.image_url = imageUrl
       if (editing) {
         await updateBuilding(editing.id, payload)
         alert('Building updated')
@@ -105,6 +112,20 @@ export default function Buildings() {
       console.error('submit building', err)
       const msg = err?.response?.data?.message
       alert(Array.isArray(msg) ? msg.join(',') : (msg || 'Operation failed'))
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/upload/image', fd)
+      if (res.data?.path) setImageUrl(res.data.path)
+    } catch (err) {
+      console.error('image upload failed', err)
+      alert('Image upload failed')
     }
   }
 
@@ -209,6 +230,16 @@ export default function Buildings() {
                 <label className="form-label">Address</label>
                 <input required value={address} onChange={e => setAddress(e.target.value)} className="form-input" />
               </div>
+              <div>
+                <label className="form-label">Image</label>
+                <div className="flex gap-2">
+                  <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                  <button type="button" className="button-secondary text-xs" onClick={() => imageRef.current?.click()}>
+                    Upload Image
+                  </button>
+                  {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="Preview" className="h-10 w-10 object-cover rounded" />}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
               <button className="button" type="submit">{editing ? 'Save Changes' : 'Create Building'}</button>
@@ -274,6 +305,12 @@ export default function Buildings() {
                 <p><strong>Site:</strong> {detail.site?.name || detail.site_id || '-'}</p>
                 <p><strong>Floors:</strong> {detail.floors}</p>
                 <p><strong>Units count:</strong> {detail.units_count}</p>
+                {detail.image_url && (
+                  <div className="mt-3">
+                    <p className="font-medium mb-1">Image:</p>
+                    <img src={`http://localhost:3000${detail.image_url}`} alt="Building" className="max-h-48 rounded shadow-sm border" />
+                  </div>
+                )}
                 <hr className="my-3" />
                 <h4 className="font-medium">Amenities</h4>
                 {amenities.length === 0 && <div className="muted">No amenities</div>}

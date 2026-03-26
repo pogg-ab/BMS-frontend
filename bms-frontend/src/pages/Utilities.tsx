@@ -22,6 +22,7 @@ export default function Utilities() {
     model: '',
     unit_id: '' as any,
     installation_date: '',
+    unit_price: '',
   })
 
   const [readingForm, setReadingForm] = useState({
@@ -76,6 +77,7 @@ export default function Utilities() {
         status: m.status || null,
         metadata: m.metadata || {},
         last_reading_at: m.last_reading_at || m.last_read || null,
+        unit_price: m.unit_price || null,
       }))
       setMeters(normalized)
     } catch (err: any) {
@@ -107,14 +109,16 @@ export default function Utilities() {
   async function handleCreateMeter(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const payload = {
+      const payload: any = {
         serial_no: meterForm.serial_number,
         type: meterForm.meter_type,
         unit_id: String(meterForm.unit_id),
       }
+      if (meterForm.unit_price) payload.unit_price = parseFloat(meterForm.unit_price)
+
       await utilitiesApi.createMeter(payload)
       toast.addToast('Meter created', 'success')
-      setMeterForm({ serial_number: '', meter_type: 'electric', manufacturer: '', model: '', unit_id: '', installation_date: '' })
+      setMeterForm({ serial_number: '', meter_type: 'electric', manufacturer: '', model: '', unit_id: '', installation_date: '', unit_price: '' })
       loadMeters()
     } catch (err: any) {
       toast.addToast('Failed to create meter', 'error')
@@ -184,6 +188,10 @@ export default function Utilities() {
                 <input type="date" value={meterForm.installation_date} onChange={e => setMeterForm({ ...meterForm, installation_date: e.target.value })} className="w-full p-2 border rounded" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
+                <input type="number" step="0.01" value={meterForm.unit_price} onChange={e => setMeterForm({ ...meterForm, unit_price: e.target.value })} placeholder="e.g. 1.50" className="w-full p-2 border rounded" />
+              </div>
+              <div>
                 <button className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium" type="submit">Create Meter</button>
               </div>
             </form>
@@ -208,7 +216,7 @@ export default function Utilities() {
               <div key={m.id} className="p-2 border rounded bg-white dark:bg-slate-800/5 flex justify-between items-center">
                 <div>
                   <div className="font-medium">{m.serial_number} — {m.meter_type}</div>
-                  <div className="text-sm text-gray-400">Unit: {m.unit_id ?? '—'} · {m.manufacturer} {m.model}</div>
+                  <div className="text-sm text-gray-400">Unit: {m.unit_id ?? '—'} · {m.manufacturer} {m.model} {m.unit_price ? `· Price: $${m.unit_price}` : ''}</div>
                 </div>
                 <div className="text-sm text-gray-300">{m.last_reading_at ? new Date(m.last_reading_at).toLocaleString() : ''}</div>
               </div>

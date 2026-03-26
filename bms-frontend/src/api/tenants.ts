@@ -7,6 +7,13 @@ export interface TenantRegisterDTO {
   password: string
   phone?: string
   preferred_unit_id?: number | string
+  tenant_type?: string
+  id_image?: string
+  detailed_address?: string
+  license_image?: string
+  profile_image?: string
+  tin_number?: string
+  vat_reg_number?: string
 }
 
 export function listTenants(params?: any) {

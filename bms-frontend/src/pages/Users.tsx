@@ -20,6 +20,7 @@ export default function Users() {
   const [roles, setRoles] = useState<any[]>([])
   const [assignRoleUserId, setAssignRoleUserId] = useState<string | number>('')
   const [assignRoleRoleId, setAssignRoleRoleId] = useState<string>('')
+  const [tab, setTab] = useState<'active' | 'deactivated'>('active')
 
   // form state (shared for create/edit)
   const [name, setName] = useState('')
@@ -139,30 +140,19 @@ export default function Users() {
   }
 
   async function handleDelete(id: string | number) {
-    if (!confirm('Delete this user? This action cannot be undone.')) return
+    if (!confirm('Deactivate this user? They can be reactivated later from the Deactivated tab.')) return
     try {
-      const res = await deleteUser(id)
-      console.log('delete response', res)
-      alert('User deleted')
+      await updateUser(id, { status: 'INACTIVE' })
+      alert('User deactivated')
       load()
     } catch (e: any) {
-      console.error('delete error', e)
-      const status = e?.response?.status
-      const msg = e?.response?.data?.message || e?.message || 'Failed to delete user'
-      // fallback: if delete not allowed, mark user inactive as a safe fallback
-      if (status === 405 || status === 501 || status === 404) {
-        try {
-          await updateUser(id, { status: 'INACTIVE' })
-          alert('User marked inactive (delete not supported)')
-          load()
-          return
-        } catch (e2: any) {
-          console.error('fallback update error', e2)
-        }
-      }
-      alert(msg)
+      alert(e?.response?.data?.message || 'Failed to deactivate user')
     }
   }
+
+  const activeUsers = users.filter(u => u.is_active)
+  const deactivatedUsers = users.filter(u => !u.is_active)
+  const displayedUsers = tab === 'active' ? activeUsers : deactivatedUsers
 
   return (
     <div className="container">
@@ -174,6 +164,22 @@ export default function Users() {
         <div>
           <button className="button" onClick={openCreate}>Create User</button>
         </div>
+      </div>
+
+      {/* Active / Deactivated Tabs */}
+      <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setTab('active')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${tab === 'active' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Active ({activeUsers.length})
+        </button>
+        <button
+          onClick={() => setTab('deactivated')}
+          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${tab === 'deactivated' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Deactivated ({deactivatedUsers.length})
+        </button>
       </div>
 
       {showCreate && (
@@ -213,8 +219,12 @@ export default function Users() {
 
       <div className="card">
         {loading && <div className="py-12 flex justify-center text-slate-500">Loading users...</div>}
-        {!loading && users.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No users found</div>}
-        {!loading && users.length > 0 && (
+        {!loading && displayedUsers.length === 0 && (
+          <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">
+            {tab === 'active' ? 'No active users found' : 'No deactivated users'}
+          </div>
+        )}
+        {!loading && displayedUsers.length > 0 && (
           <div className="table-container">
             <table className="w-full text-sm text-left whitespace-nowrap">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
@@ -227,7 +237,7 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {users.map((u) => (
+                {displayedUsers.map((u) => (
                   <tr key={String(u.id)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-600">{u.email || '-'}</td>
@@ -248,9 +258,8 @@ export default function Users() {
                       {u.is_active ? (
                         <button className="text-amber-600 hover:text-amber-900 font-medium text-xs px-2" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
                       ) : (
-                        <button className="text-emerald-600 hover:text-emerald-900 font-medium text-xs px-2" onClick={() => handleActivate(u.id)}>Activate</button>
+                        <button className="text-emerald-600 hover:text-emerald-900 font-medium text-xs px-2" onClick={() => handleActivate(u.id)}>Reactivate</button>
                       )}
-                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs px-2" onClick={() => handleDelete(u.id)}>Delete</button>
                       <button className="text-slate-600 hover:text-slate-900 dark:text-white font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2" onClick={() => { setAssignRoleUserId(u.id); setAssignRoleRoleId('') }}>Role</button>
                     </td>
                   </tr>

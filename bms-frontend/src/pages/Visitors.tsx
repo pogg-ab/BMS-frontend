@@ -3,7 +3,7 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import {
   FiUser, FiPhone, FiMapPin, FiPlus, FiTrash2, 
-  FiLogOut, FiEdit2, FiSearch, FiInfo, FiActivity, FiClock
+  FiLogOut, FiEdit2, FiSearch, FiInfo, FiActivity, FiClock, FiHome
 } from 'react-icons/fi'
 import {
   createVisitor,
@@ -15,6 +15,8 @@ import {
 } from '../api/visitors'
 import { listUsers } from '../api/users'
 import { listSites } from '../api/sites'
+import { listBuildings } from '../api/buildings'
+import { listUnits } from '../api/units'
 
 export default function Visitors() {
   const toast = useToast()
@@ -34,9 +36,15 @@ export default function Visitors() {
   const [siteId, setSiteId] = useState('')
   const [notes, setNotes] = useState('')
 
+  const [buildingId, setBuildingId] = useState('')
+  const [unitId, setUnitId] = useState('')
+
   // Lookups
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [allSites, setAllSites] = useState<any[]>([])
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
+  const [siteBuildings, setSiteBuildings] = useState<any[]>([])
+  const [buildingUnits, setBuildingUnits] = useState<any[]>([])
   const [querySiteId, setQuerySiteId] = useState('')
 
   useEffect(() => {
@@ -51,8 +59,34 @@ export default function Visitors() {
       
       const sitesRes: any = await listSites({ page: 1, per_page: 200 })
       setAllSites(Array.isArray(sitesRes) ? sitesRes : (sitesRes?.data || []))
+
+      const buildingsRes: any = await listBuildings({ page: 1, per_page: 500 })
+      setAllBuildings(Array.isArray(buildingsRes) ? buildingsRes : (buildingsRes?.data || []))
     } catch (e) { console.error('loadLookups', e) }
   }
+
+  useEffect(() => {
+    if (siteId) {
+      setSiteBuildings(allBuildings.filter(b => String(b.site_id || b.siteId) === String(siteId)))
+      setBuildingId('')
+      setUnitId('')
+    } else {
+      setSiteBuildings([])
+    }
+  }, [siteId, allBuildings])
+
+  useEffect(() => {
+    if (buildingId) {
+      listUnits({ building_id: buildingId, page: 1, per_page: 500 })
+        .then((res: any) => {
+          setBuildingUnits(Array.isArray(res) ? res : (res?.data || []))
+        })
+        .catch(() => setBuildingUnits([]))
+      setUnitId('')
+    } else {
+      setBuildingUnits([])
+    }
+  }, [buildingId])
 
   async function loadVisitors() {
     setLoading(true)
@@ -77,6 +111,7 @@ export default function Visitors() {
         host_user_id: hostUserId || undefined,
         vehicle_number: vehicleNumber,
         site_id: siteId,
+        unit_id: unitId || undefined,
         notes 
       }
       
@@ -97,7 +132,7 @@ export default function Visitors() {
 
   function resetForm() {
     setName(''); setPhone(''); setIdNumber(''); setPurpose('')
-    setHostUserId(''); setVehicleNumber(''); setSiteId(''); setNotes('')
+    setHostUserId(''); setVehicleNumber(''); setSiteId(''); setBuildingId(''); setUnitId(''); setNotes('')
     setEditing(null)
     setShowForm(false)
   }
@@ -111,6 +146,9 @@ export default function Visitors() {
     setHostUserId(String(v.host_user_id || ''))
     setVehicleNumber(v.vehicle_number || '')
     setSiteId(String(v.site_id || ''))
+    // Wait for effect to load units? Yes, or just set it manually if we delay.
+    // For simplicity, just set unit_id if present
+    if (v.unit_id) setUnitId(String(v.unit_id))
     setNotes(v.notes || '')
     setShowForm(true)
   }
@@ -182,6 +220,26 @@ export default function Visitors() {
                     <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required value={siteId} onChange={e => setSiteId(e.target.value)}>
                       <option value="">Select Site</option>
                       {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Building (Optional)</label>
+                  <div className="relative">
+                    <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" disabled={!siteId} value={buildingId} onChange={e => setBuildingId(e.target.value)}>
+                      <option value="">Select Building</option>
+                      {siteBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Unit (Optional)</label>
+                  <div className="relative">
+                    <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" disabled={!buildingId} value={unitId} onChange={e => setUnitId(e.target.value)}>
+                      <option value="">Select Unit</option>
+                      {buildingUnits.map(u => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
                     </select>
                   </div>
                 </div>
@@ -260,7 +318,8 @@ export default function Visitors() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-xs">
-                        {allSites.find((s: any) => String(s.id) === String(v.site_id))?.name || v.site_id || '-'}
+                        <div className="font-semibold">{allSites.find((s: any) => String(s.id) === String(v.site_id))?.name || v.site_id || '-'}</div>
+                        {v.unit_id && <div className="text-[10px] text-slate-400 mt-0.5">Unit ID: {v.unit_id}</div>}
                       </td>
                       <td className="px-6 py-4 text-slate-600">
                         <span className="truncate max-w-[150px] inline-block" title={v.purpose}>{v.purpose || '-'}</span>

@@ -13,8 +13,9 @@ import {
   sendMessage,
   getMessages,
   createApplication,
-
 } from '../api/tenants'
+import api from '../api/axios'
+
 import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
@@ -37,6 +38,18 @@ export default function Tenants() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
+
+  const [tenantType, setTenantType] = useState('personal')
+  const [idImage, setIdImage] = useState('')
+  const [detailedAddress, setDetailedAddress] = useState('')
+  const [licenseImage, setLicenseImage] = useState('')
+  const [tinNumber, setTinNumber] = useState('')
+  const [vatRegNumber, setVatRegNumber] = useState('')
+  const [profileImage, setProfileImage] = useState('')
+
+  const idImageRef = useRef<HTMLInputElement>(null)
+  const licenseImageRef = useRef<HTMLInputElement>(null)
+  const profileImageRef = useRef<HTMLInputElement>(null)
 
   const [detailTenant, setDetailTenant] = useState<Tenant | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -86,14 +99,38 @@ export default function Tenants() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await registerTenant({ first_name: firstName, last_name: lastName, email, password, phone })
+      const payload: any = { first_name: firstName, last_name: lastName, email, password, phone, tenant_type: tenantType }
+      if (tenantType === 'personal') {
+        if (idImage) payload.id_image = idImage
+        if (detailedAddress) payload.detailed_address = detailedAddress
+      } else {
+        if (licenseImage) payload.license_image = licenseImage
+        if (profileImage) payload.profile_image = profileImage
+        if (tinNumber) payload.tin_number = tinNumber
+        if (vatRegNumber) payload.vat_reg_number = vatRegNumber
+        if (detailedAddress) payload.detailed_address = detailedAddress
+      }
+      await registerTenant(payload)
       toast.addToast('Registered', 'success')
       setShowRegister(false)
-      setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setPhone('')
+      setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setPhone(''); setIdImage(''); setDetailedAddress(''); setLicenseImage(''); setTinNumber(''); setVatRegNumber(''); setProfileImage(''); setTenantType('personal')
       load()
     } catch (err: any) {
       console.error(err)
       toast.addToast(err?.response?.data?.message || 'Register failed', 'error')
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, setter: (s: string) => void) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/upload/image', fd)
+      if (res.data?.path) setter(res.data.path)
+    } catch {
+      toast.addToast('Image upload failed', 'error')
     }
   }
 
@@ -636,7 +673,64 @@ export default function Tenants() {
                   <label className="form-label">Phone Number</label>
                   <input required placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="form-input" />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div>
+                  <label className="form-label">Tenant Type</label>
+                  <select value={tenantType} onChange={e => setTenantType(e.target.value)} className="form-select">
+                    <option value="personal">Personal</option>
+                    <option value="organizational">Organizational</option>
+                  </select>
+                </div>
+                {tenantType === 'personal' && (
+                  <>
+                    <div>
+                      <label className="form-label">Detailed Address</label>
+                      <input placeholder="Detailed Address" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="form-input" />
+                    </div>
+                    <div>
+                      <label className="form-label">ID / Passport Image</label>
+                      <div className="flex items-center gap-2">
+                        <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
+                        <button type="button" onClick={() => idImageRef.current?.click()} className="button-secondary text-xs">Upload ID</button>
+                        {idImage && <img src={`http://localhost:3000${idImage}`} alt="ID Preview" className="h-8 w-8 object-cover rounded" />}
+                      </div>
+                    </div>
+                  </>
+                )}
+                {tenantType === 'organizational' && (
+                  <>
+                    <div>
+                      <label className="form-label">Organized Address</label>
+                      <input placeholder="Detailed Address" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="form-input" />
+                    </div>
+                    <div>
+                      <label className="form-label">TIN Number</label>
+                      <input placeholder="TIN Number" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="form-input" />
+                    </div>
+                    <div>
+                      <label className="form-label">VAT Reg Number</label>
+                      <input placeholder="VAT Registration" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="form-input" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="form-label">License Image</label>
+                        <div className="flex items-center gap-2">
+                          <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
+                          <button type="button" onClick={() => licenseImageRef.current?.click()} className="button-secondary text-xs">Upload License</button>
+                          {licenseImage && <img src={`http://localhost:3000${licenseImage}`} alt="License" className="h-8 w-8 object-cover rounded" />}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="form-label">Profile Image</label>
+                        <div className="flex items-center gap-2">
+                          <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
+                          <button type="button" onClick={() => profileImageRef.current?.click()} className="button-secondary text-xs">Upload Profile</button>
+                          {profileImage && <img src={`http://localhost:3000${profileImage}`} alt="Profile" className="h-8 w-8 object-cover rounded" />}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
                   <button type="button" onClick={() => setShowRegister(false)} className="px-3 py-2 border rounded">Cancel</button>
                   <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Register</button>
                 </div>

@@ -7,6 +7,11 @@ export async function generateQr(unitId: string) {
   return res.data
 }
 
+export async function generateBuildingQr(buildingId: string) {
+  const res = await api.post(`/qr/generate-building/${buildingId}`)
+  return res.data
+}
+
 export function getQrPngUrl(token: string) {
   return `${BASE}/qr/${token}/png`
 }
