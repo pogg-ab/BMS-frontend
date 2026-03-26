@@ -171,7 +171,7 @@ export default function Roles() {
       subtitle="Manage roles, permissions, and system access policies."
       actions={
         activeTab === 'roles' && (
-          <button onClick={openCreateRole} className="flex items-center gap-2 bg-white text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-sm">
+          <button onClick={openCreateRole} className="flex items-center gap-2 bg-white dark:bg-slate-800 text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-sm">
             <Plus size={18} /> New Role
           </button>
         )
@@ -197,7 +197,7 @@ export default function Roles() {
       </div>
 
       {showRoleForm && activeTab === 'roles' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">{editingRole ? 'Update Role' : 'Create New Role'}</h3>
           <form onSubmit={handleRoleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -217,7 +217,7 @@ export default function Roles() {
               <textarea value={roleDescription} onChange={e => setRoleDescription(e.target.value)} rows={2} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
             </div>
             <div className="md:col-span-3 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowRoleForm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={() => setShowRoleForm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-slate-800 border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-slate-900">Cancel</button>
               <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">
                 {editingRole ? 'Save Changes' : 'Create Role'}
               </button>
@@ -228,7 +228,7 @@ export default function Roles() {
 
       {/* ROLES TAB */}
       {activeTab === 'roles' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-gray-500">Loading roles...</div>
           ) : roles.length === 0 ? (
@@ -236,7 +236,7 @@ export default function Roles() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-slate-900">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role Name</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Scope</th>
@@ -245,11 +245,11 @@ export default function Roles() {
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200">
                   {roles.map(r => {
                     const isProtected = r.name === 'super_admin'
                     return (
-                      <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={r.id} className="hover:bg-gray-50 dark:bg-slate-900 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {isProtected && <ShieldCheck size={16} className="text-yellow-500" />}
@@ -289,19 +289,19 @@ export default function Roles() {
       {/* GET/MANAGE PERMISSIONS MODAL */}
       {manageRoleId && activeTab === 'roles' && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">Manage Role Permissions</h3>
               <span className="text-sm px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">Selected: {selectedPermIds.length}</span>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-slate-900">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {permissions.map(p => (
-                  <label key={p.id || p.code} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPermIds.includes(p.id || p.code) ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200 hover:border-blue-300'}`}>
+                  <label key={p.id || p.code} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPermIds.includes(p.id || p.code) ? 'bg-blue-50 border-blue-200' : 'bg-white dark:bg-slate-800 border-gray-200 hover:border-blue-300'}`}>
                     <input 
                       type="checkbox" 
-                      className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                       checked={selectedPermIds.includes(p.id || p.code)} 
                       onChange={() => togglePermissionSelection(p.id || p.code)} 
                     />
@@ -314,8 +314,8 @@ export default function Roles() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-white rounded-b-xl">
-              <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50" onClick={() => setManageRoleId(null)}>Cancel</button>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-white dark:bg-slate-800 rounded-b-xl">
+              <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-slate-800 border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-slate-900" onClick={() => setManageRoleId(null)}>Cancel</button>
               <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm" onClick={saveRolePermissions}>Save Permissions</button>
             </div>
           </div>
@@ -325,7 +325,7 @@ export default function Roles() {
       {/* PERMISSIONS TAB */}
       {activeTab === 'permissions' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Plus size={20} className="text-blue-600"/> Create Permission</h3>
             <form onSubmit={handleCreatePermission} className="flex gap-4 items-end">
               <div className="flex-1">
@@ -342,21 +342,21 @@ export default function Roles() {
             </form>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {permissions.length === 0 ? (
               <div className="p-10 text-center text-gray-500">No permissions registered yet</div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-slate-900">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200">
                   {permissions.map(p => (
-                    <tr key={p.id || p.code} className="hover:bg-gray-50">
+                    <tr key={p.id || p.code} className="hover:bg-gray-50 dark:bg-slate-900">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{p.code || p.id}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{p.description || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

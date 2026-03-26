@@ -65,6 +65,25 @@ export default function NavBar() {
     return item.permission ? userPermissions.includes(item.permission as string) : false
   })
 
+  // Redirect unauthorized users from Dashboard or Reports to Profile
+  React.useEffect(() => {
+    const isUnauthorizedPath = (path: string) => {
+      const item = NAV_ITEMS.find(i => i.to === path)
+      if (!item) return false
+      if (isSuperAdmin) return false
+      
+      const hasRole = (item as any).roles?.some((r: string) => userRoles.includes(r))
+      const hasPermission = item.permission && userPermissions.includes(item.permission as string)
+      const hasPermissions = (item as any).permissions?.some((p: string) => userPermissions.includes(p))
+      
+      return !(hasRole || hasPermission || hasPermissions)
+    }
+
+    if ((location.pathname === '/' || location.pathname === '/reports' || location.pathname === '/automations') && isUnauthorizedPath(location.pathname)) {
+      navigate('/profile')
+    }
+  }, [location.pathname, userPermissions, userRoles, isSuperAdmin, navigate])
+
   return (
     <div className={`fixed inset-y-0 left-0 bg-slate-900 shadow-xl flex flex-col z-50 transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
 

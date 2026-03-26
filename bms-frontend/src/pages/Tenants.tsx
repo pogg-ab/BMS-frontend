@@ -321,11 +321,11 @@ export default function Tenants() {
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
 
             {/* Tenants table (left / main) */}
-            <div className="xl:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
-              <h3 className="font-bold text-lg text-slate-800 mb-4">Active Tenants</h3>
-              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+            <div className="xl:col-span-3 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">Active Tenants</h3>
+              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th className="px-6 py-4 font-medium tracking-wider">Name</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Email</th>
@@ -333,13 +333,13 @@ export default function Tenants() {
                       <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                     {tenants.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                        <td className="px-6 py-4 font-medium text-slate-900">{t.first_name || t.name}</td>
+                      <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{t.first_name || t.name}</td>
                         <td className="px-6 py-4 text-slate-600">{t.email}</td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                             {t.status || '-'}
                           </span>
                         </td>
@@ -358,8 +358,8 @@ export default function Tenants() {
             {/* Admin actions card (right) */}
             <aside className="xl:col-span-1 space-y-6">
 
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
-                <h3 className="font-bold text-slate-800 mb-4">Communications</h3>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4">Communications</h3>
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Select tenant</label>
@@ -379,7 +379,7 @@ export default function Tenants() {
                   <textarea placeholder="Body" value={msgBody} onChange={e => setMsgBody(e.target.value)} className="w-full p-2 border rounded mb-2" />
                   <div className="flex gap-2">
                     <button type="submit" className="flex-1 px-3 py-2 bg-blue-600 text-white rounded">Send</button>
-                    <button type="button" onClick={handleGetMessages} className="px-3 py-2 bg-white border rounded">Load</button>
+                    <button type="button" onClick={handleGetMessages} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded">Load</button>
                   </div>
                 </form>
 
@@ -402,33 +402,55 @@ export default function Tenants() {
               </div>
 
               {/* Announcements accordion (moved below messages) */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-                <button type="button" onClick={() => { setOpenAnnouncements(s => !s); if (!openAnnouncements) handleListAnnouncements() }} className="w-full text-left p-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors">
-                  <span className="font-bold text-slate-800">Announcements</span>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 overflow-hidden">
+                <button type="button" onClick={() => { setOpenAnnouncements(s => !s); if (!openAnnouncements) handleListAnnouncements() }} className="w-full text-left p-4 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 flex items-center justify-between transition-colors">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Announcements</span>
                   <span className="text-xl text-slate-400 font-light leading-none">{openAnnouncements ? '−' : '+'}</span>
                 </button>
                 {openAnnouncements && (
                   <div className="p-3">
                     <form onSubmit={handleCreateAnnouncement} className="mb-3">
-                      <label className="block text-sm text-gray-600 mb-1">Announcement</label>
-                      <input placeholder="Title" value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                      <textarea placeholder="Message" value={announceMessage} onChange={e => setAnnounceMessage(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                      <div className="flex gap-2 mb-2">
-                        <select value={announceTarget} onChange={e => setAnnounceTarget(e.target.value)} className="p-2 border rounded">
-                          <option value="all">All</option>
-                          <option value="site">Site</option>
-                          <option value="building">Building</option>
-                        </select>
-                        <select value={announceBuildingId as string} onChange={e => setAnnounceBuildingId(e.target.value)} className="p-2 border rounded flex-1">
-                          <option value="">Building (optional)</option>
-                          {buildings.map(b => (<option key={b.id} value={String(b.id)}>{b.name || b.title || b.id}</option>))}
-                        </select>
-                        <select value={announceSiteId as string} onChange={e => setAnnounceSiteId(e.target.value)} className="p-2 border rounded flex-1">
-                          <option value="">Site (optional)</option>
-                          {sites.map(s => (<option key={s.id} value={String(s.id)}>{s.name || s.title || s.id}</option>))}
-                        </select>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="form-label">Announcement Title</label>
+                          <input value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} placeholder="Title" className="form-input" required />
+                        </div>
+                        <div>
+                          <label className="form-label">Target Audience</label>
+                          <select value={announceTarget} onChange={e => setAnnounceTarget(e.target.value)} className="form-select">
+                            <option value="all">All Users</option>
+                            <option value="tenants">All Tenants</option>
+                            <option value="contractors">All Contractors</option>
+                            <option value="site">Specific Site</option>
+                            <option value="building">Specific Building</option>
+                          </select>
+                        </div>
+                        {announceTarget === 'site' && (
+                          <div>
+                            <label className="form-label">Select Site</label>
+                            <select value={announceSiteId as string} onChange={e => setAnnounceSiteId(e.target.value)} className="form-select">
+                              <option value="">-- select site --</option>
+                              {sites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.title || s.id}</option>)}
+                            </select>
+                          </div>
+                        )}
+                        {announceTarget === 'building' && (
+                          <div>
+                            <label className="form-label">Select Building</label>
+                            <select value={announceBuildingId as string} onChange={e => setAnnounceBuildingId(e.target.value)} className="form-select">
+                              <option value="">-- select building --</option>
+                              {buildings.map(b => (
+                                <option key={b.id} value={String(b.id)}>{b.name || b.title || b.id}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        <div>
+                          <label className="form-label">Message Content</label>
+                          <textarea value={announceMessage} onChange={e => setAnnounceMessage(e.target.value)} placeholder="Message content..." className="form-input h-24 pt-2" required />
+                        </div>
+                        <button type="submit" className="button w-full">Broadcast Announcement</button>
                       </div>
-                      <button type="submit" className="w-full px-3 py-2 bg-indigo-600 text-white rounded">Create</button>
                     </form>
 
                     {adminAnnouncements.length > 0 && (
@@ -449,10 +471,10 @@ export default function Tenants() {
             </aside>
 
             {/* Documents (separate card) */}
-            <div className="md:col-span-3 bg-white p-4 rounded shadow-sm mb-4">
+            <div className="md:col-span-3 bg-white dark:bg-slate-800 p-4 rounded shadow-sm mb-4">
               <h3 className="font-semibold mb-3">Documents</h3>
               <div className="mb-3">
-                <button onClick={handleListDocs} className="px-3 py-2 bg-white border rounded hover:bg-gray-50">List Documents</button>
+                <button onClick={handleListDocs} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded hover:bg-gray-50 dark:bg-slate-900">List Documents</button>
               </div>
               <div className="mb-3">
                 <label className="block text-sm text-gray-600 mb-1">Select tenant</label>
@@ -510,10 +532,10 @@ export default function Tenants() {
             </div>
 
             {/* Applications (separate card) */}
-            <div className="md:col-span-3 bg-white p-4 rounded shadow-sm">
+            <div className="md:col-span-3 bg-white dark:bg-slate-800 p-4 rounded shadow-sm">
               <h3 className="font-semibold mb-3">Applications</h3>
               <div className="mb-3">
-                <button onClick={handleListPendingApps} className="px-3 py-2 bg-white border rounded hover:bg-gray-50">List pending applications</button>
+                <button onClick={handleListPendingApps} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded hover:bg-gray-50 dark:bg-slate-900">List pending applications</button>
               </div>
               <div>
                 {applications.length > 0 ? (
@@ -531,18 +553,18 @@ export default function Tenants() {
               <div className="mt-4">
                 <h4 className="font-medium mb-2">Create Application</h4>
                 <form onSubmit={handleCreateApplication}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">Select tenant</label>
-                      <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="w-full p-2 border rounded">
+                      <label className="form-label">Select tenant</label>
+                      <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="form-select">
                         <option value="">-- select tenant --</option>
                         {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name} ({t.email})</option>))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">Building</label>
+                      <label className="form-label">Building</label>
                       <div className="flex gap-2">
-                        <select value={appBuildingId as string} onChange={e => setAppBuildingId(e.target.value)} className="flex-1 p-2 border rounded">
+                        <select value={appBuildingId as string} onChange={e => setAppBuildingId(e.target.value)} className="form-select flex-1">
                           <option value="">-- optional --</option>
                           {buildings.map(b => (<option key={b.id} value={String(b.id)}>{b.name || b.title || b.id}</option>))}
                         </select>
@@ -553,15 +575,15 @@ export default function Tenants() {
                             console.debug('loaded units (manual):', list)
                             setUnits(list)
                           } catch (err) { console.error('failed load units (manual)', err); toast.addToast('Failed to load units', 'error') }
-                        }} className="px-3 py-2 bg-white border rounded">Load units</button>
+                        }} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded">Load units</button>
                       </div>
                       {appBuildingId && units.length === 0 && (
                         <div className="text-xs text-gray-500 mt-1">No units found for selected building (try "Load units")</div>
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">Unit</label>
-                      <select value={appUnitId} onChange={e => setAppUnitId(e.target.value)} className="w-full p-2 border rounded">
+                      <label className="form-label">Unit</label>
+                      <select value={appUnitId} onChange={e => setAppUnitId(e.target.value)} className="form-select">
                         <option value="">-- optional --</option>
                         {units.map(u => {
                           const status = (u.status || '').toString()
@@ -572,13 +594,16 @@ export default function Tenants() {
                       </select>
                       <div className="text-xs text-gray-500 mt-1">Occupied units are disabled in the list.</div>
                     </div>
+                    <div>
+                      <label className="form-label">Move-in date</label>
+                      <input type="date" value={appMoveInDate} onChange={e => setAppMoveInDate(e.target.value)} className="form-input" />
+                    </div>
+                    <div>
+                      <label className="form-label">Additional Details</label>
+                      <textarea placeholder="Details (optional)" value={appBody} onChange={e => setAppBody(e.target.value)} className="form-input h-24 pt-2" />
+                    </div>
+                    <button type="submit" className="button w-full">Create Application</button>
                   </div>
-                  <div className="mb-2">
-                    <label className="block text-sm text-gray-600 mb-1">Move-in date</label>
-                    <input type="date" value={appMoveInDate} onChange={e => setAppMoveInDate(e.target.value)} className="w-full p-2 border rounded" />
-                  </div>
-                  <textarea placeholder="Details (optional)" value={appBody} onChange={e => setAppBody(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                  <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded">Create Application</button>
                 </form>
               </div>
             </div>
@@ -588,14 +613,29 @@ export default function Tenants() {
         {/* Register modal */}
         {showRegister && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded p-6 w-full max-w-md">
+            <div className="bg-white dark:bg-slate-800 rounded p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold mb-3">Register Tenant</h3>
-              <form onSubmit={handleRegister} className="space-y-3">
-                <input required placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full p-2 border rounded" />
-                <input required placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full p-2 border rounded" />
-                <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full p-2 border rounded" />
-                <input required type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-2 border rounded" />
-                <input required placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2 border rounded" />
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div>
+                  <label className="form-label">First Name</label>
+                  <input required placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="form-input" />
+                </div>
+                <div>
+                  <label className="form-label">Last Name</label>
+                  <input required placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="form-input" />
+                </div>
+                <div>
+                  <label className="form-label">Email Address</label>
+                  <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="form-input" />
+                </div>
+                <div>
+                  <label className="form-label">Password</label>
+                  <input required type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="form-input" />
+                </div>
+                <div>
+                  <label className="form-label">Phone Number</label>
+                  <input required placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="form-input" />
+                </div>
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setShowRegister(false)} className="px-3 py-2 border rounded">Cancel</button>
                   <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Register</button>
@@ -608,7 +648,7 @@ export default function Tenants() {
         {/* Tenant detail simple modal */}
         {detailTenant && (
           <div className="fixed inset-0 bg-black/40 flex items-start justify-center py-10 z-50">
-            <div className="bg-white rounded p-6 w-full max-w-2xl">
+            <div className="bg-white dark:bg-slate-800 rounded p-6 w-full max-w-2xl">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-semibold">Tenant #{detailTenant.id} - {detailTenant.first_name || detailTenant.name}</h3>
                 <button onClick={() => setDetailTenant(null)} className="px-2 py-1 border rounded">Close</button>

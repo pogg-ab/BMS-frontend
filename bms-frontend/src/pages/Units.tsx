@@ -198,7 +198,7 @@ export default function Units() {
     <div className="container">
       <div className="header">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Units</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Units</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">Manage physical properties, floors, and basic configurations</p>
         </div>
         <div>
@@ -208,7 +208,7 @@ export default function Units() {
 
       <div className="card mb-6">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <input type="file" accept=".csv" ref={fileRef} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors" />
+          <input type="file" accept=".csv" ref={fileRef} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
           <button className="button-secondary shrink-0" onClick={handleBulkUpload}>Upload CSV</button>
         </div>
       </div>
@@ -218,41 +218,53 @@ export default function Units() {
           <h2 className="text-lg font-medium">{editing ? 'Edit Unit' : 'Create Unit'}</h2>
           <form onSubmit={handleSubmit} className="space-y-3 mt-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Unit Number</label>
-              <input value={unitNumber} onChange={e => setUnitNumber(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required />
+              <label className="form-label">Unit Number</label>
+              <input value={unitNumber} onChange={e => setUnitNumber(e.target.value)} className="form-input" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Building</label>
-              <select value={buildingId} onChange={e => setBuildingId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required>
+              <label className="form-label">Building</label>
+              <select value={buildingId} onChange={e => setBuildingId(e.target.value)} className="form-select" required>
                 <option value="">Select building</option>
                 {buildings.map((b: any) => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Type</label>
-              <select value={unitType} onChange={e => setUnitType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required>
+              <label className="form-label">Type</label>
+              <select value={unitType} onChange={e => setUnitType(e.target.value)} className="form-select" required>
                 {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-4 gap-2">
-              <input placeholder="Floor" type="number" value={floor as any} onChange={e => setFloor(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required />
-              <input placeholder="Bedrooms" type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required />
-              <input placeholder="Bathrooms" type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required />
-              <input placeholder="Size (sqm)" type="number" value={sizeSqm as any} onChange={e => setSizeSqm(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" required />
+              <div>
+                <label className="form-label !text-xs !mb-0.5">Floor</label>
+                <input type="number" value={floor as any} onChange={e => setFloor(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
+              </div>
+              <div>
+                <label className="form-label !text-xs !mb-0.5">Bedrooms</label>
+                <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
+              </div>
+              <div>
+                <label className="form-label !text-xs !mb-0.5">Bathrooms</label>
+                <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
+              </div>
+              <div>
+                <label className="form-label !text-xs !mb-0.5">Size (sqm)</label>
+                <input type="number" value={sizeSqm as any} onChange={e => setSizeSqm(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Rent Price (ETB)</label>
-              <input type="number" value={rentPrice as any} onChange={e => setRentPrice(e.target.value ? Number(e.target.value) : '')} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+              <label className="form-label">Rent Price (ETB)</label>
+              <input type="number" value={rentPrice as any} onChange={e => setRentPrice(e.target.value ? Number(e.target.value) : '')} className="form-input" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
+              <label className="form-label">Status</label>
+              <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
                 {UNIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+              <label className="form-label">Description</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} className="form-input h-20 pt-2" />
             </div>
             <div className="flex items-center gap-2">
               <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
@@ -264,11 +276,11 @@ export default function Units() {
 
       <div className="card">
         {loading && <div className="py-12 flex justify-center text-slate-500">Loading units...</div>}
-        {!loading && units.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No units found</div>}
+        {!loading && units.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No units found</div>}
         {!loading && units.length > 0 && (
-          <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+          <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
             <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
                   <th className="px-6 py-4 font-medium tracking-wider">Building</th>
@@ -278,21 +290,21 @@ export default function Units() {
                   <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {units.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                    <td className="px-6 py-4 font-medium text-slate-900">{u.unit_number || u.name}</td>
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.unit_number || u.name}</td>
                     <td className="px-6 py-4 text-slate-600">{u.building?.name || u.building_id || '-'}</td>
                     <td className="px-6 py-4 text-slate-600 text-center">
-                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200">{u.floor ?? '-'}</span>
+                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200 dark:border-slate-700">{u.floor ?? '-'}</span>
                       {' / '}
-                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200">{u.bedrooms ?? '-'}</span>
+                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200 dark:border-slate-700">{u.bedrooms ?? '-'}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.status === 'VACANT' || u.status === 'vacant' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                           u.status === 'OCCUPIED' || u.status === 'occupied' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                             u.status === 'MAINTENANCE' || u.status === 'maintenance' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                              'bg-slate-50 text-slate-700 border-slate-200'
+                              'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700'
                         }`}>
                         {u.status}
                       </span>
@@ -303,7 +315,7 @@ export default function Units() {
                     <td className="px-6 py-4 text-right">
                       <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openDetails(u.id)}>Details</button>
                       <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openEdit(u)}>Edit</button>
-                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
+                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -315,7 +327,7 @@ export default function Units() {
 
       {detailId && (
         <div className="fixed inset-0 flex items-start justify-center bg-black/30 pt-20">
-          <div className="bg-white rounded shadow p-6 w-3/4 max-w-3xl">
+          <div className="bg-white dark:bg-slate-800 rounded shadow p-6 w-3/4 max-w-3xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Unit details</h3>
               <button className="px-2 py-1 border rounded" onClick={() => { setDetailId(null); setDetail(null); }}>Close</button>

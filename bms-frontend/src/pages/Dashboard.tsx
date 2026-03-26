@@ -52,7 +52,7 @@ export default function Dashboard() {
   const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white text-slate-800 text-xs rounded-lg py-2 px-3 shadow-xl border border-slate-200/60">
+        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs rounded-lg py-2 px-3 shadow-xl border border-slate-200 dark:border-slate-700/60">
           <p className="font-bold text-sm mb-1">{label}</p>
           <p className="text-indigo-600 font-medium">{`Jobs Completed: ${payload[0].value}`}</p>
         </div>
@@ -71,10 +71,10 @@ export default function Dashboard() {
         {/* Top Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Box 1 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Occupancy Rate</p>
-              <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {loading ? '—' : `${data?.occupancy_rate ?? 0}%`}
               </h3>
               <p className="text-sm text-emerald-600 font-medium mt-2 flex items-center gap-1">
@@ -88,10 +88,10 @@ export default function Dashboard() {
           </div>
 
           {/* Box 2 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Total Revenue</p>
-              <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {loading ? '—' : <Money v={data?.total_revenue} />}
               </h3>
               <p className="text-sm text-emerald-600 font-medium mt-2 flex items-center gap-1">
@@ -104,10 +104,10 @@ export default function Dashboard() {
           </div>
 
           {/* Box 3 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Avg Resolution Time</p>
-              <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {loading ? '—' : `${data?.maintenance?.avgResolutionTime ?? 0} hrs`}
               </h3>
               <p className="text-sm text-slate-500 font-medium mt-2">
@@ -124,8 +124,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Occupancy Donut Chart */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Portfolio Occupancy</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex flex-col">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Portfolio Occupancy</h3>
             {loading ? (
               <div className="flex-1 flex items-center justify-center text-slate-400">Loading charts...</div>
             ) : (
@@ -152,7 +152,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
                 {/* Center Label inside Donut */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                  <span className="text-3xl font-bold text-slate-900">{data?.occupancy_rate ?? 0}%</span>
+                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{data?.occupancy_rate ?? 0}%</span>
                   <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Filled</span>
                 </div>
               </div>
@@ -160,8 +160,8 @@ export default function Dashboard() {
           </div>
 
           {/* Contractor Performance Bar Chart */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Top Contractors by Jobs Completed</h3>
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex flex-col">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Top Contractors by Jobs Completed</h3>
             {loading ? (
               <div className="flex-1 flex items-center justify-center text-slate-400">Loading charts...</div>
             ) : (

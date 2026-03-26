@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import {
+  FiUser, FiPhone, FiMapPin, FiPlus, FiTrash2, 
+  FiLogOut, FiEdit2, FiSearch, FiInfo, FiActivity, FiClock
+} from 'react-icons/fi'
+import {
   createVisitor,
   listVisitors,
   getVisitor,
@@ -16,8 +20,11 @@ export default function Visitors() {
   const toast = useToast()
   const [visitors, setVisitors] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<any>(null)
+  const [deletingId, setDeletingId] = useState<string | number | null>(null)
 
-  // Create form
+  // Form State
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [idNumber, setIdNumber] = useState('')
@@ -27,26 +34,25 @@ export default function Visitors() {
   const [siteId, setSiteId] = useState('')
   const [notes, setNotes] = useState('')
 
-  // Lookups for dropdowns
+  // Lookups
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [allSites, setAllSites] = useState<any[]>([])
-
-  // Get / Update / Delete / Checkout
   const [querySiteId, setQuerySiteId] = useState('')
-  const [selectedId, setSelectedId] = useState<string | number>('')
-  const [single, setSingle] = useState<any>(null)
 
   useEffect(() => {
     loadVisitors()
-    // Load lookups for dropdowns
-    listUsers({ page: 1, per_page: 500 }).then((res: any) => {
-      const list = Array.isArray(res) ? res : (res?.data || res?.users || [])
-      setAllUsers(list)
-    }).catch(console.error)
-    listSites({ page: 1, per_page: 200 }).then((res: any) => {
-      setAllSites(Array.isArray(res) ? res : (res?.data || []))
-    }).catch(console.error)
-  }, [])
+    loadLookups()
+  }, [querySiteId])
+
+  async function loadLookups() {
+    try {
+      const usersRes: any = await listUsers({ page: 1, per_page: 500 })
+      setAllUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data || usersRes?.users || []))
+      
+      const sitesRes: any = await listSites({ page: 1, per_page: 200 })
+      setAllSites(Array.isArray(sitesRes) ? sitesRes : (sitesRes?.data || []))
+    } catch (e) { console.error('loadLookups', e) }
+  }
 
   async function loadVisitors() {
     setLoading(true)
@@ -55,156 +61,277 @@ export default function Visitors() {
       if (querySiteId) params.site_id = querySiteId
       const list: any = await listVisitors(Object.keys(params).length ? params : undefined)
       setVisitors(Array.isArray(list) ? list : (list?.data || []))
-    } catch (e: any) { console.error(e); toast.addToast('Failed to load visitors', 'error') }
-    finally { setLoading(false) }
+    } catch (e: any) { 
+      toast.addToast('Failed to load visitors', 'error') 
+    } finally { setLoading(false) }
   }
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const payload: any = { visitor_name: name, site_id: siteId }
-      if (phone) payload.phone = phone
-      if (idNumber) payload.id_card_no = idNumber
-      const res = await createVisitor(payload)
-      toast.addToast('Visitor checked in', 'success')
-      // reset small form
-      setName(''); setPhone(''); setIdNumber(''); setPurpose(''); setHostUserId(''); setVehicleNumber(''); setSiteId(''); setNotes('')
+      const payload = { 
+        visitor_name: name, 
+        phone, 
+        id_card_no: idNumber, 
+        purpose, 
+        host_user_id: hostUserId || undefined,
+        vehicle_number: vehicleNumber,
+        site_id: siteId,
+        notes 
+      }
+      
+      if (editing) {
+        await updateVisitor(editing.id, payload)
+        toast.addToast('Visitor details updated', 'success')
+      } else {
+        await createVisitor(payload)
+        toast.addToast('Visitor checked in successfully', 'success')
+      }
+      
+      resetForm()
       loadVisitors()
-      return res
-    } catch (e: any) { console.error(e); toast.addToast('Create failed', 'error') }
+    } catch (e: any) { 
+      toast.addToast(editing ? 'Update failed' : 'Check-in failed', 'error') 
+    }
   }
 
-  async function handleGet(e?: React.FormEvent) {
-    e?.preventDefault()
-    if (!selectedId) { toast.addToast('Provide visitor id', 'error'); return }
-    try {
-      const v = await getVisitor(selectedId)
-      setSingle(v)
-    } catch (e: any) { console.error(e); toast.addToast('Get visitor failed', 'error') }
+  function resetForm() {
+    setName(''); setPhone(''); setIdNumber(''); setPurpose('')
+    setHostUserId(''); setVehicleNumber(''); setSiteId(''); setNotes('')
+    setEditing(null)
+    setShowForm(false)
   }
 
-  async function handleUpdate(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedId) { toast.addToast('Provide id to update', 'error'); return }
-    try {
-      const payload: any = {}
-      if (name) payload.visitor_name = name
-      if (phone) payload.phone = phone
-      if (idNumber) payload.id_card_no = idNumber
-      if (siteId) payload.site_id = siteId
-      if (hostUserId) payload.host_user_id = hostUserId
-      if (vehicleNumber) payload.vehicle_number = vehicleNumber
-      if (siteId) payload.site_id = siteId
-      if (notes) payload.notes = notes
-      await updateVisitor(selectedId, payload)
-      toast.addToast('Visitor updated', 'success')
-      loadVisitors()
-    } catch (e: any) { console.error(e); toast.addToast('Update failed', 'error') }
+  function openEdit(v: any) {
+    setEditing(v)
+    setName(v.visitor_name || v.name || '')
+    setPhone(v.phone || '')
+    setIdNumber(v.id_card_no || v.id_number || '')
+    setPurpose(v.purpose || '')
+    setHostUserId(String(v.host_user_id || ''))
+    setVehicleNumber(v.vehicle_number || '')
+    setSiteId(String(v.site_id || ''))
+    setNotes(v.notes || '')
+    setShowForm(true)
   }
 
-  async function handleDelete(id?: string | number) {
-    const target = id || selectedId
-    if (!target) { toast.addToast('Select id to delete', 'error'); return }
+  async function handleCheckout(id: string | number) {
     try {
-      await deleteVisitor(target)
-      toast.addToast('Visitor deleted', 'success')
-      setSingle(null)
-      loadVisitors()
-    } catch (e: any) { console.error(e); toast.addToast('Delete failed', 'error') }
-  }
-
-  async function handleCheckout(id?: string | number) {
-    const target = id || selectedId
-    if (!target) { toast.addToast('Select id to checkout', 'error'); return }
-    try {
-      await checkoutVisitor(target)
+      await checkoutVisitor(id)
       toast.addToast('Visitor checked out', 'success')
       loadVisitors()
-    } catch (e: any) { console.error(e); toast.addToast('Checkout failed', 'error') }
+    } catch (e) { toast.addToast('Checkout failed', 'error') }
+  }
+
+  async function handleDelete() {
+    if (!deletingId) return
+    try {
+      await deleteVisitor(deletingId)
+      toast.addToast('Visitor record deleted', 'success')
+      setDeletingId(null)
+      loadVisitors()
+    } catch (e) { toast.addToast('Delete failed', 'error') }
   }
 
   return (
-    <PageLayout title="Visitors" subtitle="Visitor check-in, listing and management">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded shadow p-6">
-          <h3 className="font-semibold mb-3">POST /visitors — Check-in</h3>
-          <form onSubmit={handleCreate} className="space-y-2">
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" className="w-full p-2 border rounded" />
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="w-full p-2 border rounded" />
-            <input value={idNumber} onChange={e => setIdNumber(e.target.value)} placeholder="ID number" className="w-full p-2 border rounded" />
-            <input value={purpose} onChange={e => setPurpose(e.target.value)} placeholder="Purpose" className="w-full p-2 border rounded" />
-            <select value={hostUserId} onChange={e => setHostUserId(e.target.value)} className="w-full p-2 border rounded">
-              <option value="">Select host user (optional)</option>
-              {allUsers.map((u: any) => <option key={u.id} value={String(u.id)}>{u.name || u.email || `User #${u.id}`}</option>)}
-            </select>
-            <input value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} placeholder="Vehicle number" className="w-full p-2 border rounded" />
-            <select value={siteId} onChange={e => setSiteId(e.target.value)} className="w-full p-2 border rounded" required>
-              <option value="">Select site</option>
-              {allSites.map((s: any) => <option key={s.id} value={String(s.id)}>{s.name || s.code || `Site #${s.id}`}</option>)}
-            </select>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes" className="w-full p-2 border rounded" />
-            <div className="flex justify-end"><button className="px-3 py-2 bg-blue-600 text-white rounded" type="submit">Check-in</button></div>
-          </form>
-        </div>
-
-        <div className="bg-white rounded shadow p-6 lg:col-span-2">
-          <h3 className="font-semibold mb-3">GET /visitors — List</h3>
-          <div className="flex gap-2 mb-3">
-            <select value={querySiteId} onChange={e => setQuerySiteId(e.target.value)} className="p-2 border rounded">
-              <option value="">All sites</option>
-              {allSites.map((s: any) => <option key={s.id} value={String(s.id)}>{s.name || s.code || `Site #${s.id}`}</option>)}
-            </select>
-            <button onClick={loadVisitors} className="px-3 py-2 bg-gray-700 text-white rounded">Reload</button>
+    <PageLayout 
+      title="Visitor Management" 
+      subtitle="Track and manage on-site visitors, contractors, and guests"
+      actions={
+        <button onClick={() => { resetForm(); setShowForm(true) }} className="button">
+          <FiPlus className="mr-2" /> Check-in Visitor
+        </button>
+      }
+    >
+      <div className="space-y-6">
+        {/* Form Overlay/Section */}
+        {showForm && (
+          <div className="card animate-in slide-in-from-top duration-300">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                {editing ? <FiEdit2 className="text-indigo-600" /> : <FiPlus className="text-emerald-600" />}
+                {editing ? 'Edit Visitor Record' : 'Resident/Guest Check-in'}
+              </h3>
+              <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="form-label">Full Name</label>
+                  <div className="relative">
+                    <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input className="form-input pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Phone Number</label>
+                  <div className="relative">
+                    <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input className="form-input pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="+251..." value={phone} onChange={e => setPhone(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">ID Number / Card No</label>
+                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="ID-12345" value={idNumber} onChange={e => setIdNumber(e.target.value)} />
+                </div>
+                <div>
+                  <label className="form-label">Site / Entrance</label>
+                  <div className="relative">
+                    <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required value={siteId} onChange={e => setSiteId(e.target.value)}>
+                      <option value="">Select Site</option>
+                      {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Vehicle Number (Optional)</label>
+                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="AA-B12345" value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} />
+                </div>
+                <div>
+                  <label className="form-label">Purpose of Visit</label>
+                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="Maintenance, Delivery, etc." value={purpose} onChange={e => setPurpose(e.target.value)} />
+                </div>
+                <div className="lg:col-span-3">
+                  <label className="form-label">Internal Notes / Instructions</label>
+                  <textarea className="form-input h-20 pt-2 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="Any additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={resetForm} className="button-secondary">Cancel</button>
+                <button type="submit" className="button px-8">{editing ? 'Save Changes' : 'Complete Check-in'}</button>
+              </div>
+            </form>
           </div>
-          {loading ? <div>Loading...</div> : (
-            <table className="w-full text-sm border">
-              <thead>
-                <tr className="text-left border-b"><th className="p-2">ID</th><th className="p-2">Name</th><th className="p-2">Phone</th><th className="p-2">Site</th><th className="p-2">Checked In</th><th className="p-2">Actions</th></tr>
-              </thead>
-              <tbody>
-                {visitors.map(v => (
-                  <tr key={v.id} className="border-b hover:bg-gray-50">
-                    <td className="p-2">{v.id}</td>
-                    <td className="p-2">{v.name}</td>
-                    <td className="p-2">{v.phone}</td>
-                    <td className="p-2">{v.site_id}</td>
-                    <td className="p-2">{v.checked_in_at ? new Date(v.checked_in_at).toLocaleString() : '-'}</td>
-                    <td className="p-2">
-                      <button onClick={() => { setSelectedId(v.id); setSingle(v) }} className="text-indigo-600 mr-2">View</button>
-                      <button onClick={() => { setSelectedId(v.id); setName(v.name || ''); setPhone(v.phone || ''); setIdNumber(v.id_number || ''); setPurpose(v.purpose || ''); setHostUserId(String(v.host_user_id || '')); setVehicleNumber(v.vehicle_number || ''); setSiteId(String(v.site_id || '')); setNotes(v.notes || '') }} className="text-green-600 mr-2">Edit</button>
-                      <button onClick={() => handleCheckout(v.id)} className="text-blue-600 mr-2">Checkout</button>
-                      <button onClick={() => handleDelete(v.id)} className="text-red-600">Delete</button>
-                    </td>
+        )}
+
+        {/* List Card */}
+        <div className="card">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <FiActivity className="text-blue-500" /> Current Visitor Log
+            </h3>
+            <div className="flex items-center gap-2">
+              <FiSearch className="text-slate-400 ml-2" />
+              <select className="form-select !w-auto !py-1 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white" value={querySiteId} onChange={e => setQuerySiteId(e.target.value)}>
+                <option value="">All Sites</option>
+                {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+              </select>
+              <button onClick={loadVisitors} className="button-secondary !py-1.5 text-sm">Refresh</button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="py-20 flex flex-col items-center justify-center space-y-4">
+              <div className="w-10 h-10 border-4 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin"></div>
+              <p className="text-slate-500 font-medium">Loading visitor records...</p>
+            </div>
+          ) : visitors.length === 0 ? (
+            <div className="py-20 text-center bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+              <FiUser className="mx-auto text-4xl text-slate-300 mb-2" />
+              <p className="text-slate-500">No active visitors recorded at this time.</p>
+            </div>
+          ) : (
+            <div className="table-container shadow-none ring-0 border border-slate-100 rounded-xl">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-6 py-4 font-medium tracking-wider">Visitor</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Site / Location</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Purpose</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Check-in Time</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-center">Status</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  {visitors.map((v: any) => (
+                    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150 group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                            <FiUser size={14} />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">{v.visitor_name || v.name}</div>
+                            <div className="text-xs text-slate-500 flex items-center gap-1"><FiPhone size={10} /> {v.phone}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 text-xs">
+                        {allSites.find((s: any) => String(s.id) === String(v.site_id))?.name || v.site_id || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        <span className="truncate max-w-[150px] inline-block" title={v.purpose}>{v.purpose || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-slate-600 text-xs">
+                          <FiClock className="text-slate-400" />
+                          {v.check_in_time ? new Date(v.check_in_time).toLocaleString() : '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                          v.status === 'exited'
+                            ? 'bg-slate-100 text-slate-600 border-slate-200 dark:border-slate-700' 
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {v.status === 'exited' ? 'Away' : 'On Site'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(v)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit Record">
+                            <FiEdit2 size={16} />
+                          </button>
+                          {v.status !== 'exited' && (
+                            <button onClick={() => handleCheckout(v.id)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Checkout">
+                              <FiLogOut size={16} />
+                            </button>
+                          )}
+                          <button onClick={() => setDeletingId(v.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Delete record">
+                            <FiTrash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+      </div>
 
-        <div className="bg-white rounded shadow p-6 lg:col-span-3">
-          <h3 className="font-semibold mb-3">GET /visitors/{'{id}'} — &nbsp; PATCH /visitors/{'{id}'} — &nbsp; DELETE /visitors/{'{id}'} — &nbsp; PATCH /visitors/{'{id}'}/checkout</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Visitor id</div>
-              <input value={String(selectedId)} onChange={e => setSelectedId(e.target.value)} className="w-full p-2 border rounded" />
-              <div className="flex gap-2 mt-2">
-                <button onClick={handleGet} className="px-3 py-2 bg-indigo-600 text-white rounded">Get</button>
-                <button onClick={handleUpdate} className="px-3 py-2 bg-green-600 text-white rounded">Update</button>
-                <button onClick={() => handleDelete()} className="px-3 py-2 bg-red-600 text-white rounded">Delete</button>
-                <button onClick={() => handleCheckout()} className="px-3 py-2 bg-blue-600 text-white rounded">Checkout</button>
-              </div>
+      {/* Delete Confirmation Modal */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 mb-4 mx-auto">
+              <FiTrash2 size={24} />
             </div>
-
-            <div className="md:col-span-2">
-              <div className="text-sm text-gray-600 mb-1">Selected visitor</div>
-              {single ? (
-                <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto">{JSON.stringify(single, null, 2)}</pre>
-              ) : <div className="text-sm text-gray-500">No visitor selected. Click View from list or use Get by id.</div>}
+            <h4 className="text-lg font-bold text-center text-slate-900 dark:text-white mb-2">Confirm Delete</h4>
+            <p className="text-slate-500 text-center text-sm mb-6">
+              Are you sure you want to remove this visitor record? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeletingId(null)} 
+                className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDelete} 
+                className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-rose-200"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </PageLayout>
   )
 }

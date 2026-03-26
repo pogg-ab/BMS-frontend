@@ -84,7 +84,7 @@ export default function Settings() {
     <PageLayout title="Settings" subtitle="Organization configuration and tax rates">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Main Settings Form */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
           <h3 className="font-semibold mb-4 text-lg">Organization Details</h3>
           <form onSubmit={handleSave} className="space-y-4">
             <div>
@@ -153,7 +153,7 @@ export default function Settings() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Company Logo</label>
-              <input type="file" accept="image/*" onChange={handleLogoChange} className="w-full p-2 border rounded" />
+              <input type="file" accept="image/*" onChange={handleLogoChange} className="w-full p-2 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
             </div>
 
             <div className="flex justify-end pt-2">
@@ -170,7 +170,7 @@ export default function Settings() {
 
         {/* Logo Preview + Summary */}
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4 text-lg">Logo Preview</h3>
             <div className="border-2 border-dashed rounded-lg p-6 text-center min-h-[150px] flex items-center justify-center">
               {logoPreview ? (
@@ -186,7 +186,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4 text-lg">Current Configuration</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between py-1 border-b">

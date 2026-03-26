@@ -2,11 +2,18 @@ import React, { useEffect, useState } from 'react'
 import { useToast } from '../components/ToastProvider'
 import * as utilitiesApi from '../api/utilities'
 import { listUnits } from '../api/units'
+import { getRoles } from '../utils/jwt'
 
 export default function Utilities() {
   const toast = useToast()
   const [meters, setMeters] = useState<any[]>([])
   const [readings, setReadings] = useState<any[]>([])
+  
+  const userRoles = getRoles()
+  const isSuperAdmin = userRoles.includes('super_admin')
+  const isNomineeAdmin = userRoles.includes('nominee_admin')
+  const isTenant = userRoles.includes('tenant')
+  const isAdmin = isSuperAdmin || isNomineeAdmin
 
   const [meterForm, setMeterForm] = useState({
     serial_number: '',
@@ -138,32 +145,54 @@ export default function Utilities() {
       <h1 className="text-2xl font-semibold">Utilities</h1>
 
       <section className="grid grid-cols-2 gap-6">
-        <div className="p-4 border rounded">
-          <h2 className="font-medium">POST /utilities/meters</h2>
-          <p className="text-sm text-gray-500">Link a physical meter to a unit</p>
-          <form onSubmit={handleCreateMeter} className="mt-4 space-y-3">
-            <input required value={meterForm.serial_number} onChange={e => setMeterForm({ ...meterForm, serial_number: e.target.value })} placeholder="Serial number" className="input" />
-            <select value={meterForm.meter_type} onChange={e => setMeterForm({ ...meterForm, meter_type: e.target.value })} className="input">
-              <option value="electric">electric</option>
-              <option value="water">water</option>
-              <option value="gas">gas</option>
-            </select>
-            <input value={meterForm.manufacturer} onChange={e => setMeterForm({ ...meterForm, manufacturer: e.target.value })} placeholder="Manufacturer" className="input" />
-            <input value={meterForm.model} onChange={e => setMeterForm({ ...meterForm, model: e.target.value })} placeholder="Model" className="input" />
-            <select value={meterForm.unit_id} onChange={e => setMeterForm({ ...meterForm, unit_id: e.target.value })} className="input" required>
-              <option value="">Select unit</option>
-              {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
-            </select>
-            <input type="date" value={meterForm.installation_date} onChange={e => setMeterForm({ ...meterForm, installation_date: e.target.value })} className="input" />
-            <div>
-              <button className="btn btn-primary" type="submit">Create Meter</button>
-            </div>
-          </form>
-        </div>
+        {isAdmin && (
+          <div className="p-4 border rounded shadow-sm bg-white dark:bg-slate-800">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Create Meter</h2>
+            <p className="text-sm text-gray-500 mb-4">Link a physical meter to a unit</p>
+            <form onSubmit={handleCreateMeter} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+                <input required value={meterForm.serial_number} onChange={e => setMeterForm({ ...meterForm, serial_number: e.target.value })} placeholder="Serial number" className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Meter Type</label>
+                <select value={meterForm.meter_type} onChange={e => setMeterForm({ ...meterForm, meter_type: e.target.value })} className="w-full p-2 border rounded">
+                  <option value="electric">Electric</option>
+                  <option value="water">Water</option>
+                  <option value="gas">Gas</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manufacturer</label>
+                  <input value={meterForm.manufacturer} onChange={e => setMeterForm({ ...meterForm, manufacturer: e.target.value })} placeholder="Manufacturer" className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <input value={meterForm.model} onChange={e => setMeterForm({ ...meterForm, model: e.target.value })} placeholder="Model" className="w-full p-2 border rounded" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Unit</label>
+                <select value={meterForm.unit_id} onChange={e => setMeterForm({ ...meterForm, unit_id: e.target.value })} className="w-full p-2 border rounded" required>
+                  <option value="">Select unit</option>
+                  {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Installation Date</label>
+                <input type="date" value={meterForm.installation_date} onChange={e => setMeterForm({ ...meterForm, installation_date: e.target.value })} className="w-full p-2 border rounded" />
+              </div>
+              <div>
+                <button className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium" type="submit">Create Meter</button>
+              </div>
+            </form>
+          </div>
+        )}
 
-        <div className="p-4 border rounded">
-          <h2 className="font-medium">GET /utilities/meters</h2>
-          <p className="text-sm text-gray-500">List meters (optional unit_id query)</p>
+        <div className={`p-4 border rounded shadow-sm bg-white dark:bg-slate-800 ${!isAdmin ? 'col-span-2' : ''}`}>
+          <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Meter List</h2>
+          <p className="text-sm text-gray-500 mb-4">View and refresh meter data</p>
           <div className="mt-3 flex items-center gap-2">
             <select value={unitFilter} onChange={e => setUnitFilter(e.target.value)} className="input">
               <option value="">(all units)</option>
@@ -176,7 +205,7 @@ export default function Utilities() {
           <div className="mt-4 space-y-2">
             {meters.length === 0 && <div className="text-sm text-gray-600">No meters found</div>}
             {meters.map(m => (
-              <div key={m.id} className="p-2 border rounded bg-white/5 flex justify-between items-center">
+              <div key={m.id} className="p-2 border rounded bg-white dark:bg-slate-800/5 flex justify-between items-center">
                 <div>
                   <div className="font-medium">{m.serial_number} — {m.meter_type}</div>
                   <div className="text-sm text-gray-400">Unit: {m.unit_id ?? '—'} · {m.manufacturer} {m.model}</div>
@@ -189,30 +218,32 @@ export default function Utilities() {
       </section>
 
       <section className="grid grid-cols-2 gap-6">
-        <div className="p-4 border rounded">
-          <h2 className="font-medium">POST /utilities/readings</h2>
-          <p className="text-sm text-gray-500">Record a meter reading (accepts optional photo multipart)</p>
-          <form onSubmit={handleCreateReading} className="mt-4 space-y-3">
-            <select required value={readingForm.meter_id} onChange={e => setReadingForm({ ...readingForm, meter_id: e.target.value })} className="input">
-              <option value="">Select meter</option>
-              {meters.map(m => <option key={m.id} value={String(m.id)}>{m.serial_number} (unit {m.unit_id})</option>)}
-            </select>
-            <input required value={readingForm.reading_value} onChange={e => setReadingForm({ ...readingForm, reading_value: e.target.value })} placeholder="Value" className="input" />
-            <input value={readingForm.recorded_at} onChange={e => setReadingForm({ ...readingForm, recorded_at: e.target.value })} type="datetime-local" className="input" />
-            <input value={readingForm.notes} onChange={e => setReadingForm({ ...readingForm, notes: e.target.value })} placeholder="Notes" className="input" />
-            <div>
-              <label className="block text-sm">Photo (optional)</label>
-              <input type="file" accept="image/*" onChange={e => setReadingPhoto(e.target.files ? e.target.files[0] : null)} />
-            </div>
-            <div>
-              <button className="btn btn-primary" type="submit">Record Reading</button>
-            </div>
-          </form>
-        </div>
+        {isAdmin && (
+          <div className="p-4 border rounded shadow-sm bg-white dark:bg-slate-800">
+            <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Record Reading</h2>
+            <p className="text-sm text-gray-500 mb-4">Record a meter reading (accepts optional photo)</p>
+            <form onSubmit={handleCreateReading} className="space-y-3">
+              <select required value={readingForm.meter_id} onChange={e => setReadingForm({ ...readingForm, meter_id: e.target.value })} className="w-full p-2 border rounded">
+                <option value="">Select meter</option>
+                {meters.map(m => <option key={m.id} value={String(m.id)}>{m.serial_number} (unit {m.unit_id})</option>)}
+              </select>
+              <input required value={readingForm.reading_value} onChange={e => setReadingForm({ ...readingForm, reading_value: e.target.value })} placeholder="Value" className="w-full p-2 border rounded" />
+              <input value={readingForm.recorded_at} onChange={e => setReadingForm({ ...readingForm, recorded_at: e.target.value })} type="datetime-local" className="w-full p-2 border rounded" />
+              <input value={readingForm.notes} onChange={e => setReadingForm({ ...readingForm, notes: e.target.value })} placeholder="Notes" className="w-full p-2 border rounded" />
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Photo (optional)</label>
+                <input type="file" accept="image/*" onChange={e => setReadingPhoto(e.target.files ? e.target.files[0] : null)} className="text-sm" />
+              </div>
+              <div>
+                <button className="w-full py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors font-medium" type="submit">Record Reading</button>
+              </div>
+            </form>
+          </div>
+        )}
 
-        <div className="p-4 border rounded">
-          <h2 className="font-medium">GET /utilities/readings</h2>
-          <p className="text-sm text-gray-500">List readings (optional meter_id query)</p>
+        <div className={`p-4 border rounded shadow-sm bg-white dark:bg-slate-800 ${!isAdmin ? 'col-span-2' : ''}`}>
+          <h2 className="font-semibold text-lg text-slate-800 dark:text-slate-200">Reading History</h2>
+          <p className="text-sm text-gray-500 mb-4">View historical meter readings</p>
           <div className="mt-3 flex items-center gap-2">
             <select value={meterFilter} onChange={e => setMeterFilter(e.target.value)} className="input">
               <option value="">(all meters)</option>
@@ -228,7 +259,7 @@ export default function Utilities() {
               const m = meterMap[String(r.meter_id)]
               const meterLabel = m ? `${m.serial_number || m.serial_no || m.id} ${m.unit_id ? `· unit ${m.unit_id}` : ''}` : `Meter ${r.meter_id}`
               return (
-                <div key={r.id} className="p-3 border rounded bg-white/50 flex items-center gap-4">
+                <div key={r.id} className="p-3 border rounded bg-white dark:bg-slate-800/50 flex items-center gap-4">
                   <div className="flex-none text-2xl font-semibold">{r.reading_value ?? '—'}</div>
                   <div className="flex-1">
                     <div className="text-sm text-gray-700">{r.reading_unit ? `${r.reading_unit} · ${r.reading_type || ''}` : (r.reading_type || '')}</div>

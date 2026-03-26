@@ -4,6 +4,7 @@ import { useToast } from '../components/ToastProvider'
 import * as maintenanceApi from '../api/maintenance'
 import { listTenants } from '../api/tenants'
 import { listUnits } from '../api/units'
+import { getRoles, getUserId } from '../utils/jwt'
 
 type Tab = 'requests' | 'work-orders' | 'contractors' | 'reports'
 
@@ -20,6 +21,19 @@ const PRIORITIES = ['low', 'medium', 'high', 'urgent']
 export default function Maintenance() {
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('requests')
+
+  const userRoles = getRoles()
+  const currentUserId = getUserId()
+  const isSuperAdmin = userRoles.includes('super_admin')
+  const isNomineeAdmin = userRoles.includes('nominee_admin')
+  const isTenant = userRoles.includes('tenant')
+  const isAdmin = isSuperAdmin || isNomineeAdmin
+
+  // Filter tabs for tenants
+  const visibleTabs = TABS.filter(t => {
+    if (isAdmin) return true
+    return t.key === 'requests'
+  })
 
   // ── Lookups ──────────────────────────────────────────────
   const [tenants, setTenants] = useState<any[]>([])
@@ -49,6 +63,20 @@ export default function Maintenance() {
 
   // ── Reports ──────────────────────────────────────────────
   const [reportData, setReportData] = useState<any>(null)
+
+  // ── Modals / Editing ─────────────────────────────────────
+  const [editingContractor, setEditingContractor] = useState<any>(null)
+  const [isConModalOpen, setIsConModalOpen] = useState(false)
+  const [ratingWoId, setRatingWoId] = useState<string | null>(null)
+  const [ratingTenantId, setRatingTenantId] = useState<string | null>(null)
+  const [ratingValue, setRatingValue] = useState(5)
+  const [ratingComment, setRatingComment] = useState('')
+
+  const [woCostEstimate, setWoCostEstimate] = useState('')
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false)
+  const [completeWoId, setCompleteWoId] = useState<string | null>(null)
+  const [actualCost, setActualCost] = useState('0')
+  const [proofFile, setProofFile] = useState<File | null>(null)
 
   // ── Load helpers ─────────────────────────────────────────
   useEffect(() => {
@@ -179,9 +207,10 @@ export default function Maintenance() {
         contractor_id: woContractorId,
         scheduled_date: woScheduledDate,
         assigned_by: assignedBy,
+        cost_estimate: woCostEstimate ? Number(woCostEstimate) : undefined,
       })
       toast.addToast('Work order created', 'success')
-      setWoRequestId(''); setWoContractorId(''); setWoScheduledDate('')
+      setWoRequestId(''); setWoContractorId(''); setWoScheduledDate(''); setWoCostEstimate('')
       loadWorkOrders()
       loadRequests()
     } catch (e: any) {
@@ -192,21 +221,8 @@ export default function Maintenance() {
 
   async function handleUpdateWorkOrderStatus(id: string, status: string) {
     if (status === 'completed') {
-      // For completed status, prompt for a proof file
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = 'image/*'
-      input.onchange = async () => {
-        const file = input.files?.[0]
-        try {
-          await maintenanceApi.updateWorkOrderStatus(id, status, file || undefined)
-          toast.addToast('Work order completed', 'success')
-          loadWorkOrders()
-        } catch (e: any) {
-          toast.addToast(e?.response?.data?.message || 'Update failed', 'error')
-        }
-      }
-      input.click()
+      setCompleteWoId(id)
+      setIsCompleteModalOpen(true)
       return
     }
     try {
@@ -218,20 +234,72 @@ export default function Maintenance() {
     }
   }
 
+  async function handleSubmitCompletion(e: React.FormEvent) {
+    e.preventDefault()
+    if (!completeWoId) return
+    try {
+      await maintenanceApi.updateWorkOrderStatus(completeWoId, 'completed', Number(actualCost), proofFile || undefined)
+      toast.addToast('Work order completed', 'success')
+      setIsCompleteModalOpen(false)
+      setCompleteWoId(null)
+      setActualCost('0')
+      setProofFile(null)
+      loadWorkOrders()
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Completion failed', 'error')
+    }
+  }
+
   // ── Contractor CRUD ─────────────────────────────────────
   async function handleCreateContractor(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await maintenanceApi.createContractor({
-        name: conName,
-        phone: conPhone,
-        specialization: conSpec,
-      })
-      toast.addToast('Contractor created', 'success')
-      setConName(''); setConPhone(''); setConSpec('')
+      if (editingContractor) {
+        await maintenanceApi.updateContractor(editingContractor.id, {
+          name: conName,
+          phone: conPhone,
+          specialization: conSpec,
+        })
+        toast.addToast('Contractor updated', 'success')
+      } else {
+        await maintenanceApi.createContractor({
+          name: conName,
+          phone: conPhone,
+          specialization: conSpec,
+        })
+        toast.addToast('Contractor created', 'success')
+      }
+      setConName(''); setConPhone(''); setConSpec(''); setEditingContractor(null); setIsConModalOpen(false)
       loadContractors()
     } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Create contractor failed', 'error')
+      toast.addToast(e?.response?.data?.message || 'Operation failed', 'error')
+    }
+  }
+
+  function openEditContractor(c: any) {
+    setEditingContractor(c)
+    setConName(c.name)
+    setConPhone(c.phone)
+    setConSpec(c.specialization)
+    setIsConModalOpen(true)
+  }
+
+  // ── Rating ──────────────────────────────────────────────
+  async function handleRateJob(e: React.FormEvent) {
+    e.preventDefault()
+    if (!ratingWoId || !ratingTenantId) return
+    try {
+      await maintenanceApi.submitFeedback({
+        work_order_id: ratingWoId,
+        tenant_id: ratingTenantId,
+        rating: ratingValue,
+        comment: ratingComment,
+      })
+      toast.addToast('Thank you for your feedback!', 'success')
+      setRatingWoId(null); setRatingTenantId(null); setRatingComment(''); setRatingValue(5)
+      loadRequests() // Refresh to see rating
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Rating failed', 'error')
     }
   }
 
@@ -268,9 +336,9 @@ export default function Maintenance() {
   return (
     <PageLayout title="Maintenance" subtitle="Service Requests, Work Orders, Contractors & Performance">
       {/* Tab Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
         <div className="flex overflow-x-auto">
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -290,16 +358,17 @@ export default function Maintenance() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Submit Request */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">Submit Request</h3>
               <form onSubmit={handleSubmitRequest} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
                   <select
-                    value={reqTenantId}
-                    onChange={e => setReqTenantId(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    value={isTenant ? (tenants.find(t => String(t.user?.id) === String(currentUserId))?.id || '') : reqTenantId}
+                    onChange={e => !isTenant && setReqTenantId(e.target.value)}
+                    className={`w-full p-2 border rounded ${isTenant ? 'bg-gray-50 dark:bg-slate-900 cursor-not-allowed' : ''}`}
                     required
+                    disabled={isTenant}
                   >
                     <option value="">Select tenant</option>
                     {tenants.map((t: any) => (
@@ -367,7 +436,7 @@ export default function Maintenance() {
             </div>
 
             {/* Summary Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-3">Summary</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 border rounded bg-blue-50 text-center">
@@ -391,29 +460,31 @@ export default function Maintenance() {
           </div>
 
           {/* Requests Table */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">All Requests</h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">All Requests</h3>
             {reqLoading ? <div className="py-12 flex justify-center text-slate-500">Loading requests...</div> : requests.length === 0 ? (
-              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No requests found</div>
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No requests found</div>
             ) : (
-              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th className="px-6 py-4 font-medium tracking-wider">Tenant</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Category</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Priority</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Description</th>
-                      <th className="px-6 py-4 font-medium tracking-wider">Status</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-center">Contractor</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-center">Rating</th>
+                      <th className="px-6 py-4 font-medium tracking-wider text-center">Status</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Date</th>
                       <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                     {requests.map((req: any) => (
-                      <tr key={req.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                        <td className="px-6 py-4 text-slate-900 font-medium">{tenantLabel(req.tenant)}</td>
+                      <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                        <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{tenantLabel(req.tenant)}</td>
                         <td className="px-6 py-4 text-slate-600 font-mono text-xs">{unitLabel(req.unit)}</td>
                         <td className="px-6 py-4 text-slate-600 capitalize">{req.category.replace('_', ' ')}</td>
                         <td className="px-6 py-4">
@@ -424,13 +495,41 @@ export default function Maintenance() {
                             }`}>{req.priority}</span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate" title={req.description}>{req.description}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
+                          {req.contractor ? (
+                            <div className="text-xs font-medium text-slate-700">{req.contractor.name}</div>
+                          ) : req.workOrders?.[0]?.contractor ? (
+                            <div className="text-xs font-medium text-slate-700">{req.workOrders[0].contractor.name}</div>
+                          ) : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          {req.feedbacks?.[0]?.rating ? (
+                            <span className="text-amber-500 font-bold">⭐ {req.feedbacks[0].rating}</span>
+                          ) : req.rating ? (
+                            <span className="text-amber-500 font-bold">⭐ {req.rating}</span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-center">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(req.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
                             {req.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs">{req.created_at ? new Date(req.created_at).toLocaleDateString() : '-'}</td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-right space-x-2">
+                          {isTenant && 
+                           (req.status === 'COMPLETED' || req.status === 'completed') && 
+                           !req.feedbacks?.length && (
+                            <button
+                              onClick={() => {
+                                const woId = req.workOrders?.[0]?.id || req.work_order_id || req.id
+                                setRatingWoId(woId)
+                                setRatingTenantId(req.tenant?.id || '')
+                              }}
+                              className="text-amber-600 hover:text-amber-900 text-xs font-bold bg-amber-50 px-2 py-1 rounded"
+                            >
+                              Rate
+                            </button>
+                          )}
                           {req.status !== 'COMPLETED' && req.status !== 'CANCELLED' && req.status !== 'CLOSED' && req.status !== 'completed' && req.status !== 'cancelled' && req.status !== 'closed' && (
                             <button onClick={() => handleCancelRequest(req.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium px-2">
                               Cancel
@@ -452,7 +551,7 @@ export default function Maintenance() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Create Work Order */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">Assign Work Order</h3>
               <form onSubmit={handleCreateWorkOrder} className="space-y-3">
                 <div>
@@ -496,12 +595,26 @@ export default function Maintenance() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
+                  <label className="form-label">Cost Estimate (ETB)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">ETB</span>
+                    <input
+                      type="number"
+                      placeholder="Estimated cost"
+                      value={woCostEstimate}
+                      onChange={e => setWoCostEstimate(e.target.value)}
+                      className="form-input pl-12"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Scheduled Date</label>
                   <input
                     type="date"
                     value={woScheduledDate}
                     onChange={e => setWoScheduledDate(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="form-input"
                     required
                   />
                 </div>
@@ -515,7 +628,7 @@ export default function Maintenance() {
             </div>
 
             {/* Info */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-3">Work Order Flow</h3>
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
@@ -535,14 +648,14 @@ export default function Maintenance() {
           </div>
 
           {/* Work Orders Table */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">All Work Orders</h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">All Work Orders</h3>
             {woLoading ? <div className="py-12 flex justify-center text-slate-500">Loading work orders...</div> : workOrders.length === 0 ? (
-              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No work orders found</div>
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No work orders found</div>
             ) : (
-              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th className="px-6 py-4 font-medium tracking-wider">Request</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Contractor</th>
@@ -553,11 +666,11 @@ export default function Maintenance() {
                       <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                     {workOrders.map((wo: any) => (
-                      <tr key={wo.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                      <tr key={wo.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                         <td className="px-6 py-4">
-                          <div className="font-medium text-slate-900 capitalize">{wo.request?.category.replace('_', ' ') || '-'}</div>
+                          <div className="font-medium text-slate-900 dark:text-white capitalize">{wo.request?.category.replace('_', ' ') || '-'}</div>
                           <div className="text-xs text-slate-500 mt-0.5">{tenantLabel(wo.request?.tenant)} · {unitLabel(wo.request?.unit)}</div>
                         </td>
                         <td className="px-6 py-4 text-slate-700 font-medium">{wo.contractor?.name || '-'}</td>
@@ -568,7 +681,7 @@ export default function Maintenance() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-600 font-medium">{wo.cost_estimate ? `ETB ${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
-                        <td className="px-6 py-4 text-slate-900 font-bold">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
+                        <td className="px-6 py-4 text-slate-900 dark:text-white font-bold">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
                         <td className="px-6 py-4 text-right">
                           {(wo.status === 'ASSIGNED' || wo.status === 'assigned') && (
                             <button onClick={() => handleUpdateWorkOrderStatus(wo.id, 'in_progress')} className="text-orange-600 hover:text-orange-900 text-xs font-medium px-2">
@@ -591,60 +704,169 @@ export default function Maintenance() {
         </div>
       )}
 
-      {/* ────── CONTRACTORS TAB ────── */}
-      {tab === 'contractors' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Add Contractor</h3>
-            <form onSubmit={handleCreateContractor} className="space-y-3">
+      {/* ────── CONTRACTOR MODAL ────── */}
+      {isConModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold mb-4">{editingContractor ? 'Edit Contractor' : 'Add Contractor'}</h3>
+            <form onSubmit={handleCreateContractor} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="form-label">Name</label>
                 <input
                   placeholder="Contractor name"
                   value={conName}
                   onChange={e => setConName(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <label className="form-label">Phone</label>
                 <input
                   placeholder="+251..."
                   value={conPhone}
                   onChange={e => setConPhone(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Specialization</label>
+                <label className="form-label">Specialization</label>
                 <select
                   value={conSpec}
                   onChange={e => setConSpec(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-select"
                   required
                 >
                   <option value="">Select specialization</option>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ').toUpperCase()}</option>)}
                 </select>
               </div>
-              <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                  Add Contractor
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsConModalOpen(false); setEditingContractor(null); setConName(''); setConPhone(''); setConSpec(''); }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  {editingContractor ? 'Update' : 'Save'}
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Contractors</h3>
+      {/* ────── RATING MODAL ────── */}
+      {ratingWoId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <h3 className="text-xl font-bold mb-2">Rate Service</h3>
+            <p className="text-sm text-gray-500 mb-4">How was the maintenance service?</p>
+            <form onSubmit={handleRateJob} className="space-y-4">
+              <div className="flex justify-center gap-2 text-4xl">
+                {[1, 2, 3, 4, 5].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setRatingValue(v)}
+                    className={`transition-all duration-150 hover:scale-125 ${v <= ratingValue ? 'text-amber-400 drop-shadow-md' : 'text-gray-300 hover:text-amber-200'}`}
+                    style={{ lineHeight: 1 }}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{ratingValue} / 5 stars</p>
+              <textarea
+                placeholder="Optional comments..."
+                value={ratingComment}
+                onChange={e => setRatingComment(e.target.value)}
+                className="w-full p-2 border rounded text-sm"
+                rows={3}
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setRatingWoId(null); setRatingTenantId(null) }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Skip
+                </button>
+                <button type="submit" className="px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 font-bold">
+                  Submit Rating
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ────── COMPLETION MODAL ────── */}
+      {isCompleteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-xl font-bold mb-4">Complete Work Order</h3>
+            <form onSubmit={handleSubmitCompletion} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Actual Cost (ETB)</label>
+                <input
+                  type="number"
+                  value={actualCost}
+                  onChange={e => setActualCost(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Proof of Completion (Photo)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setProofFile(e.target.files?.[0] || null)}
+                  className="w-full p-2 border rounded text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-1">Optional — attach proof photo if available</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCompleteModalOpen(false)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-bold">
+                  Mark as Completed
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ────── CONTRACTORS TAB ────── */}
+      {tab === 'contractors' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 tracking-tight text-lg">Contractors</h3>
+            {isAdmin && (
+              <button
+                onClick={() => { setEditingContractor(null); setConName(''); setConPhone(''); setConSpec(''); setIsConModalOpen(true); }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                + Add Contractor
+              </button>
+            )}
+          </div>
             {contractors.length === 0 ? (
-              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No contractors yet. Add one using the form.</div>
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No contractors yet. Add one using the form.</div>
             ) : (
-              <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th className="px-6 py-4 font-medium tracking-wider">Name</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Phone</th>
@@ -653,17 +875,24 @@ export default function Maintenance() {
                       <th className="px-6 py-4 font-medium tracking-wider text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                     {contractors.map((c: any) => (
-                      <tr key={c.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                        <td className="px-6 py-4 font-medium text-slate-900">{c.name}</td>
+                      <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{c.name}</td>
                         <td className="px-6 py-4 text-slate-600">{c.phone}</td>
                         <td className="px-6 py-4 text-slate-600 capitalize">{c.specialization.replace('_', ' ')}</td>
                         <td className="px-6 py-4 text-amber-500 font-semibold">{c.rating ? `⭐ ${Number(c.rating).toFixed(1)}` : '-'}</td>
                         <td className="px-6 py-4 text-right">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(c.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
-                            {c.status}
-                          </span>
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin && (
+                              <button onClick={() => openEditContractor(c)} className="text-blue-600 hover:text-blue-900 text-xs font-medium">
+                                Edit
+                              </button>
+                            )}
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(c.status).replace('bg-', 'bg-opacity-50 border-')} shadow-sm`}>
+                              {c.status}
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -672,7 +901,6 @@ export default function Maintenance() {
               </div>
             )}
           </div>
-        </div>
       )}
 
       {/* ────── REPORTS TAB ────── */}
@@ -682,7 +910,7 @@ export default function Maintenance() {
             <>
               {/* KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
                   <div className="text-sm text-gray-500 mb-1">Avg. Resolution Time</div>
                   <div className="text-2xl font-bold text-blue-700">
                     {reportData.avgResolutionTime
@@ -690,13 +918,13 @@ export default function Maintenance() {
                       : 'N/A'}
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
                   <div className="text-sm text-gray-500 mb-1">Total Contractors</div>
                   <div className="text-2xl font-bold text-indigo-700">
                     {reportData.contractorStats?.length || 0}
                   </div>
                 </div>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
                   <div className="text-sm text-gray-500 mb-1">Completed Orders</div>
                   <div className="text-2xl font-bold text-green-700">
                     {reportData.contractorStats?.reduce((sum: number, c: any) => sum + (c.completedOrders || 0), 0) || 0}
@@ -705,22 +933,22 @@ export default function Maintenance() {
               </div>
 
               {/* Contractor Performance */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-                <h3 className="font-bold text-slate-800 mb-4 tracking-tight text-lg">Contractor Performance</h3>
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Contractor Performance</h3>
                 {reportData.contractorStats?.length > 0 ? (
-                  <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+                  <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                     <table className="w-full text-sm text-left whitespace-nowrap">
-                      <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                      <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                         <tr>
                           <th className="px-6 py-4 font-medium tracking-wider">Contractor</th>
                           <th className="px-6 py-4 font-medium tracking-wider">Jobs Completed</th>
                           <th className="px-6 py-4 font-medium tracking-wider">Avg. Cost</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                         {reportData.contractorStats.map((cs: any, i: number) => (
-                          <tr key={cs.contractor_id || i} className="hover:bg-slate-50/50 transition-colors duration-150">
-                            <td className="px-6 py-4 font-medium text-slate-900">{cs.name}</td>
+                          <tr key={cs.contractor_id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{cs.name}</td>
                             <td className="px-6 py-4 text-emerald-600 font-semibold text-lg">{cs.completedOrders}</td>
                             <td className="px-6 py-4 text-slate-700 font-mono">{cs.avgCost ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
                           </tr>
@@ -729,7 +957,7 @@ export default function Maintenance() {
                     </table>
                   </div>
                 ) : (
-                  <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No performance data available yet.</div>
+                  <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No performance data available yet.</div>
                 )}
               </div>
             </>

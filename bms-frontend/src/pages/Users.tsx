@@ -168,7 +168,7 @@ export default function Users() {
     <div className="container">
       <div className="header">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Users</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Users</h1>
           <p className="text-sm font-medium text-slate-500 mt-1">Manage system administrators and staff access</p>
         </div>
         <div>
@@ -180,30 +180,32 @@ export default function Users() {
         <div className="card mb-4">
           <h2 className="text-lg font-medium">{editing ? 'Edit User' : 'Create User'}</h2>
           <form onSubmit={handleSubmit} className="space-y-3 mt-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            {!editing && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
+                <label className="form-label">Name</label>
+                <input value={name} onChange={e => setName(e.target.value)} className="form-input" placeholder="Full Name" />
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select value={roleId} onChange={e => setRoleId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
-                <option value="">(none)</option>
-                {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
-              </select>
+              <div>
+                <label className="form-label">Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="form-input" placeholder="email@example.com" />
+              </div>
+              {!editing && (
+                <div>
+                  <label className="form-label">Password</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="form-input" placeholder="••••••••" />
+                </div>
+              )}
+              <div>
+                <label className="form-label">Role</label>
+                <select value={roleId} onChange={e => setRoleId(e.target.value)} className="form-select">
+                  <option value="">(none)</option>
+                  {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
-              <button type="button" className="px-3 py-1 border rounded" onClick={() => setShowCreate(false)}>Cancel</button>
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+              <button className="button" type="submit">{editing ? 'Save Changes' : 'Create User'}</button>
+              <button type="button" className="button-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
             </div>
           </form>
         </div>
@@ -211,11 +213,11 @@ export default function Users() {
 
       <div className="card">
         {loading && <div className="py-12 flex justify-center text-slate-500">Loading users...</div>}
-        {!loading && users.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">No users found</div>}
+        {!loading && users.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No users found</div>}
         {!loading && users.length > 0 && (
           <div className="table-container">
             <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="px-6 py-4 font-medium tracking-wider">Name</th>
                   <th className="px-6 py-4 font-medium tracking-wider">Email</th>
@@ -224,13 +226,13 @@ export default function Users() {
                   <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {users.map((u) => (
-                  <tr key={String(u.id)} className="hover:bg-slate-50/50 transition-colors duration-150">
-                    <td className="px-6 py-4 font-medium text-slate-900">{u.name || '-'}</td>
+                  <tr key={String(u.id)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-600">{u.email || '-'}</td>
                     <td className="px-6 py-4 text-slate-600">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                         {u.roles && u.roles.length ? u.roles.join(', ') : '-'}
                       </span>
                     </td>
@@ -249,7 +251,7 @@ export default function Users() {
                         <button className="text-emerald-600 hover:text-emerald-900 font-medium text-xs px-2" onClick={() => handleActivate(u.id)}>Activate</button>
                       )}
                       <button className="text-rose-600 hover:text-rose-900 font-medium text-xs px-2" onClick={() => handleDelete(u.id)}>Delete</button>
-                      <button className="text-slate-600 hover:text-slate-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2" onClick={() => { setAssignRoleUserId(u.id); setAssignRoleRoleId('') }}>Role</button>
+                      <button className="text-slate-600 hover:text-slate-900 dark:text-white font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2" onClick={() => { setAssignRoleUserId(u.id); setAssignRoleRoleId('') }}>Role</button>
                     </td>
                   </tr>
                 ))}
@@ -259,20 +261,20 @@ export default function Users() {
         )}
 
         {assignRoleUserId && (
-          <form onSubmit={handleAssignRoleSubmit} className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-end gap-3">
+          <form onSubmit={handleAssignRoleSubmit} className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-end gap-3">
             <div className="text-sm font-medium text-slate-700">
-              Assign role to user <span className="font-bold text-slate-900">#{String(assignRoleUserId)}</span>
+              Assign role to user <span className="font-bold text-slate-900 dark:text-white">{users.find(u => u.id === assignRoleUserId)?.name || `#${String(assignRoleUserId)}`}</span>
             </div>
             <select
               value={assignRoleRoleId}
               onChange={e => setAssignRoleRoleId(e.target.value)}
-              className="p-2 border rounded text-sm flex-1 min-w-[150px]"
+              className="form-select flex-1 min-w-[150px]"
               required
             >
               <option value="">Select role</option>
               {roles.map((r: any) => <option key={r.id} value={String(r.id)}>{r.name || `Role #${r.id}`}</option>)}
             </select>
-            <button type="submit" className="button text-sm">Assign</button>
+            <button type="submit" className="button">Assign Role</button>
             <button type="button" className="button-secondary text-sm" onClick={() => setAssignRoleUserId('')}>Cancel</button>
           </form>
         )}

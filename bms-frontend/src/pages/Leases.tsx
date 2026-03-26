@@ -48,7 +48,7 @@ export default function Leases() {
   const [endDate, setEndDate] = useState('')
   const [rent, setRent] = useState('')
   const [serviceCharge, setServiceCharge] = useState('')
-  const [billingCycle, setBillingCycle] = useState('monthly')
+  const [billingCycle, setBillingCycle] = useState('MONTHLY')
 
   // Activation / termination / renew
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | number>('')
@@ -67,7 +67,7 @@ export default function Leases() {
   const [renewOnlyStart, setRenewOnlyStart] = useState('')
   const [renewOnlyEnd, setRenewOnlyEnd] = useState('')
   const [renewOnlyRent, setRenewOnlyRent] = useState('')
-  const [renewOnlyBillingCycle, setRenewOnlyBillingCycle] = useState('monthly')
+  const [renewOnlyBillingCycle, setRenewOnlyBillingCycle] = useState('MONTHLY')
   const [uploadOnlyLeaseId, setUploadOnlyLeaseId] = useState<string | number>('')
   const [uploadOnlyFile, setUploadOnlyFile] = useState<File | null>(null)
 
@@ -173,14 +173,13 @@ export default function Leases() {
         rent_amount: renewOnlyRent ? Number(renewOnlyRent) : undefined,
         billing_cycle: renewOnlyBillingCycle || undefined,
       }
-      if (renewOnlyRent) payload.rent = Number(renewOnlyRent)
       await renewLease(renewOnlyLeaseId, payload)
       toast.addToast('Renewal created', 'success')
       setRenewOnlyLeaseId('')
       setRenewOnlyStart('')
       setRenewOnlyEnd('')
       setRenewOnlyRent('')
-      setRenewOnlyBillingCycle('monthly')
+      setRenewOnlyBillingCycle('MONTHLY')
       loadLeases()
     } catch (e: any) { console.error(e); toast.addToast('Renew failed', 'error') }
   }
@@ -240,78 +239,58 @@ export default function Leases() {
     } catch (e: any) { console.error(e); toast.addToast('Upload failed', 'error') }
   }
 
-  async function handleDownload(id: string | number) {
-    if (!id) { toast.addToast('Select lease id to download', 'error'); return }
+  async function handleDownload(id: string | number, mode: 'view' | 'download' = 'download') {
+    if (!id) { toast.addToast('Select lease id', 'error'); return }
     try {
       const res = await downloadLease(id)
-      // Try to parse JSON response for download_url
       const contentType = (res.headers && (res.headers['content-type'] || res.headers['Content-Type'])) || ''
-      // If server returned JSON (e.g. { download_url }), handle that first
-      if (contentType.includes('application/json')) {
-        const text = new TextDecoder().decode(res.data)
-        try {
-          const json = JSON.parse(text)
-          if (json.download_url) {
-            window.open(json.download_url, '_blank')
-            return
-          }
-          toast.addToast(json.message || 'No download URL returned', 'error')
-          return
-        } catch (err) {
-          // fallthrough to binary handling
+
+      // 1. Check if the response is actually a JSON error hidden in the binary data
+      if (contentType.includes('application/json') || res.data instanceof ArrayBuffer || res.data instanceof Blob) {
+        let textContent = ''
+        if (res.data instanceof ArrayBuffer) {
+          textContent = new TextDecoder().decode(res.data)
+        } else if (res.data instanceof Blob) {
+          textContent = await res.data.text()
+        }
+
+        if (textContent.trim().startsWith('{')) {
+          try {
+            const json = JSON.parse(textContent)
+            if (json.statusCode >= 400 || json.message) {
+              toast.addToast(`Error: ${json.message || 'Server error'}`, 'error')
+              return
+            }
+          } catch (e) { /* Not JSON, continue */ }
         }
       }
 
-      // At this point treat response as binary. res.data may be ArrayBuffer or Blob
+      // 2. Prepare the Blob
       let blob: Blob
-      if (res.data instanceof ArrayBuffer) {
-        const mime = contentType || 'application/pdf'
-        blob = new Blob([res.data], { type: mime })
-      } else if (res.data instanceof Blob) {
-        // ensure blob has a type; if not, set from header
-        if (!res.data.type && contentType) blob = new Blob([res.data], { type: contentType })
-        else blob = res.data
+      if (res.data instanceof Blob) {
+        blob = res.data
       } else {
-        // fallback: try to convert to ArrayBuffer then blob
-        try {
-          const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-          const ab = new TextEncoder().encode(text).buffer
-          blob = new Blob([ab], { type: contentType || 'application/octet-stream' })
-        } catch (e) {
-          toast.addToast('Download failed: unknown response type', 'error')
-          return
-        }
+        blob = new Blob([res.data], { type: contentType || 'application/pdf' })
       }
 
       const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
+
+      if (mode === 'view') {
+        window.open(url, '_blank')
+      } else {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `Lease_${id}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      // Cleanup
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch (err: any) {
       console.error('handleDownload error', err)
-      const resp = err?.response
-      if (resp) {
-        // attempt to decode response body (may be arraybuffer)
-        try {
-          let text = ''
-          const data = resp.data
-          if (data instanceof ArrayBuffer) text = new TextDecoder().decode(data)
-          else if (typeof data === 'string') text = data
-          else if (data && typeof data === 'object') text = JSON.stringify(data)
-          // try json
-          try {
-            const json = JSON.parse(text)
-            const msg = json.message || json.error || JSON.stringify(json)
-            toast.addToast(`Download failed: ${msg}`, 'error')
-          } catch (e) {
-            // plain text or html
-            const short = text.slice(0, 200)
-            toast.addToast(`Download failed: ${short}`, 'error')
-          }
-        } catch (e) {
-          toast.addToast('Download failed (unable to decode error)', 'error')
-        }
-      } else {
-        toast.addToast('Download failed', 'error')
-      }
+      toast.addToast('Failed to process document', 'error')
     }
   }
 
@@ -319,8 +298,8 @@ export default function Leases() {
     <PageLayout title="Leases" subtitle="Manage leasing lifecycles, payments, and associated documents">
       <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Create Lease Draft</h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">Create Lease Draft</h3>
             <form onSubmit={handleCreate} className="space-y-2">
               <select value={tenantId} onChange={e => setTenantId(e.target.value)} className="w-full p-2 border rounded" required>
                 <option value="">Select tenant</option>
@@ -349,9 +328,9 @@ export default function Leases() {
                 <input placeholder="Service Charge (optional)" value={serviceCharge} onChange={e => setServiceCharge(e.target.value)} className="flex-1 p-2 border rounded" />
               </div>
               <select value={billingCycle} onChange={e => setBillingCycle(e.target.value)} className="w-full p-2 border rounded">
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="YEARLY">Yearly</option>
               </select>
               <div className="flex justify-end pt-2">
                 <button type="submit" className="button">Create Draft</button>
@@ -359,14 +338,16 @@ export default function Leases() {
             </form>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Quick Actions</h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">Quick Actions</h3>
             <form onSubmit={handleActivateOnly} className="mb-3">
               <label className="block text-sm font-medium mb-1">Quick Activate (lease only)</label>
               <div className="flex gap-2">
                 <select value={String(activateOnlyLeaseId)} onChange={e => setActivateOnlyLeaseId(e.target.value)} className="flex-1 p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.filter((l: any) => l.status === 'DRAFT').map((l: any) => (
+                    <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
+                  ))}
                 </select>
                 <button type="submit" className="px-3 py-2 bg-green-600 text-white rounded">Activate</button>
               </div>
@@ -374,12 +355,23 @@ export default function Leases() {
             <form onSubmit={handleTerminateOnly} className="mb-4">
               <label className="block text-sm font-medium mb-1">Quick Terminate</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <select value={String(terminateOnlyLeaseId)} onChange={e => setTerminateOnlyLeaseId(e.target.value)} className="col-span-1 md:col-span-1 p-2 border rounded">
-                  <option value="">Select lease</option>
-                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
-                </select>
-                <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="p-2 border rounded" />
-                <input placeholder="Reason" value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="p-2 border rounded" />
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Lease</label>
+                  <select value={String(terminateOnlyLeaseId)} onChange={e => setTerminateOnlyLeaseId(e.target.value)} className="w-full p-2 border rounded">
+                    <option value="">Select lease</option>
+                    {leases.filter((l: any) => ['ACTIVE', 'RENEWED'].includes(l.status)).map((l: any) => (
+                      <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Termination Date</label>
+                  <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Reason</label>
+                  <input placeholder="Termination Reason" value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
               </div>
               <div className="flex justify-end mt-2">
                 <button type="submit" className="px-3 py-2 bg-red-600 text-white rounded">Terminate</button>
@@ -388,21 +380,39 @@ export default function Leases() {
             <form onSubmit={handleRenewOnly} className="mb-4">
               <label className="block text-sm font-medium mb-1">Quick Renew</label>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                <select value={String(renewOnlyLeaseId)} onChange={e => setRenewOnlyLeaseId(e.target.value)} className="p-2 border rounded">
-                  <option value="">Select lease</option>
-                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
-                </select>
-                <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="p-2 border rounded" />
-                <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="p-2 border rounded" />
-                <input placeholder="Rent" value={renewOnlyRent} onChange={e => setRenewOnlyRent(e.target.value)} className="p-2 border rounded" />
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Lease</label>
+                  <select value={String(renewOnlyLeaseId)} onChange={e => setRenewOnlyLeaseId(e.target.value)} className="w-full p-2 border rounded">
+                    <option value="">Select lease</option>
+                    {leases.filter((l: any) => ['ACTIVE', 'EXPIRED'].includes(l.status)).map((l: any) => (
+                      <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+                  <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+                  <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Rent Amount</label>
+                  <input placeholder="Rent Amount" value={renewOnlyRent} onChange={e => setRenewOnlyRent(e.target.value)} className="w-full p-2 border rounded" />
+                </div>
               </div>
-              <div className="flex gap-2 mt-2 items-center">
-                <select value={renewOnlyBillingCycle} onChange={e => setRenewOnlyBillingCycle(e.target.value)} className="p-2 border rounded">
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                </select>
-                <div className="flex-1" />
-                <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded">Renew</button>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Billing Cycle</label>
+                  <select value={renewOnlyBillingCycle} onChange={e => setRenewOnlyBillingCycle(e.target.value)} className="w-full p-2 border rounded">
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="QUARTERLY">Quarterly</option>
+                  </select>
+                </div>
+                <div className="flex items-end justify-end">
+                  <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded">Renew</button>
+                </div>
               </div>
             </form>
             <form onSubmit={handleUploadOnly} className="mb-4">
@@ -410,7 +420,7 @@ export default function Leases() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
                 <select value={String(uploadOnlyLeaseId)} onChange={e => setUploadOnlyLeaseId(e.target.value)} className="p-2 border rounded">
                   <option value="">Select lease</option>
-                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`#${l.id} — ${l.unit_number || l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                  {leases.map((l: any) => (<option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
                 </select>
                 <input type="file" onChange={e => setUploadOnlyFile(e.target.files?.[0] || null)} className="p-1" />
               </div>
@@ -423,15 +433,14 @@ export default function Leases() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 transition-shadow hover:shadow-md mt-6">
-          <h3 className="font-bold text-slate-800 mb-4 tracking-tight">Active & Historical Leases</h3>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md mt-6">
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">Active & Historical Leases</h3>
           {loading ? <div className="py-12 flex justify-center text-slate-500">Loading leases...</div> : (
-            <div className="table-container shadow-none ring-0 border border-slate-200 rounded-xl">
+            <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
               <table className="w-full text-sm text-left whitespace-nowrap">
-                <thead className="text-xs text-slate-500 uppercase bg-slate-50/80 border-b border-slate-200">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 font-medium tracking-wider">ID</th>
-                    <th className="px-6 py-4 font-medium tracking-wider">Lease</th>
+                    <th className="px-6 py-4 font-medium tracking-wider">Lease Number</th>
                     <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
                     <th className="px-6 py-4 font-medium tracking-wider">Tenant</th>
                     <th className="px-6 py-4 font-medium tracking-wider">Building</th>
@@ -441,11 +450,10 @@ export default function Leases() {
                     <th className="px-6 py-4 font-medium tracking-wider text-right">Document</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                   {leases.map((l: any) => (
-                    <tr key={l.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                      <td className="px-6 py-4 font-medium text-slate-500">#{l.id}</td>
-                      <td className="px-6 py-4 font-medium text-slate-900">{l.lease_number || '-'}</td>
+                    <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
+                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{l.lease_number || 'L-Draft'}</td>
                       <td className="px-6 py-4 text-slate-600 font-mono text-xs">{l.unit?.unit_number || l.unit_number || l.unit_id}</td>
                       <td className="px-6 py-4 text-slate-600">{tenantLabel(l.tenant)}</td>
                       <td className="px-6 py-4 text-slate-600">{l.building?.name || l.building?.code || '-'}</td>
@@ -457,16 +465,14 @@ export default function Leases() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${l.status === 'ACTIVE' || l.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                             l.status === 'DRAFT' || l.status === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                               l.status === 'TERMINATED' || l.status === 'terminated' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                'bg-slate-50 text-slate-700 border-slate-200'
+                                'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700'
                           }`}>
                           {l.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {l.doc_path ? (
-                          <a href={`${API_URL}/leases/${l.id}/pdf`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2">View</a>
-                        ) : null}
-                        <button onClick={() => handleDownload(l.id)} className="text-emerald-600 hover:text-emerald-900 font-medium text-xs pl-2 border-l border-slate-200 ml-2">Download</button>
+                        <button onClick={() => handleDownload(l.id, 'view')} className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2">View</button>
+                        <button onClick={() => handleDownload(l.id, 'download')} className="text-emerald-600 hover:text-emerald-900 font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2">Download</button>
                       </td>
                     </tr>
                   ))}

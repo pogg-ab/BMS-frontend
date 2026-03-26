@@ -106,7 +106,7 @@ export default function QR() {
   return (
     <PageLayout title="QR Codes" subtitle="Generate, manage, and export QR codes for units">
       {/* Tab Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
         <div className="flex overflow-x-auto">
           {TABS.map(t => (
             <button
@@ -129,7 +129,7 @@ export default function QR() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Generate Form */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">Generate QR Code</h3>
               <form onSubmit={handleGenerate} className="space-y-3">
                 <div>
@@ -159,7 +159,7 @@ export default function QR() {
             </div>
 
             {/* Preview */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">QR Preview</h3>
               <div className="border-2 border-dashed rounded-lg p-6 text-center min-h-[200px] flex flex-col items-center justify-center">
                 {lastGenerated?.token ? (
@@ -186,7 +186,7 @@ export default function QR() {
           </div>
 
           {/* QR Codes Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">All QR Codes</h3>
               <button
@@ -202,7 +202,7 @@ export default function QR() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border">
                   <thead>
-                    <tr className="text-left border-b bg-gray-50">
+                    <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
                       <th className="p-3">
                         <input
                           type="checkbox"
@@ -223,7 +223,7 @@ export default function QR() {
                   </thead>
                   <tbody>
                     {analyticsData.map((qr: any) => (
-                      <tr key={qr.id} className="border-b hover:bg-gray-50">
+                      <tr key={qr.id} className="border-b hover:bg-gray-50 dark:bg-slate-900">
                         <td className="p-3">
                           <input type="checkbox" checked={selectedIds.has(qr.id)} onChange={() => toggleSelect(qr.id)} />
                         </td>
@@ -264,22 +264,22 @@ export default function QR() {
         <div className="space-y-6">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Total QR Codes</div>
               <div className="text-2xl font-bold text-blue-700">{analyticsData.length}</div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Active</div>
               <div className="text-2xl font-bold text-green-700">{analyticsData.filter(q => q.status === 'active').length}</div>
             </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
               <div className="text-sm text-gray-500 mb-1">Total Scans</div>
               <div className="text-2xl font-bold text-indigo-700">{analyticsData.reduce((s, q) => s + (q.scan_count || 0), 0)}</div>
             </div>
           </div>
 
           {/* Top Scanned */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4">Top Scanned QR Codes</h3>
             {analyticsData.length === 0 ? (
               <div className="text-gray-400 text-sm">No scan data available yet</div>
@@ -287,7 +287,7 @@ export default function QR() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border">
                   <thead>
-                    <tr className="text-left border-b bg-gray-50">
+                    <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
                       <th className="p-3">#</th>
                       <th className="p-3">Token</th>
                       <th className="p-3">Unit</th>
@@ -300,7 +300,7 @@ export default function QR() {
                     {[...analyticsData]
                       .sort((a, b) => (b.scan_count || 0) - (a.scan_count || 0))
                       .map((qr: any, i: number) => (
-                        <tr key={qr.id} className="border-b hover:bg-gray-50">
+                        <tr key={qr.id} className="border-b hover:bg-gray-50 dark:bg-slate-900">
                           <td className="p-3 font-medium text-gray-400">{i + 1}</td>
                           <td className="p-3 font-mono text-xs">{qr.token}</td>
                           <td className="p-3">{qr.unit_number || '-'}</td>

@@ -30,7 +30,7 @@ export default function Automations() {
     <PageLayout title="Automations" subtitle="Manage and manually trigger scheduled background jobs">
       <div className="space-y-4">
         {JOBS.map(job => (
-          <div key={job.name} className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div key={job.name} className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="text-3xl">{job.icon}</div>
@@ -61,29 +61,29 @@ export default function Automations() {
         ))}
       </div>
 
-      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+      <div className="mt-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
         <h3 className="font-semibold mb-3">Cron Schedule</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border">
             <thead>
-              <tr className="text-left border-b bg-gray-50">
+              <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
                 <th className="p-3">Job</th>
                 <th className="p-3">Schedule</th>
                 <th className="p-3">Description</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b hover:bg-gray-50">
+              <tr className="border-b hover:bg-gray-50 dark:bg-slate-900">
                 <td className="p-3 font-medium">Lease Expiry</td>
                 <td className="p-3 font-mono text-xs">Every day at 1:00 AM</td>
                 <td className="p-3 text-gray-500">Checks for leases expiring in 30/14/7 days</td>
               </tr>
-              <tr className="border-b hover:bg-gray-50">
+              <tr className="border-b hover:bg-gray-50 dark:bg-slate-900">
                 <td className="p-3 font-medium">Payment Deadline</td>
                 <td className="p-3 font-mono text-xs">Every day at 1:00 AM</td>
                 <td className="p-3 text-gray-500">Reminder 5 days before due, marks overdue</td>
               </tr>
-              <tr className="border-b hover:bg-gray-50">
+              <tr className="border-b hover:bg-gray-50 dark:bg-slate-900">
                 <td className="p-3 font-medium">Utility Sync</td>
                 <td className="p-3 font-mono text-xs">25th of every month at 1:00 AM</td>
                 <td className="p-3 text-gray-500">Processes unbilled meter readings</td>

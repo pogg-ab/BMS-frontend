@@ -142,7 +142,7 @@ export default function Documents() {
   return (
     <PageLayout title="Documents" subtitle="Upload, search, and manage documents across modules">
       {/* Tab Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
         <div className="flex overflow-x-auto">
           {TABS.map(t => (
             <button
@@ -164,7 +164,7 @@ export default function Documents() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Upload Form */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">Upload Document</h3>
               <form onSubmit={handleUpload} className="space-y-3">
                 <div>
@@ -188,7 +188,7 @@ export default function Documents() {
                   <input
                     ref={fileRef}
                     type="file"
-                    className="hidden"
+                    className="hidden dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                     onChange={e => setUploadFile(e.target.files?.[0] || null)}
                   />
                 </div>
@@ -243,7 +243,7 @@ export default function Documents() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
               <h3 className="font-semibold mb-4 text-lg">Search & Filter</h3>
               <div className="space-y-3">
                 <div>
@@ -292,7 +292,7 @@ export default function Documents() {
           </div>
 
           {/* Documents Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4">Documents</h3>
             {docsLoading ? <div className="text-gray-500">Loading...</div> : docs.length === 0 ? (
               <div className="text-gray-400 text-sm">No documents found</div>
@@ -300,7 +300,7 @@ export default function Documents() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border">
                   <thead>
-                    <tr className="text-left border-b bg-gray-50">
+                    <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
                       <th className="p-3">File Name</th>
                       <th className="p-3">Type</th>
                       <th className="p-3">Module</th>
@@ -311,7 +311,7 @@ export default function Documents() {
                   </thead>
                   <tbody>
                     {docs.map((doc: any) => (
-                      <tr key={doc.id} className="border-b hover:bg-gray-50">
+                      <tr key={doc.id} className="border-b hover:bg-gray-50 dark:bg-slate-900">
                         <td className="p-3 font-medium">{doc.file_name}</td>
                         <td className="p-3 text-xs text-gray-500">{doc.mime_type}</td>
                         <td className="p-3">
@@ -341,7 +341,7 @@ export default function Documents() {
 
       {/* ────── HISTORY TAB ────── */}
       {tab === 'history' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-lg">Version History {historyDocId && <span className="text-sm text-gray-400 ml-2">Doc: {historyDocId.slice(0, 8)}…</span>}</h3>
             <button onClick={() => setTab('browse')} className="text-sm text-blue-600 hover:underline">← Back to Browse</button>
@@ -357,7 +357,7 @@ export default function Documents() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm border">
                 <thead>
-                  <tr className="text-left border-b bg-gray-50">
+                  <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
                     <th className="p-3">Version</th>
                     <th className="p-3">Storage Path</th>
                     <th className="p-3">Uploaded At</th>
@@ -365,7 +365,7 @@ export default function Documents() {
                 </thead>
                 <tbody>
                   {versions.map((v: any, i: number) => (
-                    <tr key={v.id || i} className="border-b hover:bg-gray-50">
+                    <tr key={v.id || i} className="border-b hover:bg-gray-50 dark:bg-slate-900">
                       <td className="p-3 font-medium">v{v.version_number}</td>
                       <td className="p-3 text-xs text-gray-500 max-w-[300px] truncate">{v.storage_path}</td>
                       <td className="p-3 text-xs">{v.uploaded_at ? new Date(v.uploaded_at).toLocaleString() : '-'}</td>

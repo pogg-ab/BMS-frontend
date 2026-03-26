@@ -43,7 +43,7 @@ export default function Notifications() {
     if (!userId) return
     setLoading(true)
     try {
-      const data = await notifApi.getNotifications(userId)
+      const data = await notifApi.getNotifications()
       setNotifications(Array.isArray(data) ? data : [])
     } catch (e: any) {
       console.error(e)
@@ -53,7 +53,7 @@ export default function Notifications() {
 
   async function handleMarkAllRead() {
     try {
-      await notifApi.markAllAsRead(userId)
+      await notifApi.markAllAsRead()
       toast.addToast('All marked as read', 'success')
       loadNotifications()
     } catch (e: any) {
@@ -63,7 +63,7 @@ export default function Notifications() {
 
   async function handleDelete(id: string) {
     try {
-      await notifApi.deleteNotification(id, userId)
+      await notifApi.deleteNotification(id)
       toast.addToast('Notification deleted', 'success')
       loadNotifications()
     } catch (e: any) {
@@ -75,7 +75,7 @@ export default function Notifications() {
     e.preventDefault()
     setSending(true)
     try {
-      const result = await notifApi.sendAnnouncement({ title: annTitle, message: annMessage }, userId)
+      const result = await notifApi.sendAnnouncement({ title: annTitle, message: annMessage })
       toast.addToast(`Announcement sent to ${result.sent_count || 0} users`, 'success')
       setAnnTitle('')
       setAnnMessage('')
@@ -96,7 +96,7 @@ export default function Notifications() {
   return (
     <PageLayout title="Notifications" subtitle="In-app notifications and system announcements">
       {/* Tab Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 mb-6">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
         <div className="flex overflow-x-auto">
           {TABS.map(t => (
             <button
@@ -135,14 +135,14 @@ export default function Notifications() {
           </div>
 
           {loading ? <div className="text-gray-500">Loading...</div> : notifications.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-10 text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-10 text-center">
               <div className="text-4xl mb-2">🔔</div>
               <div className="text-gray-400">No notifications yet</div>
             </div>
           ) : (
             <div className="space-y-2">
               {notifications.map((n: any) => (
-                <div key={n.id} className={`bg-white rounded-lg shadow-sm border p-4 flex items-start gap-3 ${n.is_read ? 'border-gray-100' : 'border-blue-200 bg-blue-50/30'}`}>
+                <div key={n.id} className={`bg-white dark:bg-slate-800 rounded-lg shadow-sm border p-4 flex items-start gap-3 ${n.is_read ? 'border-gray-100' : 'border-blue-200 bg-blue-50/30'}`}>
                   <div className="text-2xl">{typeIcon(n.type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -166,7 +166,7 @@ export default function Notifications() {
       {/* ────── ANNOUNCE ────── */}
       {tab === 'announce' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4 text-lg">Send Announcement</h3>
             <p className="text-sm text-gray-500 mb-4">This will send a notification to <strong>all users</strong> in the system.</p>
             <form onSubmit={handleSendAnnouncement} className="space-y-3">
@@ -203,7 +203,7 @@ export default function Notifications() {
             </form>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
             <h3 className="font-semibold mb-4 text-lg">About Notifications</h3>
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex items-start gap-3">

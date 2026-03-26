@@ -183,7 +183,7 @@ export default function Amenities() {
             </thead>
             <tbody>
               {items.map(a => (
-                <tr key={a.id} className="border-b hover:bg-slate-50">
+                <tr key={a.id} className="border-b hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900">
                   <td className="py-2">{a.name}</td>
                   <td className="py-2">{a.category || '-'}</td>
                   <td className="py-2">-</td>
@@ -201,7 +201,7 @@ export default function Amenities() {
       </div>
       {manageId && (
         <div className="fixed inset-0 flex items-start justify-center bg-black/30 pt-20">
-          <div className="bg-white rounded shadow p-6 w-3/4 max-w-3xl">
+          <div className="bg-white dark:bg-slate-800 rounded shadow p-6 w-3/4 max-w-3xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Manage links for {amenityDetail?.name || manageId}</h3>
               <button className="px-2 py-1 border rounded" onClick={() => { setManageId(null); setAmenityDetail(null); }}>Close</button>

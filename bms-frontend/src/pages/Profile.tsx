@@ -49,16 +49,16 @@ export default function Profile() {
     owners: 'bg-lime-50 text-lime-700 border-lime-200',
     documents: 'bg-sky-50 text-sky-700 border-sky-200',
     amenities: 'bg-orange-50 text-orange-700 border-orange-200',
-    qr: 'bg-slate-50 text-slate-700 border-slate-200',
+    qr: 'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700',
     utilities: 'bg-yellow-50 text-yellow-700 border-yellow-200',
     reports: 'bg-green-50 text-green-700 border-green-200',
-    settings: 'bg-gray-50 text-gray-700 border-gray-200',
+    settings: 'bg-gray-50 dark:bg-slate-900 text-gray-700 border-gray-200',
   }
 
   if (error) {
     return (
       <PageLayout title="Profile" subtitle="Your account details">
-        <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-red-200 p-8 text-center">
           <div className="text-red-500 text-4xl mb-3">⚠️</div>
           <div className="text-red-600 font-medium">{error}</div>
         </div>
@@ -69,7 +69,7 @@ export default function Profile() {
   if (!profile) {
     return (
       <PageLayout title="Profile" subtitle="Your account details">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-12 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-12 text-center">
           <div className="animate-pulse flex flex-col items-center gap-4">
             <div className="w-20 h-20 bg-slate-200 rounded-full" />
             <div className="h-4 bg-slate-200 rounded w-40" />
@@ -85,15 +85,15 @@ export default function Profile() {
       <div className="max-w-5xl mx-auto space-y-6">
 
         {/* ── Profile Header Card ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 overflow-hidden">
           <div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
           <div className="px-8 pb-8 -mt-14">
             <div className="flex items-end gap-6">
-              <div className="w-28 h-28 rounded-2xl bg-white shadow-lg border-4 border-white flex items-center justify-center text-3xl font-bold text-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 flex-shrink-0">
+              <div className="w-28 h-28 rounded-2xl bg-white dark:bg-slate-800 shadow-lg border-4 border-white flex items-center justify-center text-3xl font-bold text-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 flex-shrink-0">
                 {initials}
               </div>
               <div className="pt-16 pb-1 flex-1">
-                <h2 className="text-2xl font-bold text-slate-900">{displayName}</h2>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
                 <p className="text-slate-500 mt-0.5">{profile.email}</p>
               </div>
             </div>
@@ -111,8 +111,8 @@ export default function Profile() {
         </div>
 
         {/* ── Account Details Card ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-8">
-          <h3 className="text-lg font-semibold text-slate-900 mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-8">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
             <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             Account Details
           </h3>
@@ -126,16 +126,16 @@ export default function Profile() {
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start gap-3">
                 <span className="text-sm font-medium text-slate-400 w-24 flex-shrink-0">{label}</span>
-                <span className="text-sm text-slate-800 font-medium break-all">{value || '—'}</span>
+                <span className="text-sm text-slate-800 dark:text-slate-200 font-medium break-all">{value || '—'}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* ── Permissions Card ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-8">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               Permissions
             </h3>
@@ -146,14 +146,14 @@ export default function Profile() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(groupedPermissions).map(([module, actions]) => (
-              <div key={module} className={`rounded-xl border p-4 ${moduleColors[module] || 'bg-slate-50 text-slate-700 border-slate-200'}`}>
+              <div key={module} className={`rounded-xl border p-4 ${moduleColors[module] || 'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700'}`}>
                 <div className="font-semibold text-sm capitalize mb-2 flex items-center justify-between">
                   {module.replace(/_/g, ' ')}
                   <span className="text-xs opacity-60 font-normal">{actions.length}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {actions.map(action => (
-                    <span key={action} className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-white/60 border border-current/10">
+                    <span key={action} className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-white dark:bg-slate-800/60 border border-current/10">
                       {action}
                     </span>
                   ))}

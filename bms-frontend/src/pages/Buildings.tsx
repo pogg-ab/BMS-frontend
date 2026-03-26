@@ -174,47 +174,45 @@ export default function Buildings() {
         <div className="card mb-4">
           <h2 className="text-lg font-medium">{editing ? 'Edit Building' : 'Create Building'}</h2>
           <form onSubmit={handleSubmit} className="space-y-3 mt-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Type</label>
-                <select required value={type} onChange={e => setType(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
-                  <option value="residential">Residential</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="mixed">Mixed</option>
+                <label className="form-label">Building Name</label>
+                <input required value={name} onChange={e => setName(e.target.value)} className="form-input" placeholder="e.g. Skyline Tower" />
+              </div>
+              <div>
+                <label className="form-label">Building Code</label>
+                <input required value={code} onChange={e => setCode(e.target.value)} className="form-input" placeholder="BLD-01" />
+              </div>
+              <div>
+                <label className="form-label">Site</label>
+                <select value={siteId} onChange={e => setSiteId(e.target.value)} className="form-select" required>
+                  <option value="">Select site</option>
+                  {sites.map((s: any) => <option key={s.id} value={s.id}>{s.name || s.id}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Code</label>
-                <input required value={code} onChange={e => setCode(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <input required value={address} onChange={e => setAddress(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Site</label>
-                <select required value={siteId} onChange={e => setSiteId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
-                  <option value="">-- select site --</option>
-                  {sites.map(s => <option key={s.id} value={s.id}>{s.name} {s.code ? `(${s.code})` : ''}</option>)}
+                <label className="form-label">Owner</label>
+                <select value={ownerId} onChange={e => setOwnerId(e.target.value)} className="form-select" required>
+                  <option value="">Select owner</option>
+                  {owners.map((o: any) => <option key={o.id} value={o.id}>{o.name || o.id}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Owner</label>
-                <select required value={ownerId} onChange={e => setOwnerId(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm">
-                  <option value="">-- select owner --</option>
-                  {owners.map(o => <option key={o.id} value={o.id}>{o.name || `${o.first_name} ${o.last_name}`} {o.email ? `(${o.email})` : ''}</option>)}
+                <label className="form-label">Type</label>
+                <select value={type} onChange={e => setType(e.target.value)} className="form-select">
+                  <option value="RESIDENTIAL">Residential</option>
+                  <option value="COMMERCIAL">Commercial</option>
+                  <option value="MIXED">Mixed Use</option>
                 </select>
               </div>
+              <div>
+                <label className="form-label">Address</label>
+                <input required value={address} onChange={e => setAddress(e.target.value)} className="form-input" />
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-4">
-              <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
-              <button type="button" className="px-3 py-1 border rounded" onClick={() => setShowForm(false)}>Cancel</button>
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+              <button className="button" type="submit">{editing ? 'Save Changes' : 'Create Building'}</button>
+              <button type="button" className="button-secondary" onClick={() => setShowForm(false)}>Cancel</button>
             </div>
           </form>
         </div>
@@ -240,7 +238,7 @@ export default function Buildings() {
             </thead>
             <tbody>
               {buildings.map(b => (
-                <tr key={String(b.id)} className="border-b hover:bg-slate-50">
+                <tr key={String(b.id)} className="border-b hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900">
                   <td className="py-2">{b.name}</td>
                   <td className="py-2">{b.code || '-'}</td>
                   <td className="py-2">{(b as any).type || '-'}</td>
@@ -263,7 +261,7 @@ export default function Buildings() {
 
       {detailId && (
         <div className="fixed inset-0 flex items-start justify-center bg-black/30 pt-20">
-          <div className="bg-white rounded shadow p-6 w-3/4 max-w-3xl">
+          <div className="bg-white dark:bg-slate-800 rounded shadow p-6 w-3/4 max-w-3xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Building details</h3>
               <button className="px-2 py-1 border rounded" onClick={() => { setDetailId(null); setDetail(null); }}>Close</button>
