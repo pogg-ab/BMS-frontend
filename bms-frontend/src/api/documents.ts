@@ -24,3 +24,8 @@ export async function deleteDocument(id: string) {
   const res = await api.delete(`/documents/${id}`)
   return res.data
 }
+
+export async function generateContract(data: { lease_id: string; template_id: string }) {
+  const res = await api.post('/documents/generate-contract', data)
+  return res.data
+}

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { listUsers, deleteUser, activateUser, assignRole, createUser, updateUser } from '../api/users'
 import { listRoles } from '../api/roles'
+import PageLayout from '../components/PageLayout'
+import { useToast } from '../components/ToastProvider'
+import { Plus, Trash2, Edit2, Shield, User, Mail, Lock, CheckCircle, XCircle, MoreVertical, Search, X } from 'lucide-react'
 
 type UserRow = {
   id: string | number
@@ -12,17 +15,17 @@ type UserRow = {
 }
 
 export default function Users() {
+  const toast = useToast()
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
-  const [showCreate, setShowCreate] = useState(false)
+  const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [roles, setRoles] = useState<any[]>([])
-  const [assignRoleUserId, setAssignRoleUserId] = useState<string | number>('')
-  const [assignRoleRoleId, setAssignRoleRoleId] = useState<string>('')
   const [tab, setTab] = useState<'active' | 'deactivated'>('active')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // form state (shared for create/edit)
+  // form state
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,25 +34,23 @@ export default function Users() {
   async function load() {
     setLoading(true)
     try {
-      const res = await listUsers({ page, per_page: 25 })
-      // handle different backend shapes: array, { data: [...] }, { users: [...] }
+      const res = await listUsers({ page, per_page: 500 })
       let list: any[] = []
       if (Array.isArray(res)) list = res
       else if (res && Array.isArray((res as any).data)) list = (res as any).data
       else if (res && Array.isArray((res as any).users)) list = (res as any).users
       else list = []
 
-      // normalize items: map `status` -> `is_active`, and ensure `roles` array
       const normalized = list.map((u: any) => ({
         ...u,
         is_active: typeof u.is_active === 'boolean' ? u.is_active : (u.status ? String(u.status).toLowerCase() === 'active' : false),
-        roles: Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : (u.role_id ? [u.role_id] : [])),
+        roles: Array.isArray(u.roles) ? u.roles.map(r => r.name || r) : (u.role ? [u.role.name || u.role] : (u.role_id ? [u.role_id] : [])),
       }))
 
       setUsers(normalized)
     } catch (e: any) {
       console.error(e)
-      alert(e?.response?.data?.message || 'Failed to load users')
+      toast.addToast(e?.response?.data?.message || 'Failed to load users', 'error')
     } finally {
       setLoading(false)
     }
@@ -57,7 +58,6 @@ export default function Users() {
 
   useEffect(() => {
     load()
-    // fetch roles and normalize shapes
     listRoles()
       .then((r: any) => {
         if (Array.isArray(r)) setRoles(r)
@@ -69,21 +69,11 @@ export default function Users() {
   }, [page])
 
   function openCreate() {
-    setEditing(null)
-    setName('')
-    setEmail('')
-    setPassword('')
-    setRoleId(undefined)
-    setShowCreate(true)
+    setEditing(null); setName(''); setEmail(''); setPassword(''); setRoleId(undefined); setShowForm(true)
   }
 
   function openEdit(u: UserRow) {
-    setEditing(u)
-    setName(u.name || '')
-    setEmail(u.email || '')
-    setPassword('')
-    setRoleId(u.roles && u.roles.length ? String(u.roles[0]) : undefined)
-    setShowCreate(true)
+    setEditing(u); setName(u.name || ''); setEmail(u.email || ''); setPassword(''); setRoleId(undefined); setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -92,15 +82,15 @@ export default function Users() {
       if (editing) {
         await updateUser(editing.id, { name, email })
         if (roleId) await assignRole({ user_id: editing.id, role_id: Number(roleId) })
-        alert('User updated')
+        toast.addToast('User updated successfully', 'success')
       } else {
         await createUser({ name, email, password, role_id: roleId ? Number(roleId) : undefined, status: 'ACTIVE' })
-        alert('User created')
+        toast.addToast('User created successfully', 'success')
       }
-      setShowCreate(false)
+      setShowForm(false)
       load()
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Operation failed')
+      toast.addToast(err?.response?.data?.message || 'Operation failed', 'error')
     }
   }
 
@@ -108,186 +98,186 @@ export default function Users() {
     if (!confirm('Deactivate this user?')) return
     try {
       await updateUser(id, { status: 'INACTIVE' })
-      alert('User deactivated')
+      toast.addToast('User deactivated', 'success')
       load()
     } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to deactivate')
+      toast.addToast(e?.response?.data?.message || 'Failed to deactivate', 'error')
     }
   }
 
   async function handleActivate(id: string | number) {
     try {
       await activateUser(id)
-      alert('User activated')
+      toast.addToast('User activated', 'success')
       load()
     } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to activate')
+      toast.addToast(e?.response?.data?.message || 'Failed to activate', 'error')
     }
   }
 
-  async function handleAssignRoleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!assignRoleUserId || !assignRoleRoleId) return
-    try {
-      await assignRole({ user_id: assignRoleUserId, role_id: Number(assignRoleRoleId) })
-      alert('Role assigned')
-      setAssignRoleUserId('')
-      setAssignRoleRoleId('')
-      load()
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to assign role')
-    }
-  }
-
-  async function handleDelete(id: string | number) {
-    if (!confirm('Deactivate this user? They can be reactivated later from the Deactivated tab.')) return
-    try {
-      await updateUser(id, { status: 'INACTIVE' })
-      alert('User deactivated')
-      load()
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to deactivate user')
-    }
-  }
-
-  const activeUsers = users.filter(u => u.is_active)
-  const deactivatedUsers = users.filter(u => !u.is_active)
-  const displayedUsers = tab === 'active' ? activeUsers : deactivatedUsers
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = !searchQuery || 
+      (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+    
+    if (tab === 'active') return u.is_active && matchesSearch
+    return !u.is_active && matchesSearch
+  })
 
   return (
-    <div className="container">
-      <div className="header">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Users</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Manage system administrators and staff access</p>
+    <PageLayout 
+      title="System Users" 
+      subtitle="Manage internal administrators, managers, and staff access control."
+      actions={
+        <div className="flex items-center gap-3">
+          <div className="relative hidden sm:block">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search users..."
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+            />
+          </div>
+          <button onClick={openCreate} className="button shadow-md">
+            <Plus size={16} /> Create User
+          </button>
         </div>
-        <div>
-          <button className="button" onClick={openCreate}>Create User</button>
+      }
+    >
+      <div className="space-y-6 pb-10">
+        
+        {/* Tabs */}
+        <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl w-fit">
+          <button
+            onClick={() => setTab('active')}
+            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'active' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setTab('deactivated')}
+            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'deactivated' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            Deactivated
+          </button>
         </div>
+
+        {loading ? (
+          <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+            <User size={48} className="mb-4 opacity-50 text-slate-300" />
+            <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No users found</p>
+            <p className="text-sm font-medium mt-1">{tab === 'active' ? 'You have no active team members.' : 'No deactivated accounts.'}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {filteredUsers.map((u) => (
+              <div key={String(u.id)} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    {u.name?.charAt(0).toUpperCase() || <User size={20} />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      {u.name || 'Unnamed User'}
+                      {u.is_active ? (
+                        <CheckCircle size={14} className="text-emerald-500" />
+                      ) : (
+                        <XCircle size={14} className="text-rose-500" />
+                      )}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                        <Mail size={12} /> {u.email}
+                      </div>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
+                        <Shield size={12} /> {u.roles && u.roles.length ? u.roles.join(', ') : 'No Role'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all" title="Edit User">
+                    <Edit2 size={16} />
+                  </button>
+                  {u.is_active ? (
+                    <button onClick={() => handleDeactivate(u.id)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all" title="Deactivate">
+                      <XCircle size={16} />
+                    </button>
+                  ) : (
+                    <button onClick={() => handleActivate(u.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all" title="Activate">
+                      <CheckCircle size={16} />
+                    </button>
+                  )}
+                  <button className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Active / Deactivated Tabs */}
-      <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
-        <button
-          onClick={() => setTab('active')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${tab === 'active' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Active ({activeUsers.length})
-        </button>
-        <button
-          onClick={() => setTab('deactivated')}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${tab === 'deactivated' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-        >
-          Deactivated ({deactivatedUsers.length})
-        </button>
-      </div>
-
-      {showCreate && (
-        <div className="card mb-4">
-          <h2 className="text-lg font-medium">{editing ? 'Edit User' : 'Create User'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-3 mt-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* FORM MODAL */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editing ? 'Modify Profile' : 'New User Account'}</h2>
+              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="form-label">Name</label>
-                <input value={name} onChange={e => setName(e.target.value)} className="form-input" placeholder="Full Name" />
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Full Name</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sarah Connor" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
+                </div>
               </div>
               <div>
-                <label className="form-label">Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="form-input" placeholder="email@example.com" />
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="sarah@bms.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
+                </div>
               </div>
               {!editing && (
                 <div>
-                  <label className="form-label">Password</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="form-input" placeholder="••••••••" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Initial Password</label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
+                  </div>
                 </div>
               )}
               <div>
-                <label className="form-label">Role</label>
-                <select value={roleId} onChange={e => setRoleId(e.target.value)} className="form-select">
-                  <option value="">(none)</option>
-                  {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Role</label>
+                <div className="relative">
+                  <Shield size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <select value={roleId} onChange={e => setRoleId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-8 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm appearance-none transition-all cursor-pointer">
+                    <option value="">Select a role...</option>
+                    {roles.map((r: any) => <option key={r.id} value={String(r.id)}>{r.name || r.id}</option>)}
+                  </select>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
-              <button className="button" type="submit">{editing ? 'Save Changes' : 'Create User'}</button>
-              <button type="button" className="button-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-            </div>
-          </form>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">
+                  {editing ? 'Save Changes' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
-
-      <div className="card">
-        {loading && <div className="py-12 flex justify-center text-slate-500">Loading users...</div>}
-        {!loading && displayedUsers.length === 0 && (
-          <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">
-            {tab === 'active' ? 'No active users found' : 'No deactivated users'}
-          </div>
-        )}
-        {!loading && displayedUsers.length > 0 && (
-          <div className="table-container">
-            <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="px-6 py-4 font-medium tracking-wider">Name</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Email</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Role</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Status</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {displayedUsers.map((u) => (
-                  <tr key={String(u.id)} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
-                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.name || '-'}</td>
-                    <td className="px-6 py-4 text-slate-600">{u.email || '-'}</td>
-                    <td className="px-6 py-4 text-slate-600">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-                        {u.roles && u.roles.length ? u.roles.join(', ') : '-'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {u.is_active ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 border border-rose-200">Inactive</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openEdit(u)}>Edit</button>
-                      {u.is_active ? (
-                        <button className="text-amber-600 hover:text-amber-900 font-medium text-xs px-2" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
-                      ) : (
-                        <button className="text-emerald-600 hover:text-emerald-900 font-medium text-xs px-2" onClick={() => handleActivate(u.id)}>Reactivate</button>
-                      )}
-                      <button className="text-slate-600 hover:text-slate-900 dark:text-white font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2" onClick={() => { setAssignRoleUserId(u.id); setAssignRoleRoleId('') }}>Role</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {assignRoleUserId && (
-          <form onSubmit={handleAssignRoleSubmit} className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-end gap-3">
-            <div className="text-sm font-medium text-slate-700">
-              Assign role to user <span className="font-bold text-slate-900 dark:text-white">{users.find(u => u.id === assignRoleUserId)?.name || `#${String(assignRoleUserId)}`}</span>
-            </div>
-            <select
-              value={assignRoleRoleId}
-              onChange={e => setAssignRoleRoleId(e.target.value)}
-              className="form-select flex-1 min-w-[150px]"
-              required
-            >
-              <option value="">Select role</option>
-              {roles.map((r: any) => <option key={r.id} value={String(r.id)}>{r.name || `Role #${r.id}`}</option>)}
-            </select>
-            <button type="submit" className="button">Assign Role</button>
-            <button type="button" className="button-secondary text-sm" onClick={() => setAssignRoleUserId('')}>Cancel</button>
-          </form>
-        )}
-      </div>
-    </div>
+    </PageLayout>
   )
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { FiSearch, FiPlus } from 'react-icons/fi'
+import { Search, Plus, Filter, Download, TrendingUp, DollarSign, BarChart3, X } from 'lucide-react'
 import PageLayout from '../components/PageLayout'
+import KPICard from '../components/KPICard'
+import StatusBadge from '../components/StatusBadge'
 import { useToast } from '../components/ToastProvider'
 import * as financeApi from '../api/finance'
 import { listLeases } from '../api/leases'
@@ -8,7 +10,7 @@ import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
 
-type Tab = 'invoices' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'tax-rules' | 'reports'
+type Tab = 'invoices' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'tax-rules' | 'reports' | 'expenses' | 'p-and-l'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'invoices', label: 'Invoices' },
@@ -17,6 +19,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'deposit-advice', label: 'Deposit Advice' },
   { key: 'tax-rules', label: 'Tax Rules' },
   { key: 'reports', label: 'Reports' },
+  { key: 'expenses', label: 'Expenses' },
+  { key: 'p-and-l', label: 'Profit & Loss' },
 ]
 
 const ITEM_TYPES = ['RENT', 'UTILITY', 'MAINTENANCE', 'PENALTY']
@@ -24,6 +28,8 @@ const ITEM_TYPES = ['RENT', 'UTILITY', 'MAINTENANCE', 'PENALTY']
 export default function Finance() {
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('invoices')
+
+  const categoryOptions = ['Security', 'Cleaning', 'Elevator Maintenance', 'Utilities', 'Repairs', 'Salaries', 'Taxes', 'Other']
 
   const userRoles = getRoles()
   const userPermissions = getPermissions()
@@ -96,6 +102,23 @@ export default function Finance() {
   const [taxMonth, setTaxMonth] = useState('')
   const [taxData, setTaxData] = useState<any>(null)
 
+  // -- Expenses --
+  const [expenses, setExpenses] = useState<any[]>([])
+  const [expAmount, setExpAmount] = useState('')
+  const [expDate, setExpDate] = useState(new Date().toISOString().split('T')[0])
+  const [expCategory, setExpCategory] = useState(categoryOptions[0])
+  const [expCustomCategory, setExpCustomCategory] = useState('')
+  const [expDescription, setExpDescription] = useState('')
+  const [expBuildingId, setExpBuildingId] = useState('')
+  const [expLoading, setExpLoading] = useState(false)
+
+  // -- P&L --
+  const [plBuildingId, setPlBuildingId] = useState('')
+  const [plYear, setPlYear] = useState(new Date().getFullYear().toString())
+  const [plMonth, setPlMonth] = useState((new Date().getMonth() + 1).toString())
+  const [plData, setPlData] = useState<any>(null)
+  const [plLoading, setPlLoading] = useState(false)
+
   // ── Load helpers ─────────────────────────────────────────
   useEffect(() => {
     loadLookups()
@@ -104,6 +127,8 @@ export default function Finance() {
 
   useEffect(() => {
     if (tab === 'invoices' || tab === 'payments') loadInvoices()
+    if (tab === 'expenses') loadExpenses()
+    if (tab === 'p-and-l') loadPandL()
   }, [tab, invFilterBuilding, invFilterStatus])
 
   async function loadLookups() {
@@ -142,6 +167,28 @@ export default function Finance() {
       console.error(e)
       toast.addToast('Failed to load invoices', 'error')
     } finally { setInvLoading(false) }
+  }
+
+  async function loadExpenses() {
+    setExpLoading(true)
+    try {
+      const data = await financeApi.getExpenses()
+      setExpenses(Array.isArray(data) ? data : [])
+    } catch { toast.addToast('Failed to load expenses', 'error') }
+    finally { setExpLoading(false) }
+  }
+
+  async function loadPandL() {
+    setPlLoading(true)
+    try {
+      const data = await financeApi.getPandLReport({
+        building_id: plBuildingId || undefined,
+        year: Number(plYear),
+        month: Number(plMonth),
+      })
+      setPlData(data)
+    } catch { toast.addToast('Failed to load P&L report', 'error') }
+    finally { setPlLoading(false) }
   }
 
   // ── Selected lease derived data ──────────────────────────
@@ -353,6 +400,25 @@ export default function Finance() {
     }
   }
 
+  // -- Expense Handlers --
+  async function handleCreateExpense(e: React.FormEvent) {
+    e.preventDefault()
+    const finalCategory = expCategory === 'Other' ? expCustomCategory : expCategory
+    if (!finalCategory) { toast.addToast('Please provide a category', 'error'); return }
+    try {
+      await financeApi.createExpense({
+        amount: Number(expAmount),
+        date: expDate,
+        category: finalCategory,
+        description: expDescription || undefined,
+        building_id: expBuildingId || undefined,
+      })
+      toast.addToast('Expense recorded', 'success')
+      setExpAmount(''); setExpDescription(''); setExpCustomCategory('')
+      loadExpenses()
+    } catch { toast.addToast('Failed to record expense', 'error') }
+  }
+
   // ── Invoice item helpers ─────────────────────────────────
   function addItem() {
     setInvItems(prev => [...prev, { type: 'RENT', amount: '', description: '' }])
@@ -364,25 +430,75 @@ export default function Finance() {
     setInvItems(prev => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item))
   }
 
+  // ── KPI Calculations ─────────────────────────────────────
+  const financeKpis = useMemo(() => {
+    const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount || 0), 0)
+    const totalOutstanding = invoices.filter(i => ['pending', 'overdue', 'partial'].includes(i.status)).reduce((s, i) => s + (Number(i.total_amount || 0) - Number(i.amount_paid || 0)), 0)
+    const paidCount = invoices.filter(i => i.status === 'paid').length
+    const collectionRate = invoices.length > 0 ? ((paidCount / invoices.length) * 100).toFixed(1) : '0'
+    return { totalRevenue, totalOutstanding, collectionRate, paidCount, totalInvoices: invoices.length }
+  }, [invoices])
+
   // ── Render ───────────────────────────────────────────────
   return (
-    <PageLayout title="Finance" subtitle="Invoices, Payments, Bank Accounts, Tax & Revenue Reports">
+    <PageLayout
+      title="Finance & Invoicing"
+      subtitle="Comprehensive financial management across your property portfolio."
+      searchPlaceholder="Search invoices, tenants..."
+      actions={
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setGenSiteId(''); setGenBuildingId(''); handleGenerateInvoices({ preventDefault: () => {} } as any) }} className="button-secondary">
+            <BarChart3 size={16} /> Bulk Generate
+          </button>
+          <button onClick={() => setTab('invoices')} className="button">
+            <Plus size={16} /> Create Invoice
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+
+      {/* KPI Cards */}
+      {!isTenant && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <KPICard
+            title="Total Revenue"
+            value={fmtMoney(financeKpis.totalRevenue)}
+            trend={{ value: '+12.5%', direction: 'up' }}
+            variant="white"
+            icon={<TrendingUp size={18} />}
+          />
+          <KPICard
+            title="Collection Efficiency"
+            value={`${financeKpis.collectionRate}%`}
+            subtitle={`${financeKpis.paidCount} of ${financeKpis.totalInvoices} invoices collected`}
+            variant="purple"
+            icon={<DollarSign size={18} />}
+          />
+          <KPICard
+            title="Outstanding Balance"
+            value={fmtMoney(financeKpis.totalOutstanding)}
+            subtitle="Across all pending & overdue invoices"
+            variant="white"
+            icon={<BarChart3 size={18} />}
+          />
+        </div>
+      )}
+
       {/* Tab Bar */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
-        <div className="flex overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
           {visibleTabs.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t.key
-                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${tab === t.key
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                 }`}
             >
               {t.label}
             </button>
           ))}
-        </div>
       </div>
 
       {/* ────── INVOICES TAB ────── */}
@@ -391,7 +507,7 @@ export default function Finance() {
           {!isTenant && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Create Invoice */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
                 <h3 className="font-semibold mb-4 text-lg">Create Invoice</h3>
               <form onSubmit={handleCreateInvoice} className="space-y-3">
                 {/* Lease search + dropdown */}
@@ -399,9 +515,9 @@ export default function Finance() {
                   <div className="md:col-span-2">
                     <label className="form-label">Lease Search</label>
                     <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input 
-                        className="form-input pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" 
+                        className="form-input pl-10" 
                         placeholder="Search by Tenant Name or ID..." 
                         value={invLeaseSearch} 
                         onChange={e => setInvLeaseSearch(e.target.value)} 
@@ -411,7 +527,7 @@ export default function Finance() {
                   <div>
                     <label className="form-label">Select Lease</label>
                     <select 
-                      className="form-select dark:bg-slate-800 dark:border-slate-700 dark:text-white" 
+                      className="form-select" 
                       value={invLeaseId} 
                       onChange={e => setInvLeaseId(e.target.value)}
                       required
@@ -426,7 +542,7 @@ export default function Finance() {
                     <label className="form-label">Due Date</label>
                     <input 
                       type="date" 
-                      className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" 
+                      className="form-input" 
                       value={invDueDate} 
                       onChange={e => setInvDueDate(e.target.value)} 
                       required 
@@ -500,7 +616,7 @@ export default function Finance() {
                 </div>
 
                 <div className="flex justify-end">
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                  <button type="submit" className="button">
                     Create Invoice
                   </button>
                 </div>
@@ -510,7 +626,7 @@ export default function Finance() {
             {/* Generate & Filters */}
             <div className="space-y-4">
               {/* Generate Invoices */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
                 <h3 className="font-semibold mb-3">Generate Invoices (Bulk)</h3>
                 <form onSubmit={handleGenerateInvoices} className="space-y-3">
                   <select value={genSiteId} onChange={e => setGenSiteId(e.target.value)} className="form-select">
@@ -521,14 +637,14 @@ export default function Finance() {
                     <option value="">All Buildings</option>
                     {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>)}
                   </select>
-                  <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors w-full">
+                  <button type="submit" className="button w-full justify-center">
                     Trigger Generation
                   </button>
                 </form>
               </div>
 
               {/* Filters */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
                 <h3 className="font-semibold mb-3">Filter Invoices</h3>
                 <div className="space-y-2">
                   <select value={invFilterBuilding} onChange={e => setInvFilterBuilding(e.target.value)} className="form-select">
@@ -581,19 +697,31 @@ export default function Finance() {
                         <td className="px-6 py-4 text-slate-600">{fmtMoney(inv.tax_amount)}</td>
                         <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(inv.total_amount)}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            inv.status === 'overdue' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                              inv.status === 'cancelled' || inv.status === 'voided' ? 'bg-slate-100 text-slate-500 border-slate-200 dark:border-slate-700' :
-                                inv.status === 'partial' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                  'bg-blue-50 text-blue-700 border-blue-200'
-                            } shadow-sm`}>{inv.status}</span>
+                          <StatusBadge status={inv.status || 'pending'} />
+                          {inv.amount_paid > 0 && inv.status !== 'paid' && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Paid: {fmtMoney(inv.amount_paid)}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {!isTenant && inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
-                            <button onClick={() => handleVoidInvoice(inv.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium px-2">
-                              Void
-                            </button>
-                          )}
+                          <div className="flex justify-end gap-2">
+                            {inv.status === 'paid' && inv.payments?.length > 0 && (
+                               <a 
+                                 href={financeApi.getPaymentReceiptPdfUrl(inv.payments[0].id)}
+                                 target="_blank"
+                                 rel="noreferrer"
+                                 className="text-emerald-600 hover:text-emerald-900 text-xs font-bold"
+                               >
+                                 Receipt
+                               </a>
+                            )}
+                            {!isTenant && inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
+                              <button onClick={() => handleVoidInvoice(inv.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium">
+                                Void
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -608,15 +736,15 @@ export default function Finance() {
       {/* ────── PAYMENTS TAB ────── */}
       {tab === 'payments' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Record Payment</h3>
             <form onSubmit={handleCreatePayment} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Invoice</label>
+                <label className="form-label">Invoice</label>
                 <select
                   value={payInvoiceId}
                   onChange={e => setPayInvoiceId(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-select"
                   required
                 >
                   <option value="">Select invoice</option>
@@ -627,41 +755,46 @@ export default function Finance() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <label className="form-label">Amount</label>
+                {payInvoiceId && (
+                  <div className="text-xs text-slate-500 mb-1">
+                    Outstanding: {fmtMoney(Number(invoices.find(i => String(i.id) === payInvoiceId)?.total_amount || 0) + Number(invoices.find(i => String(i.id) === payInvoiceId)?.late_fee_amount || 0) - Number(invoices.find(i => String(i.id) === payInvoiceId)?.amount_paid || 0))}
+                  </div>
+                )}
                 <input
                   type="number"
                   step="0.01"
                   placeholder="Payment amount"
                   value={payAmount}
                   onChange={e => setPayAmount(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reference No</label>
+                <label className="form-label">Reference No</label>
                 <input
                   placeholder="Transaction/receipt ref"
                   value={payRefNo}
                   onChange={e => setPayRefNo(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Proof URL (optional)</label>
+                <label className="form-label">Proof URL (optional)</label>
                 <input
                   placeholder="https://..."
                   value={payProofUrl}
                   onChange={e => setPayProofUrl(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                 />
               </div>
 
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                <button type="submit" className="button">
                   Record Payment
                 </button>
               </div>
@@ -669,15 +802,15 @@ export default function Finance() {
           </div>
 
           {!isTenant && (
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
               <h3 className="font-semibold mb-4 text-lg">Verify Payment</h3>
               <form onSubmit={handleVerifyPayment} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
+                  <label className="form-label">Payment</label>
                   <select
                     value={verifyPaymentId}
                     onChange={e => setVerifyPaymentId(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="form-select"
                     required
                   >
                     <option value="">Select payment to verify</option>
@@ -694,11 +827,11 @@ export default function Finance() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Decision</label>
+                  <label className="form-label">Decision</label>
                   <select
                     value={verifyStatus}
                     onChange={e => setVerifyStatus(e.target.value as any)}
-                    className="w-full p-2 border rounded"
+                    className="form-select"
                   >
                     <option value="confirmed">Confirm</option>
                     <option value="rejected">Reject</option>
@@ -706,7 +839,7 @@ export default function Finance() {
                 </div>
 
                 <div className="flex justify-end">
-                  <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+                  <button type="submit" className="button">
                     Verify
                   </button>
                 </div>
@@ -719,41 +852,41 @@ export default function Finance() {
       {/* ────── BANK ACCOUNTS TAB ────── */}
       {tab === 'bank-accounts' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Create Bank Account</h3>
             <form onSubmit={handleCreateBankAccount} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                <label className="form-label">Bank Name</label>
                 <input
                   placeholder="e.g. Commercial Bank of Ethiopia"
                   value={baBankName}
                   onChange={e => setBaBankName(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                <label className="form-label">Account Number</label>
                 <input
                   placeholder="Account number"
                   value={baAcctNo}
                   onChange={e => setBaAcctNo(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <label className="form-label">Branch</label>
                 <input
                   placeholder="Branch name"
                   value={baBranch}
                   onChange={e => setBaBranch(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                <button type="submit" className="button">
                   Create Account
                 </button>
               </div>
@@ -781,15 +914,15 @@ export default function Finance() {
       {/* ────── DEPOSIT ADVICE TAB ────── */}
       {tab === 'deposit-advice' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Create Deposit Advice</h3>
             <form onSubmit={handleCreateDepositAdvice} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+                <label className="form-label">Bank Account</label>
                 <select
                   value={daBankAccountId}
                   onChange={e => setDaBankAccountId(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-select"
                   required
                 >
                   <option value="">Select bank account</option>
@@ -799,46 +932,46 @@ export default function Finance() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <label className="form-label">Amount</label>
                 <input
                   type="number"
                   step="0.01"
                   placeholder="Deposit amount"
                   value={daAmount}
                   onChange={e => setDaAmount(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deposit Date</label>
+                <label className="form-label">Deposit Date</label>
                 <input
                   type="date"
                   value={daDate}
                   onChange={e => setDaDate(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reference No</label>
+                <label className="form-label">Reference No</label>
                 <input
                   placeholder="Deposit reference"
                   value={daRefNo}
                   onChange={e => setDaRefNo(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="form-input"
                   required
                 />
               </div>
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                <button type="submit" className="button">
                   Create Deposit Advice
                 </button>
               </div>
             </form>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Info</h3>
             <p className="text-sm text-gray-500">
               Deposit advice records are linked to bank accounts. Create a bank account first in the Bank Accounts tab,
@@ -851,39 +984,39 @@ export default function Finance() {
       {/* ────── TAX RULES TAB ────── */}
       {tab === 'tax-rules' && (
         <div className="max-w-lg">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Tax Rules Configuration</h3>
             <form onSubmit={handlePatchTaxRules} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">VAT Rate</label>
+                <label className="form-label">VAT Rate</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     step="0.01"
                     value={vatRate}
                     onChange={e => setVatRate(e.target.value)}
-                    className="flex-1 p-2 border rounded"
+                    className="form-input flex-1"
                   />
-                  <span className="text-sm text-gray-500">({(Number(vatRate) * 100).toFixed(0)}%)</span>
+                  <span className="text-sm text-slate-500">({(Number(vatRate) * 100).toFixed(0)}%)</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Withholding Rate</label>
+                <label className="form-label">Withholding Rate</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     step="0.01"
                     value={withholdingRate}
                     onChange={e => setWithholdingRate(e.target.value)}
-                    className="flex-1 p-2 border rounded"
+                    className="form-input flex-1"
                   />
-                  <span className="text-sm text-gray-500">({(Number(withholdingRate) * 100).toFixed(0)}%)</span>
+                  <span className="text-sm text-slate-500">({(Number(withholdingRate) * 100).toFixed(0)}%)</span>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                <button type="submit" className="button">
                   Update Tax Rules
                 </button>
               </div>
@@ -899,7 +1032,7 @@ export default function Finance() {
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
             <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Revenue Report</h3>
             <form onSubmit={handleRevenueReport} className="space-y-3 mb-4">
-              <select value={revBuildingId} onChange={e => setRevBuildingId(e.target.value)} className="w-full p-2 border rounded">
+              <select value={revBuildingId} onChange={e => setRevBuildingId(e.target.value)} className="form-select">
                 <option value="">All Buildings</option>
                 {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>)}
               </select>
@@ -908,7 +1041,7 @@ export default function Finance() {
                 placeholder="Month (1-12)"
                 value={revMonth}
                 onChange={e => setRevMonth(e.target.value)}
-                className="w-full p-2 border rounded"
+                className="form-input"
                 min="1"
                 max="12"
               />
@@ -942,7 +1075,7 @@ export default function Finance() {
           </div>
 
           {/* Tax Report */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
             <h3 className="font-semibold mb-4 text-lg">Tax Compliance Report</h3>
             <form onSubmit={handleTaxReport} className="space-y-3 mb-4">
               <input
@@ -950,11 +1083,11 @@ export default function Finance() {
                 placeholder="Month (1-12)"
                 value={taxMonth}
                 onChange={e => setTaxMonth(e.target.value)}
-                className="w-full p-2 border rounded"
+                className="form-input"
                 min="1"
                 max="12"
               />
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors w-full">
+              <button type="submit" className="button w-full justify-center">
                 Load Tax Report
               </button>
             </form>
@@ -976,6 +1109,184 @@ export default function Finance() {
           </div>
         </div>
       )}
+      {/* ────── EXPENSES TAB ────── */}
+      {tab === 'expenses' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 tracking-tight text-lg">Record Expense</h3>
+            <form onSubmit={handleCreateExpense} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={expAmount}
+                  onChange={e => setExpAmount(e.target.value)}
+                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={expDate}
+                    onChange={e => setExpDate(e.target.value)}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Building</label>
+                  <select
+                    value={expBuildingId}
+                    onChange={e => setExpBuildingId(e.target.value)}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                  >
+                    <option value="">All Buildings</option>
+                    {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                <select
+                  value={expCategory}
+                  onChange={e => setExpCategory(e.target.value)}
+                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                  required
+                >
+                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {expCategory === 'Other' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Custom Category Name</label>
+                  <input
+                    placeholder="Enter category name"
+                    value={expCustomCategory}
+                    onChange={e => setExpCustomCategory(e.target.value)}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                    required
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                <textarea
+                  value={expDescription}
+                  onChange={e => setExpDescription(e.target.value)}
+                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 h-24"
+                />
+              </div>
+              <button type="submit" className="button w-full justify-center">Record Expense</button>
+            </form>
+          </div>
+
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Expense History</h3>
+            {expLoading ? <div className="py-8 text-center text-slate-500">Loading expenses...</div> : (
+              <div className="table-container border border-slate-200 dark:border-slate-700 rounded-xl">
+                <table className="w-full text-sm text-left whitespace-nowrap">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Category</th>
+                      <th className="px-6 py-4">Building</th>
+                      <th className="px-6 py-4">Description</th>
+                      <th className="px-6 py-4 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {expenses.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No expenses recorded yet.</td></tr>
+                    ) : expenses.map((e: any) => (
+                      <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="px-6 py-4">{e.date}</td>
+                        <td className="px-6 py-4"><span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-medium">{e.category}</span></td>
+                        <td className="px-6 py-4">{e.building?.name || 'Global'}</td>
+                        <td className="px-6 py-4 text-slate-500 truncate max-w-[200px]">{e.description || '-'}</td>
+                        <td className="px-6 py-4 text-right font-semibold text-rose-600">{fmtMoney(e.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ────── P&L TAB ────── */}
+      {tab === 'p-and-l' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Building</label>
+              <select value={plBuildingId} onChange={e => setPlBuildingId(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 min-w-[200px]">
+                <option value="">All Buildings</option>
+                {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Year</label>
+              <input type="number" value={plYear} onChange={e => setPlYear(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Month (Optional)</label>
+              <input type="number" value={plMonth} onChange={e => setPlMonth(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" placeholder="All" />
+            </div>
+            <button onClick={loadPandL} className="button h-[42px]">Generate Report</button>
+          </div>
+
+          {plLoading ? <div className="py-12 text-center text-slate-500">Calculating...</div> : plData && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-emerald-100 dark:border-emerald-900/30">
+                  <div className="text-emerald-500 text-sm font-medium mb-1">Total Revenue</div>
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(plData.revenue)}</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-rose-100 dark:border-rose-900/30">
+                  <div className="text-rose-500 text-sm font-medium mb-1">Total Expenses</div>
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(plData.expenses)}</div>
+                </div>
+                <div className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border ${plData.net_profit >= 0 ? 'border-blue-100 dark:border-blue-900/30' : 'border-rose-100 dark:border-rose-900/30'}`}>
+                  <div className={`${plData.net_profit >= 0 ? 'text-blue-500' : 'text-rose-500'} text-sm font-medium mb-1`}>Net Profit</div>
+                  <div className={`text-3xl font-bold ${plData.net_profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>{fmtMoney(plData.net_profit)}</div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Expense Breakdown</h3>
+                <div className="table-container border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80">
+                      <tr>
+                        <th className="px-6 py-4">Category</th>
+                        <th className="px-6 py-4">Total Amount</th>
+                        <th className="px-6 py-4">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                      {plData.categories.map((c: any) => (
+                        <tr key={c.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="px-6 py-4 font-medium">{c.name}</td>
+                          <td className="px-6 py-4 text-rose-600 font-semibold">{fmtMoney(c.amount)}</td>
+                          <td className="px-6 py-4 text-slate-500">
+                            {plData.expenses > 0 ? ((c.amount / plData.expenses) * 100).toFixed(1) : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
     </PageLayout>
   )
 }

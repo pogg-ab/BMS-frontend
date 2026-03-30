@@ -1,9 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import PageLayout from '../components/PageLayout'
 import { listUnits, createUnit, bulkUploadUnits, getUnit, updateUnit, deleteUnit, listUnitAmenities } from '../api/units'
-import { listAmenities, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
-import { listBuildings } from '../api/buildings'
+import { listAmenities as listAmenitiesApi, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
+import { listBuildings, getBuilding } from '../api/buildings'
 import api from '../api/axios'
+import { Search, LayoutGrid, List as ListIcon, Star, Maximize, Bed, MapPin, Building2, Edit2, Info, Plus, Upload, Trash2, X } from 'lucide-react'
 
+// Constants
 const UNIT_TYPES = [
   { value: 'STUDIO', label: 'Studio' },
   { value: '1BR', label: '1 Bedroom' },
@@ -18,99 +22,171 @@ const UNIT_STATUSES = [
   { value: 'RESERVED', label: 'Reserved' },
 ]
 
+// Helper for random fallback images
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80',
+  'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=600&q=80',
+  'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=600&q=80',
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80'
+]
+
 export default function Units() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialBuildingId = searchParams.get('buildingId') || ''
+  
+  // State
+  const [selectedBuildingId, setSelectedBuildingId] = useState(initialBuildingId)
+  const [currentBuilding, setCurrentBuilding] = useState<any>(null)
+  const [buildingsList, setBuildingsList] = useState<any[]>([])
+  
   const [units, setUnits] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(1)
+  
+  // Filters
+  const [search, setSearch] = useState('')
+  const [floorFilter, setFloorFilter] = useState('All Floors')
+  const [statusFilter, setStatusFilter] = useState('Status: All')
+  const [typeFilter, setTypeFilter] = useState('Type: All')
+
+  // Form states
+  const fileRef = useRef<HTMLInputElement | null>(null)
+  const imageRef = useRef<HTMLInputElement | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-
+  
+  // Form fields
   const [unitNumber, setUnitNumber] = useState('')
-  const [buildingId, setBuildingId] = useState('')
+  const [formBuildingId, setFormBuildingId] = useState('')
   const [floor, setFloor] = useState<number | ''>('')
   const [bedrooms, setBedrooms] = useState<number | ''>('')
   const [bathrooms, setBathrooms] = useState<number | ''>('')
   const [sizeSqm, setSizeSqm] = useState<number | ''>('')
   const [rentPrice, setRentPrice] = useState<number | ''>('')
-  const [unitType, setUnitType] = useState('studio')
-  const [status, setStatus] = useState('vacant')
+  const [unitType, setUnitType] = useState('STUDIO')
+  const [status, setStatus] = useState('VACANT')
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
-  const [isOtherType, setIsOtherType] = useState(false)
-  const [customType, setCustomType] = useState('')
-  const buildings = useRef<any[]>([])
-  const imageRef = useRef<HTMLInputElement | null>(null)
-  const fileRef = useRef<HTMLInputElement | null>(null)
 
+  // Detail / Amenity modal states
   const [detailId, setDetailId] = useState<string | number | null>(null)
   const [detail, setDetail] = useState<any>(null)
-  const [amenities, setAmenities] = useState<any[]>([])
+  const [unitAmenities, setUnitAmenities] = useState<any[]>([])
   const [availableAmenities, setAvailableAmenities] = useState<any[]>([])
   const [newAmenityId, setNewAmenityId] = useState<string | number | ''>('')
 
-  async function load() {
-    setLoading(true)
-    try {
-      const res = await listUnits({ page, per_page: 25 })
-      let list: any[] = []
-      if (Array.isArray(res)) list = res
-      else if (res && Array.isArray(res.data)) list = res.data
-      else list = []
-      setUnits(list)
-    } catch (e: any) {
-      console.error('load units', e)
-      alert('Failed to load units')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Initialization
+  useEffect(() => {
+    listBuildings({ page: 1, per_page: 200 })
+      .then((res: any) => setBuildingsList(Array.isArray(res) ? res : (res?.data || [])))
+      .catch((e) => console.error('buildings load fail', e))
+  }, [])
 
   useEffect(() => {
-    load()
-    listBuildings({ page: 1, per_page: 200 }).then((res: any) => {
-      const list = Array.isArray(res) ? res : (res?.data || [])
-      buildings.current = list
-    }).catch(() => { })
-  }, [page])
+    async function loadData() {
+      setLoading(true)
+      try {
+        // Fetch context Building
+        if (selectedBuildingId) {
+          const b = await getBuilding(selectedBuildingId)
+          setCurrentBuilding(b)
+        } else {
+          setCurrentBuilding(null)
+        }
 
+        // Fetch Units
+        // If a building is selected, fetch all units for it. Otherwise, fetch all units across buildings.
+        let uRes
+        if (selectedBuildingId) {
+          uRes = await listUnits({ building_id: selectedBuildingId, per_page: 500 })
+        } else {
+          uRes = await listUnits({ page: 1, per_page: 500 })
+        }
+
+        setUnits(Array.isArray(uRes) ? uRes : (uRes?.data || []))
+      } catch (err) {
+        console.error('Failed to load data', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [selectedBuildingId])
+
+  function handleBuildingChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value
+    setSelectedBuildingId(val)
+    if (val) setSearchParams({ buildingId: val })
+    else setSearchParams({})
+  }
+
+  // Derived Stats for context building
+  const totalUnits = units.length || 1 
+  const occupiedUnits = units.filter(u => u.status?.toUpperCase() === 'OCCUPIED').length
+  const occupancyRate = units.length === 0 ? 0 : Math.round((occupiedUnits / totalUnits) * 100)
+
+  // Filter Units
+  const filteredUnits = units.filter(u => {
+    if (search && !(
+      (u.unit_number && u.unit_number.toLowerCase().includes(search.toLowerCase())) ||
+      (u.type && u.type.toLowerCase().includes(search.toLowerCase())) ||
+      (u.building?.name && u.building.name.toLowerCase().includes(search.toLowerCase()))
+    )) return false
+
+    if (floorFilter !== 'All Floors' && String(u.floor || '1') !== floorFilter) return false
+    if (statusFilter !== 'Status: All') {
+      const match = statusFilter.split(': ')[1].toUpperCase()
+      if ((u.status || 'VACANT').toUpperCase() !== match) return false
+    }
+    if (typeFilter !== 'Type: All') {
+      const match = typeFilter.split(': ')[1].toUpperCase()
+      if ((u.type || 'STUDIO').toUpperCase() !== match) return false
+    }
+    return true
+  })
+
+  // Grouping logic (by floor if building selected, otherwise by building)
+  let groups: { name: string, items: any[] }[] = []
+  if (selectedBuildingId) {
+    const activeFloors = Array.from(new Set(filteredUnits.map(u => String(u.floor || '1')))).sort((a,b)=>Number(a)-Number(b))
+    groups = activeFloors.map(f => ({
+      name: `Floor ${f}`,
+      items: filteredUnits.filter(u => String(u.floor || '1') === f)
+    }))
+  } else {
+    const activeBuildings = Array.from(new Set(filteredUnits.map(u => u.building?.name || 'Unknown Building')))
+    groups = activeBuildings.map(b => ({
+      name: b,
+      items: filteredUnits.filter(u => (u.building?.name || 'Unknown Building') === b).sort((a,b) => Number(a.floor||1) - Number(b.floor||1))
+    }))
+  }
+
+  // --- CRUD Functions ---
   function openCreate() {
     setEditing(null)
     setUnitNumber('')
-    setBuildingId('')
+    setFormBuildingId(selectedBuildingId || '')
     setFloor('')
     setBedrooms('')
     setBathrooms('')
     setSizeSqm('')
     setRentPrice('')
-    setUnitType('studio')
-    setStatus('vacant')
+    setUnitType('STUDIO')
+    setStatus('VACANT')
     setDescription('')
     setImageUrl('')
-    setIsOtherType(false)
-    setCustomType('')
     setShowForm(true)
   }
 
   function openEdit(u: any) {
     setEditing(u)
     setUnitNumber(u.unit_number || '')
-    setBuildingId(u.buildingId ?? u.building_id ?? (u.building?.id ?? ''))
+    setFormBuildingId(u.buildingId ?? u.building_id ?? (u.building?.id ?? ''))
     setFloor(u.floor ?? '')
     setBedrooms(u.bedrooms ?? '')
     setBathrooms(u.bathrooms ?? '')
     setSizeSqm(u.size_sqm ?? '')
-    setRentPrice(u.rent_price ?? '')
-    const actType = u.type?.toUpperCase() ?? 'STUDIO'
-    const isBuiltIn = UNIT_TYPES.find(t => t.value === actType)
-    if (!isBuiltIn) {
-      setUnitType('OTHER')
-      setIsOtherType(true)
-      setCustomType(u.type || '')
-    } else {
-      setUnitType(actType)
-      setIsOtherType(false)
-      setCustomType('')
-    }
+    setRentPrice(u.rent_price || u.rent || '')
+    setUnitType(u.type?.toUpperCase() ?? 'STUDIO')
     setStatus(u.status?.toUpperCase() ?? 'VACANT')
     setDescription(u.description ?? '')
     setImageUrl(u.image_url ?? '')
@@ -120,22 +196,32 @@ export default function Units() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const finalType = isOtherType && customType ? customType : unitType
-      const dto: any = { unit_number: unitNumber, buildingId, floor, bedrooms, bathrooms, size_sqm: sizeSqm, type: finalType, status }
+      const dto: any = { unit_number: unitNumber, buildingId: formBuildingId, floor, bedrooms, bathrooms, size_sqm: sizeSqm, type: unitType, status }
       if (rentPrice !== '') dto.rent_price = rentPrice
       if (description) dto.description = description
+      if (imageUrl) dto.image_url = imageUrl
+
       if (editing) {
         await updateUnit(editing.id, dto)
-        alert('Unit updated')
       } else {
         await createUnit(dto)
-        alert('Unit created')
       }
       setShowForm(false)
-      load()
+      // trigger refresh manually
+      setSelectedBuildingId(selectedBuildingId) 
     } catch (err: any) {
       console.error('submit unit', err)
       alert(err?.response?.data?.message || 'Operation failed')
+    }
+  }
+
+  async function handleDelete(id: any) {
+    if (!confirm('Delete this unit completely?')) return
+    try {
+      await deleteUnit(id)
+      setSelectedBuildingId(selectedBuildingId)
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Failed to delete unit')
     }
   }
 
@@ -148,20 +234,7 @@ export default function Units() {
       const res = await api.post('/upload/image', fd)
       if (res.data?.path) setImageUrl(res.data.path)
     } catch (err) {
-      console.error('image upload failed', err)
       alert('Image upload failed')
-    }
-  }
-
-  async function handleDelete(id: any) {
-    if (!confirm('Delete this unit?')) return
-    try {
-      await deleteUnit(id)
-      alert('Unit deleted')
-      load()
-    } catch (e: any) {
-      console.error('delete unit', e)
-      alert(e?.response?.data?.message || 'Failed to delete unit')
     }
   }
 
@@ -171,12 +244,10 @@ export default function Units() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await bulkUploadUnits(fd)
-      console.log('bulk upload', res)
-      alert('Bulk upload complete')
-      load()
+      await bulkUploadUnits(fd)
+      if (fileRef.current) fileRef.current.value = ''
+      setSelectedBuildingId(selectedBuildingId)
     } catch (e: any) {
-      console.error('bulk upload', e)
       alert(e?.response?.data?.message || 'Bulk upload failed')
     }
   }
@@ -188,250 +259,442 @@ export default function Units() {
       const d = await getUnit(id)
       setDetail(d)
       const am = await listUnitAmenities(id)
-      const list = Array.isArray(am) ? am : (am?.data || [])
-      setAmenities(list)
-      // also load available amenities for selection
-      try {
-        const aRes = await listAmenities({ page: 1, per_page: 200 })
-        const aList = Array.isArray(aRes) ? aRes : (aRes?.data || aRes?.data?.data || [])
-        setAvailableAmenities(aList)
-      } catch (err) {
-        console.warn('failed loading amenities list', err)
-      }
+      setUnitAmenities(Array.isArray(am) ? am : (am?.data || []))
+      const aRes = await listAmenitiesApi({ page: 1, per_page: 200 })
+      setAvailableAmenities(Array.isArray(aRes) ? aRes : (aRes?.data || aRes?.data?.data || []))
     } catch (e: any) {
-      console.error('open details', e)
-      alert('Failed to load unit details')
+      console.error('detail fail', e)
     }
   }
 
   async function handleLinkAmenity(id: any) {
-    if (!newAmenityId) { alert('Enter amenity id'); return }
+    if (!newAmenityId) return
     try {
+      const selectedAm = availableAmenities.find(a => String(a.id) === String(newAmenityId))
+      if (!selectedAm) return
       await linkAmenityToUnitByIds(id, newAmenityId)
-      alert('Amenity linked')
       openDetails(id)
     } catch (e: any) {
-      console.error('link amenity', e)
-      alert(e?.response?.data?.message || 'Failed to link amenity')
+      console.error(e)
     }
   }
 
-  async function handleRemoveAmenity(id: any, aId: any) {
+  async function doRemoveAmenity(uId: any, aId: any) {
     if (!confirm('Remove amenity?')) return
     try {
-      await removeAmenityFromUnitByIds(id, aId)
-      alert('Amenity removed')
-      openDetails(id)
-    } catch (e: any) {
-      console.error('remove amenity', e)
-      alert(e?.response?.data?.message || 'Failed to remove amenity')
-    }
+      await removeAmenityFromUnitByIds(uId, aId)
+      openDetails(uId)
+    } catch (e) { console.error(e) }
   }
 
+
   return (
-    <div className="container">
-      <div className="header">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Units</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Manage physical properties, floors, and basic configurations</p>
+    <PageLayout
+      title="Property Units"
+      subtitle="Manage physical assets, configurations, and occupancy status."
+      actions={
+        <div className="flex items-center gap-3">
+          <input type="file" accept=".csv" ref={fileRef} className="hidden" onChange={handleBulkUpload} />
+          <button 
+            type="button"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload size={16} /> Bulk Upload
+          </button>
+          <button 
+            type="button"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors shadow-sm shadow-indigo-600/20 text-sm font-semibold"
+            onClick={openCreate}
+          >
+            <Plus size={16} /> Create Unit
+          </button>
         </div>
-        <div>
-          <button className="button" onClick={openCreate}>Create Unit</button>
-        </div>
-      </div>
-
-      <div className="card mb-6">
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <input type="file" accept=".csv" ref={fileRef} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
-          <button className="button-secondary shrink-0" onClick={handleBulkUpload}>Upload CSV</button>
-        </div>
-      </div>
-
-      {showForm && (
-        <div className="card mb-4">
-          <h2 className="text-lg font-medium">{editing ? 'Edit Unit' : 'Create Unit'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-3 mt-3">
-            <div>
-              <label className="form-label">Unit Number</label>
-              <input value={unitNumber} onChange={e => setUnitNumber(e.target.value)} className="form-input" required />
+      }
+    >
+      <div className="space-y-8 pb-20">
+        
+        {/* Dynamic Context Selector */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
-            <div>
-              <label className="form-label">Building</label>
-              <select value={buildingId} onChange={e => setBuildingId(e.target.value)} className="form-select" required>
-                <option value="">Select building</option>
-                {buildings.current.map((b: any) => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2 w-full">
-              <div className="flex-1">
-                <label className="form-label">Type</label>
-                <select value={unitType} onChange={e => {
-                  setUnitType(e.target.value)
-                  setIsOtherType(e.target.value === 'OTHER')
-                }} className="form-select" required>
-                  {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  <option value="OTHER">Other...</option>
-                </select>
-              </div>
-              {isOtherType && (
-                <div className="flex-1">
-                  <label className="form-label">Custom Type</label>
-                  <input value={customType} onChange={e => setCustomType(e.target.value)} className="form-input" required placeholder="Custom type" />
-                </div>
-              )}
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              <div>
-                <label className="form-label !text-xs !mb-0.5">Floor</label>
-                <input type="number" value={floor as any} onChange={e => setFloor(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
-              </div>
-              <div>
-                <label className="form-label !text-xs !mb-0.5">Bedrooms</label>
-                <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
-              </div>
-              <div>
-                <label className="form-label !text-xs !mb-0.5">Bathrooms</label>
-                <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
-              </div>
-              <div>
-                <label className="form-label !text-xs !mb-0.5">Size (sqm)</label>
-                <input type="number" value={sizeSqm as any} onChange={e => setSizeSqm(e.target.value ? Number(e.target.value) : '')} className="form-input" required />
-              </div>
-            </div>
-            <div>
-              <label className="form-label">Rent Price (ETB)</label>
-              <input type="number" value={rentPrice as any} onChange={e => setRentPrice(e.target.value ? Number(e.target.value) : '')} className="form-input" />
-            </div>
-            <div>
-              <label className="form-label">Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
-                {UNIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">Description</label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} className="form-input h-20 pt-2" />
-            </div>
-            <div>
-              <label className="form-label">Image</label>
-              <div className="flex gap-2">
-                <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
-                <button type="button" className="button-secondary text-xs" onClick={() => imageRef.current?.click()}>
-                  Upload Image
-                </button>
-                {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="Preview" className="h-10 w-10 object-cover rounded" />}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="button" type="submit">{editing ? 'Save' : 'Create'}</button>
-              <button type="button" className="px-3 py-1 border rounded" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="card">
-        {loading && <div className="py-12 flex justify-center text-slate-500">Loading units...</div>}
-        {!loading && units.length === 0 && <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No units found</div>}
-        {!loading && units.length > 0 && (
-          <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
-            <table className="w-full text-sm text-left whitespace-nowrap">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="px-6 py-4 font-medium tracking-wider">Unit</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Building</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-center">Floor / Beds</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Status</th>
-                  <th className="px-6 py-4 font-medium tracking-wider">Rent (ETB)</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {units.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
-                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{u.unit_number || u.name}</td>
-                    <td className="px-6 py-4 text-slate-600">{u.building?.name || u.building_id || '-'}</td>
-                    <td className="px-6 py-4 text-slate-600 text-center">
-                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200 dark:border-slate-700">{u.floor ?? '-'}</span>
-                      {' / '}
-                      <span className="bg-slate-100 px-2 py-1 rounded text-xs font-mono border border-slate-200 dark:border-slate-700">{u.bedrooms ?? '-'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.status === 'VACANT' || u.status === 'vacant' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          u.status === 'OCCUPIED' || u.status === 'occupied' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            u.status === 'MAINTENANCE' || u.status === 'maintenance' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                              'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700'
-                        }`}>
-                        {u.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-700">
-                      {u.rent ? Number(u.rent).toLocaleString() : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openDetails(u.id)}>Details</button>
-                      <button className="text-indigo-600 hover:text-indigo-900 font-medium text-xs px-2" onClick={() => openEdit(u)}>Edit</button>
-                      <button className="text-rose-600 hover:text-rose-900 font-medium text-xs pl-2 border-l border-slate-200 dark:border-slate-700 ml-2" onClick={() => handleDelete(u.id)}>Delete</button>
-                    </td>
-                  </tr>
+            <div className="flex-1 sm:w-64">
+              <select 
+                value={selectedBuildingId} 
+                onChange={handleBuildingChange}
+                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-lg py-2.5 pl-3 pr-10 text-sm font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-600/30 cursor-pointer"
+              >
+                <option value="">Exploring: All Buildings</option>
+                {buildingsList.map(b => (
+                  <option key={b.id} value={b.id}>Exploring: {b.name || b.code}</option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6 px-4">
+             <div className="text-center">
+               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Units</span>
+               <span className="font-extrabold text-slate-900 dark:text-white">{loading ? '-' : units.length}</span>
+             </div>
+             <div className="text-center border-l pl-6 border-slate-100 dark:border-slate-700">
+               <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Occupancy</span>
+               <span className="font-extrabold text-slate-900 dark:text-white">{loading ? '-' : occupancyRate}%</span>
+             </div>
+          </div>
+        </div>
+
+        {/* Hero Banner (Only if a specific building is selected) */}
+        {selectedBuildingId && currentBuilding && (
+          <div className="relative w-full h-[320px] rounded-[32px] overflow-hidden group shadow-lg">
+            <div 
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
+              style={{ backgroundImage: `url("${currentBuilding?.image_url ? `http://localhost:3000${currentBuilding.image_url}` : 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop'}")` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+            
+            <div className="absolute top-6 left-6 flex items-center gap-3">
+              <span className="bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">Premium Asset</span>
+              <span className="bg-black/40 backdrop-blur-md border border-white/20 text-amber-400 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                <Star size={12} className="fill-amber-400 text-amber-400" /> 4.9 Rating
+              </span>
+            </div>
+
+            <div className="absolute bottom-8 left-8">
+              <h1 className="text-4xl font-bold text-white tracking-tight mb-2 drop-shadow-md">{currentBuilding.name || currentBuilding.code}</h1>
+              <div className="flex items-center text-white/80 text-sm font-medium">
+                <MapPin size={16} className="mr-1.5 opacity-80" />
+                {currentBuilding.address || 'Location Verified'}
+              </div>
+            </div>
+            
+            <div className="absolute top-6 right-6">
+              <span className="bg-emerald-500/20 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Live System Context
+              </span>
+            </div>
           </div>
         )}
-      </div>
 
-      {detailId && (
-        <div className="fixed inset-0 flex items-start justify-center bg-black/30 pt-20">
-          <div className="bg-white dark:bg-slate-800 rounded shadow p-6 w-3/4 max-w-3xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Unit details</h3>
-              <button className="px-2 py-1 border rounded" onClick={() => { setDetailId(null); setDetail(null); }}>Close</button>
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="relative">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Search by unit number..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-11 pr-4 py-2.5 w-64 bg-white dark:bg-slate-800 border-none rounded-xl text-sm font-medium shadow-sm hover:shadow-md transition-shadow text-slate-900 dark:text-white placeholder:text-slate-400"
+              />
             </div>
-            {detail ? (
-              <div>
-                <p><strong>Unit:</strong> {detail.unit_number}</p>
-                <p><strong>Building:</strong> {detail.building?.name || detail.building_id}</p>
-                <p><strong>Floor:</strong> {detail.floor}</p>
-                <p><strong>Bedrooms:</strong> {detail.bedrooms}</p>
-                <p><strong>Bathrooms:</strong> {detail.bathrooms}</p>
-                <p><strong>Area (sqm):</strong> {detail.area_sqm}</p>
-                <p><strong>Rent:</strong> {detail.rent}</p>
-                {detail.image_url && (
-                  <div className="mt-3">
-                    <p className="font-medium mb-1">Image:</p>
-                    <img src={`http://localhost:3000${detail.image_url}`} alt="Unit" className="max-h-48 rounded shadow-sm border" />
+            <select 
+              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+              value={floorFilter}
+              onChange={e => setFloorFilter(e.target.value)}
+            >
+              <option>All Floors</option>
+              {Array.from(new Set(units.map(u => String(u.floor || '1')))).sort((a,b)=>Number(a)-Number(b)).map(f => (
+                <option key={f} value={f}>Floor {f}</option>
+              ))}
+            </select>
+            <select 
+              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option>Status: All</option>
+              <option>Status: Vacant</option>
+              <option>Status: Occupied</option>
+              <option>Status: Maintenance</option>
+            </select>
+            <select 
+              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+            >
+              <option>Type: All</option>
+              <option>Type: Studio</option>
+              <option>Type: 1BR</option>
+              <option>Type: 2BR</option>
+              <option>Type: Penthouse</option>
+            </select>
+          </div>
+          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm shrink-0">
+            <button className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 shadow-sm">
+              <LayoutGrid size={18} />
+            </button>
+            <button className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <ListIcon size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Grouped Unit Grids */}
+        <div className="space-y-10">
+          {groups.map((group, groupIdx) => {
+            if (group.items.length === 0) return null
+            return (
+              <div key={group.name} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${groupIdx * 100}ms` }}>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{group.name}</h2>
+                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+                      {group.items.length} UNITS
+                    </span>
                   </div>
-                )}
-                <hr className="my-3" />
-                <h4 className="font-medium">Amenities</h4>
-                {amenities.length === 0 && <div className="muted">No amenities</div>}
-                {amenities.length > 0 && (
-                  <ul className="list-disc pl-5">
-                    {amenities.map(a => (
-                      <li key={a.id} className="flex items-center justify-between">
-                        <span>{a.name} — {a.description}</span>
-                        <button className="text-red-700 ml-2" onClick={() => handleRemoveAmenity(detailId, a.id)}>Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-3 flex gap-2 items-center">
-                  <select value={newAmenityId as any} onChange={e => setNewAmenityId(e.target.value)} className="block w-64 rounded-md border-gray-200 shadow-sm">
-                    <option value="">Select amenity</option>
-                    {availableAmenities.map((a: any) => (
-                      <option key={a.id} value={a.id}>{a.name}{a.type ? ` — ${a.type}` : ''}</option>
-                    ))}
-                  </select>
-                  <button className="button" onClick={() => handleLinkAmenity(detailId)}>Link Amenity</button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {group.items.map((u, i) => {
+                    const fallbackImg = fallbackImages[i % fallbackImages.length]
+                    const imgUrl = u.image_url ? `http://localhost:3000${u.image_url}` : fallbackImg
+                    
+                    const statUpper = (u.status || 'VACANT').toUpperCase()
+                    let statStyle = 'bg-slate-50 border-t-slate-200 text-slate-600'
+                    let statText = 'UNKNOWN'
+                    if (statUpper === 'VACANT' || statUpper === 'AVAILABLE') { statStyle = 'bg-emerald-500 text-white'; statText = 'AVAILABLE' }
+                    else if (statUpper === 'OCCUPIED' || statUpper === 'RENTED') { statStyle = 'bg-rose-500 text-white'; statText = 'OCCUPIED' }
+                    else if (statUpper === 'MAINTENANCE') { statStyle = 'bg-amber-500 text-white'; statText = 'MAINTENANCE' }
+
+                    const rawType = u.type?.toUpperCase() || 'STUDIO'
+                    let prettyType = 'Studio'
+                    if (rawType.includes('1BR')) prettyType = '1 Bedroom'
+                    if (rawType.includes('2BR')) prettyType = '2 Bedroom'
+
+                    return (
+                      <div key={u.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100 dark:border-slate-700 overflow-hidden group hover:-translate-y-1 transition-all duration-300 flex flex-col hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] relative">
+                        
+                        {/* Hover Overlay Actions */}
+                        <div className="absolute top-4 left-4 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(u)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Edit Unit">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => openDetails(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="View Details">
+                            <Info size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-rose-600 transition-colors" title="Delete Unit">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div className="h-44 relative overflow-hidden">
+                          <div 
+                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" 
+                            style={{ backgroundImage: `url("${imgUrl}")` }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-800 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded shadow-sm z-10">
+                            UNIT {u.unit_number || `10${i+1}`}
+                          </div>
+                        </div>
+
+                        <div className="p-5 flex-1 flex flex-col z-10 bg-white dark:bg-slate-800 relative">
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{prettyType}</h3>
+                          {!selectedBuildingId && (
+                            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                              {u.building?.name || 'Unknown Building'}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-3 mt-4">
+                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
+                              <Maximize size={12} className="text-slate-400" /> {u.size_sqm || 45} sqm
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
+                              <Bed size={12} className="text-slate-400" /> {u.bedrooms || 1} Bed
+                            </div>
+                          </div>
+
+                          <div className="mt-auto pt-5 flex items-baseline gap-1.5">
+                            <span className="text-indigo-600 text-lg font-extrabold tracking-tight">
+                              ETB {Number(u.rent_price || u.rent || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className={`py-2 text-center text-[10px] font-bold tracking-[0.2em] uppercase ${statStyle} z-10`}>
+                          {statText}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            ) : (
-              <div>Loading details...</div>
-            )}
+            )
+          })}
+        </div>
+        
+        {!loading && filteredUnits.length === 0 && (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+            <Search size={32} className="mb-4 opacity-50 text-slate-300" />
+            <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No units found</p>
+            <p className="text-sm font-medium mt-1">Try adjusting your filters or building context.</p>
+          </div>
+        )}
+
+      </div>
+
+      {/* CREATE / EDIT FORM MODAL */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editing ? 'Edit Unit Details' : 'Create New Unit'}</h2>
+              <button className="text-slate-400 hover:text-slate-600" onClick={() => setShowForm(false)}><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <form id="unit-form" onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit Number</label>
+                    <input value={unitNumber} onChange={e => setUnitNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Building</label>
+                    <select value={formBuildingId} onChange={e => setFormBuildingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" required>
+                      <option value="">Select building</option>
+                      {buildingsList.map(b => <option key={b.id} value={b.id}>{b.name || b.code}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type</label>
+                    <select value={unitType} onChange={e => setUnitType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+                      {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label>
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+                      {UNIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Floor</label>
+                    <input type="number" value={floor as any} onChange={e => setFloor(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Beds</label>
+                    <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Baths</label>
+                    <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sqm</label>
+                    <input type="number" value={sizeSqm as any} onChange={e => setSizeSqm(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Rent Price (ETB)</label>
+                  <input type="number" value={rentPrice as any} onChange={e => setRentPrice(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Description</label>
+                  <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm h-20 resize-none" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit Image</label>
+                  <div className="flex gap-4 items-center">
+                    <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                    <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
+                      Choose File
+                    </button>
+                    {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3">
+              <button className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-colors" onClick={() => setShowForm(false)}>Cancel</button>
+              <button form="unit-form" type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">
+                {editing ? 'Save Changes' : 'Create Unit'}
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* DETAILS / AMENITIES MODAL */}
+      {detailId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Unit Amenities & Details</h2>
+              <button className="text-slate-400 hover:text-slate-600" onClick={() => { setDetailId(null); setDetail(null) }}><X size={20} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {detail ? (
+                <div className="space-y-8">
+                  <div className="grid grid-cols-2 gap-6 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit Number</p>
+                      <p className="font-bold text-slate-900 dark:text-white text-lg">{detail.unit_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Building</p>
+                      <p className="font-bold text-slate-900 dark:text-white text-lg">{detail.building?.name || detail.building_id}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Linked Amenities</h4>
+                    {unitAmenities.length === 0 ? (
+                      <p className="text-sm text-slate-400 font-medium italic">No amenities linked yet.</p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {unitAmenities.map(a => (
+                          <li key={a.id} className="flex items-center justify-between bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{a.name} <span className="text-slate-400 font-normal ml-2">{a.description}</span></span>
+                            <button className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors" onClick={() => doRemoveAmenity(detailId, a.id)}>
+                              <Trash2 size={16} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 dark:border-slate-700">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Add Amenity</h4>
+                    <div className="flex gap-3 items-center">
+                      <select value={newAmenityId as any} onChange={e => setNewAmenityId(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:bg-white transition-all">
+                        <option value="">Select an amenity to link...</option>
+                        {availableAmenities.map((a: any) => (
+                          <option key={a.id} value={a.id}>{a.name}{a.type ? ` — ${a.type}` : ''}</option>
+                        ))}
+                      </select>
+                      <button className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-colors whitespace-nowrap" onClick={() => handleLinkAmenity(detailId)}>
+                        Link Amenity
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end">
+              <button className="px-5 py-2.5 bg-slate-200 text-slate-700 font-bold hover:bg-slate-300 rounded-xl transition-colors" onClick={() => { setDetailId(null); setDetail(null) }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </PageLayout>
   )
 }

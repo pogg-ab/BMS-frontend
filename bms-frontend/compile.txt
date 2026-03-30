@@ -1,0 +1,5 @@
+﻿src/pages/Maintenance.tsx(469,8): error TS17008: JSX element 'div' has no corresponding closing tag.
+src/pages/Maintenance.tsx(821,12): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/pages/Maintenance.tsx(824,11): error TS1005: ')' expected.
+src/pages/Maintenance.tsx(885,8): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/pages/Maintenance.tsx(1489,5): error TS1005: ')' expected.

@@ -11,6 +11,10 @@ export async function updateSettings(data: {
   vat_number?: string
   vat_rate?: number
   withholding_rate?: number
+  late_fee_percentage?: number
+  early_termination_penalty_pct?: number
+  rent_escalation_pct?: number
+  default_lease_duration_months?: number
   logo?: File
 }) {
   const formData = new FormData()
@@ -19,6 +23,10 @@ export async function updateSettings(data: {
   if (data.vat_number) formData.append('vat_number', data.vat_number)
   if (data.vat_rate !== undefined) formData.append('vat_rate', String(data.vat_rate))
   if (data.withholding_rate !== undefined) formData.append('withholding_rate', String(data.withholding_rate))
+  if (data.late_fee_percentage !== undefined) formData.append('late_fee_percentage', String(data.late_fee_percentage))
+  if (data.early_termination_penalty_pct !== undefined) formData.append('early_termination_penalty_pct', String(data.early_termination_penalty_pct))
+  if (data.rent_escalation_pct !== undefined) formData.append('rent_escalation_pct', String(data.rent_escalation_pct))
+  if (data.default_lease_duration_months !== undefined) formData.append('default_lease_duration_months', String(data.default_lease_duration_months))
   if (data.logo) formData.append('logo', data.logo)
   const res = await api.patch('/settings', formData)
   return res.data

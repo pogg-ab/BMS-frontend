@@ -14,6 +14,7 @@ import {
   getMessages,
   createApplication,
 } from '../api/tenants'
+import * as financeApi from '../api/finance'
 import api from '../api/axios'
 
 import { listUnits } from '../api/units'
@@ -21,9 +22,33 @@ import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { useToast } from '../components/ToastProvider'
 import PageLayout from '../components/PageLayout'
-import { FiUserPlus, FiEye } from 'react-icons/fi'
+import StatusBadge from '../components/StatusBadge'
+import { 
+  Plus, 
+  Search, 
+  Mail, 
+  Phone, 
+  MoreVertical,
+  MoreHorizontal,
+  Edit3,
+  Building2,
+  Info,
+  CreditCard,
+  MessageCircle,
+  FileText,
+  UserPlus,
+  MapPin,
+  Shield,
+  ArrowRight,
+  Calendar,
+  Briefcase,
+  Hash,
+  Clock,
+  Eye
+} from 'lucide-react'
 
-interface Tenant { id: string | number; name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; status?: string; tin_number?: string; vat_reg_number?: string; created_at?: string }
+
+interface Tenant { id: string | number; name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; status?: string; tin_number?: string; vat_reg_number?: string; created_at?: string; tenant_type?: string; profile_image?: string }
 // documents removed from UI — document interface omitted
 interface Message { id: number; subject?: string; body?: string }
 
@@ -52,10 +77,14 @@ export default function Tenants() {
   const profileImageRef = useRef<HTMLInputElement>(null)
 
   const [detailTenant, setDetailTenant] = useState<Tenant | null>(null)
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'ledger' | 'messages'>('info')
+  const [ledger, setLedger] = useState<any[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [buildings, setBuildings] = useState<any[]>([])
   const [sites, setSites] = useState<any[]>([])
-  const [selectedTenantId, setSelectedTenantId] = useState<string | number | ''>('')
+  const [selectedTenantId, setSelectedTenantId] = useState<string | number>('')
+  const [showFullModal, setShowFullModal] = useState(false)
   const [applications, setApplications] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [docsList, setDocsList] = useState<any[]>([])
@@ -146,10 +175,15 @@ export default function Tenants() {
         d = await getTenant(id)
         setDetailTenant(d)
       }
+      setActiveDetailTab('info')
 
       // load related lists (best-effort)
       try { const msgs = await getMessages(id); setMessages(Array.isArray(msgs) ? msgs : (msgs?.data || msgs || [])) } catch { setMessages([]) }
-      // announcements removed from UI
+      try {
+        setLedgerLoading(true)
+        const lRes = await financeApi.getTenantLedger(String(id))
+        setLedger(lRes)
+      } catch { setLedger([]) } finally { setLedgerLoading(false) }
     } catch (e: any) {
       console.error(e)
       toast.addToast('Failed to load tenant', 'error')
@@ -340,434 +374,550 @@ export default function Tenants() {
       toast.addToast('Message sent', 'success')
       setMsgSubject(''); setMsgBody('')
     } catch (e: any) { console.error(e); toast.addToast('Send message failed', 'error') }
-  }
-
-  return (
+  }  return (
     <PageLayout
-      title="Tenants Portfolio"
-      subtitle="Manage tenant lifecycles, applications, and documents"
+      title="Tenant Management"
+      subtitle={`Curating ${tenants.length.toLocaleString()} active lease agreements across 14 properties.`}
       actions={
-        <button onClick={() => setShowRegister(true)} className="button">
-          <FiUserPlus className="mr-2" /> Register Tenant
+        <button onClick={() => setShowRegister(true)} className="button flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+          <Plus size={18} /> Register Tenant
         </button>
       }
     >
       <div className="space-y-6">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <div className="w-12 h-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+            <p className="font-medium animate-pulse">Curation in progress...</p>
+          </div>
+        ) : (
+          <div className={`grid grid-cols-1 ${selectedTenantId ? 'xl:grid-cols-12' : ''} gap-10 transition-all duration-500 items-start`}>
+            
+            {/* Tenant List Section */}
+            <div className={`${selectedTenantId ? 'xl:col-span-8' : 'xl:col-span-12'}`}>
 
-        {loading ? (<div className="flex justify-center py-12 text-slate-500">Loading tenants...</div>) : (
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-12 px-10 mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <div className="col-span-5">Tenant Identity</div>
+                <div className="col-span-3">Building</div>
+                <div className="col-span-2 text-center ml-[-40px]">Lease Status</div>
+                <div className="col-span-2 text-right">Action</div>
+              </div>
 
-            {/* Tenants table (left / main) */}
-            <div className="xl:col-span-3 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
-              <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-4">Active Tenants</h3>
-              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
-                <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-4 font-medium tracking-wider">Name</th>
-                      <th className="px-6 py-4 font-medium tracking-wider">Email</th>
-                      <th className="px-6 py-4 font-medium tracking-wider">Status</th>
-                      <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {tenants.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
-                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{t.first_name || t.name}</td>
-                        <td className="px-6 py-4 text-slate-600">{t.email}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-                            {t.status || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button onClick={() => openDetail(t)} className="text-indigo-600 hover:text-indigo-900 px-3 py-1 flex items-center justify-end gap-1 ml-auto transition-colors">
-                            <FiEye /> View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                {tenants.map(t => {
+                  const isSelected = String(t.id) === String(selectedTenantId)
+                  return (
+                    <div 
+                      key={t.id} 
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedTenantId('')
+                        } else {
+                          setSelectedTenantId(t.id)
+                          openDetail(t)
+                        }
+                      }}
+                      className={`group grid grid-cols-12 items-center px-10 py-7 rounded-[32px] border transition-all duration-300 cursor-pointer relative overflow-hidden ${
+                        isSelected 
+                          ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-200 dark:shadow-none' 
+                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 shadow-sm hover:shadow-xl'
+                      }`}
+                    >
+                      {/* Selection Indigo Bar */}
+                      {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600"></div>}
+
+                      {/* Identity */}
+                      <div className="col-span-5 flex items-center gap-6">
+                        <div className="w-16 h-16 rounded-[24px] overflow-hidden flex items-center justify-center shadow-sm">
+                          <img 
+                            src={`https://ui-avatars.com/api/?name=${t.first_name}+${t.last_name || ''}&background=f1f5f9&color=64748b&bold=true`} 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                        <div>
+                          <div className="font-black text-slate-900 dark:text-white text-lg tracking-tight">
+                            {t.first_name} {t.last_name || ''}
+                          </div>
+                          <div className="text-xs font-bold text-slate-400 flex items-center gap-2 mt-1 lowercase">
+                            <Mail size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" /> {t.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Building */}
+                      <div className="col-span-3">
+                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">The Atrium, F4</div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-2 flex justify-center ml-[-40px]">
+                        <StatusBadge status={t.status || 'ACTIVE'} size="md" />
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-2 flex items-center justify-end gap-3">
+                        <button className="p-3.5 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 rounded-2xl transition-all">
+                          <Phone size={20} />
+                        </button>
+                        <button className={`p-3.5 rounded-2xl transition-all ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}>
+                          {isSelected ? <Plus size={20} className="rotate-45" /> : <MoreVertical size={20} />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Admin actions card (right) */}
-            <aside className="xl:col-span-1 space-y-6">
+            {/* Selection Sidebar (Pixel-Perfect Match & Spacious Fix) */}
+            {selectedTenantId && detailTenant && (
+              <div className="xl:col-span-4 animate-in slide-in-from-right duration-500">
+                <div className="sticky top-24 bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700/60 p-8 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)]">
+                  
+                  {/* Sidebar Header Area */}
+                  <div className="relative mb-8">
+                    <div className="absolute top-2 right-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-[0.2em] rounded-full border border-amber-100 dark:border-amber-900/50 z-10">
+                      Due in 14 Days
+                    </div>
+                    <div className="w-36 h-36 mx-auto rounded-[35px] overflow-hidden border-4 border-slate-50 dark:border-slate-900 shadow-lg">
+                      <img 
+                        src={`https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=6366f1&color=fff&size=512&bold=true`} 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4">Communications</h3>
+                  <div className="text-center mb-8">
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                      {detailTenant.first_name} {detailTenant.last_name}
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest flex items-center justify-center gap-2">
+                      <span>Individual</span>
+                      <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                      <span>Professional</span>
+                    </p>
+                  </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Select tenant</label>
-                  <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all">
-                    <option value="">-- context --</option>
-                    {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name}</option>))}
-                  </select>
+                  {/* Property Identity Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-8">
+                    <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Building</div>
+                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Medical Plaza</div>
+                    </div>
+                    <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
+                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Unit</div>
+                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Suite 204</div>
+                    </div>
+                  </div>
+
+                  {/* Contact Channels */}
+                  <div className="space-y-5 mb-8">
+                    <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 transition-all duration-300">
+                        <Mail size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Email</div>
+                        <div className="text-xs font-black text-slate-900 dark:text-slate-200 truncate">{detailTenant.email}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 transition-all duration-300">
+                        <Phone size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Phone Number</div>
+                        <div className="text-xs font-black text-slate-900 dark:text-slate-200 truncate">{detailTenant.phone}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 transition-all duration-300">
+                        <CreditCard size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lease Value</div>
+                        <div className="text-xs font-black text-slate-900 dark:text-slate-200 truncate">ETB 45,250.00 / mo</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Row */}
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={() => setShowFullModal(true)}
+                      className="w-full py-4 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-black uppercase tracking-[0.2em] text-[10px] rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-100 transition-all"
+                    >
+                      View Full Profile
+                    </button>
+                    <button className="w-full py-4 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all">
+                      Send Notice
+                    </button>
+                  </div>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
 
-                {/* Documents moved to a separate card below */}
-
-                {/* Announcements moved below messages (rendered after messages) */}
-
-                <form onSubmit={handleSendMessage}>
-                  <label className="block text-sm text-gray-600 mb-1">Message</label>
-                  <input placeholder="Subject" value={msgSubject} onChange={e => setMsgSubject(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                  <textarea placeholder="Body" value={msgBody} onChange={e => setMsgBody(e.target.value)} className="w-full p-2 border rounded mb-2" />
-                  <div className="flex gap-2">
-                    <button type="submit" className="flex-1 px-3 py-2 bg-blue-600 text-white rounded">Send</button>
-                    <button type="button" onClick={handleGetMessages} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded">Load</button>
-                  </div>
-                </form>
-
-                {adminMessages.length > 0 ? (
-                  <div className="mt-3 text-sm">
-                    <strong>Messages</strong>
-                    <ul className="list-disc pl-6">
-                      {adminMessages.map((m: any) => (
-                        <li key={m.id} className="mb-2">
-                          <div className="font-medium">{m.subject || ''}</div>
-                          <div className="text-xs text-gray-700 whitespace-pre-wrap">{m.body || m.content || ''}</div>
-                          <div className="text-xs text-gray-500">{m.created_at ? new Date(m.created_at).toLocaleString() : ''}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="mt-3 text-sm text-gray-500">No messages loaded</div>
-                )}
+        {/* Register Tenant Modal */}
+        {showRegister && (
+          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-slate-800 rounded-[40px] p-10 w-full max-w-xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-white dark:border-slate-700/50">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Register New Tenant</h3>
+                  <p className="text-sm font-medium text-slate-500 mt-1">Initialize a new lease agreement profile.</p>
+                </div>
+                <button onClick={() => setShowRegister(false)} className="p-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl transition-all">
+                  <ArrowRight className="rotate-45 text-slate-400" size={20} />
+                </button>
               </div>
 
-              {/* Announcements accordion (moved below messages) */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 overflow-hidden">
-                <button type="button" onClick={() => { setOpenAnnouncements(s => !s); if (!openAnnouncements) handleListAnnouncements() }} className="w-full text-left p-4 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 flex items-center justify-between transition-colors">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">Announcements</span>
-                  <span className="text-xl text-slate-400 font-light leading-none">{openAnnouncements ? '−' : '+'}</span>
-                </button>
-                {openAnnouncements && (
-                  <div className="p-3">
-                    <form onSubmit={handleCreateAnnouncement} className="mb-3">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="form-label">Announcement Title</label>
-                          <input value={announceTitle} onChange={e => setAnnounceTitle(e.target.value)} placeholder="Title" className="form-input" required />
-                        </div>
-                        <div>
-                          <label className="form-label">Target Audience</label>
-                          <select value={announceTarget} onChange={e => setAnnounceTarget(e.target.value)} className="form-select">
-                            <option value="all">All Users</option>
-                            <option value="tenants">All Tenants</option>
-                            <option value="contractors">All Contractors</option>
-                            <option value="site">Specific Site</option>
-                            <option value="building">Specific Building</option>
-                          </select>
-                        </div>
-                        {announceTarget === 'site' && (
-                          <div>
-                            <label className="form-label">Select Site</label>
-                            <select value={announceSiteId as string} onChange={e => setAnnounceSiteId(e.target.value)} className="form-select">
-                              <option value="">-- select site --</option>
-                              {sites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.title || s.id}</option>)}
-                            </select>
-                          </div>
-                        )}
-                        {announceTarget === 'building' && (
-                          <div>
-                            <label className="form-label">Select Building</label>
-                            <select value={announceBuildingId as string} onChange={e => setAnnounceBuildingId(e.target.value)} className="form-select">
-                              <option value="">-- select building --</option>
-                              {buildings.map(b => (
-                                <option key={b.id} value={String(b.id)}>{b.name || b.title || b.id}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                        <div>
-                          <label className="form-label">Message Content</label>
-                          <textarea value={announceMessage} onChange={e => setAnnounceMessage(e.target.value)} placeholder="Message content..." className="form-input h-24 pt-2" required />
-                        </div>
-                        <button type="submit" className="button w-full">Broadcast Announcement</button>
-                      </div>
-                    </form>
+              <form onSubmit={handleRegister} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                    <input required placeholder="Helena" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                    <input required placeholder="Thorne" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                  </div>
+                </div>
 
-                    {adminAnnouncements.length > 0 && (
-                      <div className="mt-3 text-sm">
-                        <strong>Announcements</strong>
-                        <ul className="list-disc pl-6">
-                          {adminAnnouncements.map(a => (<li key={a.id}>{a.title} — {a.message}</li>))}
-                        </ul>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <input required type="email" placeholder="helena.thorne@example.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                    <input required placeholder="+1 234 567 890" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tenant Type</label>
+                    <select value={tenantType} onChange={e => setTenantType(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none appearance-none cursor-pointer">
+                      <option value="personal">Individual Tenant</option>
+                      <option value="organizational">Corporate Entity</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                    <input required type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                </div>
+
+                {/* Conditional Fields based on Tenant Type */}
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-4">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <Shield size={12} className="text-indigo-500" /> Professional Documentation
+                  </h4>
+                  
+                  {tenantType === 'personal' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
+                        <div 
+                          onClick={() => idImageRef.current?.click()}
+                          className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all"
+                        >
+                          <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
+                          {idImage ? (
+                            <img src={`http://localhost:3000${idImage}`} className="h-full w-full object-cover rounded-xl" />
+                          ) : (
+                            <Plus size={18} className="text-slate-300" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Detailed Address</label>
+                        <input placeholder="Suite / House #" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
+                          <input placeholder="8-Digit TIN" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
+                          <input placeholder="VAT Reg #" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
+                          <div onClick={() => licenseImageRef.current?.click()} className="h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
+                            <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
+                            {licenseImage ? <img src={`http://localhost:3000${licenseImage}`} className="w-full h-full object-cover" /> : <Plus size={16} className="text-slate-300" />}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
+                          <div onClick={() => profileImageRef.current?.click()} className="h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
+                            <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
+                            {profileImage ? <img src={`http://localhost:3000${profileImage}`} className="w-full h-full object-cover" /> : <Plus size={16} className="text-slate-300" />}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Address</label>
+                          <input placeholder="HQ Addr" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-700/50">
+                  <button type="button" onClick={() => setShowRegister(false)} className="px-8 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-all">Cancel</button>
+                  <button type="submit" className="px-8 py-3.5 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all">Initialize Tenant</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Full Profile Detail Modal */}
+        {showFullModal && detailTenant && (
+          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xl flex items-center justify-center z-[60] p-4 animate-in zoom-in duration-500">
+            <div className="bg-white dark:bg-slate-800 rounded-[50px] w-full max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.25)] border border-white/20 dark:border-slate-700/50 overflow-hidden flex flex-col max-h-[92vh]">
+              
+              {/* Profile Header Block */}
+              <div className="relative h-64 bg-indigo-600 dark:bg-indigo-950 overflow-hidden shrink-0">
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(99,102,241,0.9),rgba(79,70,229,0.95))]"></div>
+                <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px'}}></div>
+                
+                <div className="absolute bottom-0 left-0 right-0 p-10 flex items-end justify-between">
+                  <div className="flex items-end gap-8">
+                    <div className="w-32 h-32 rounded-[40px] bg-white p-2 shadow-2xl border-4 border-white/20 -mb-20">
+                      <img src={`https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`} className="w-full h-full object-cover rounded-[32px]" />
+                    </div>
+                    <div className="pb-2">
+                       <h2 className="text-4xl font-black text-white tracking-tight">{detailTenant.first_name} {detailTenant.last_name}</h2>
+                       <div className="flex items-center gap-3 mt-1.5">
+                          <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black text-white uppercase tracking-widest border border-white/10">ID: {detailTenant.id}</span>
+                          <span className="px-3 py-1 bg-emerald-400/20 backdrop-blur-md rounded-lg text-[10px] font-black text-emerald-300 uppercase tracking-widest border border-emerald-400/20">Active Lease</span>
+                       </div>
+                    </div>
+                  </div>
+                    <button onClick={() => setShowFullModal(false)} className="mb-2 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[24px] border border-white/10 transition-all">
+                      <Plus className="rotate-45" size={24} />
+                    </button>
+                </div>
+              </div>
+
+              {/* Modal Tabs Navigation */}
+              <div className="px-10 mt-20 flex gap-8 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                {[
+                  { id: 'info', icon: Info, label: 'Overview' },
+                  { id: 'ledger', icon: CreditCard, label: 'Financial Ledger' },
+                  { id: 'messages', icon: MessageCircle, label: 'Communication' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveDetailTab(tab.id as any)}
+                    className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all relative ${
+                      activeDetailTab === tab.id ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <tab.icon size={16} />
+                    {tab.label}
+                    {activeDetailTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-600 rounded-full"></div>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+                {activeDetailTab === 'info' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-in fade-in slide-in-from-bottom-5 duration-500">
+                    <div className="lg:col-span-2 space-y-10">
+                      <div>
+                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[.25em] mb-6 flex items-center gap-3">
+                          <UserPlus size={14} className="text-indigo-500" /> Administrative Identity
+                        </h3>
+                        <div className="grid grid-cols-2 gap-x-12 gap-y-8">
+                           {[
+                             { label: 'Primary Contact', value: detailTenant.phone },
+                             { label: 'Official Email', value: detailTenant.email },
+                             { label: 'Tenant Classification', value: detailTenant.tenant_type === 'personal' ? 'Individual / Residential' : 'Corporate / Commercial' },
+                             { label: 'Tax Identification (TIN)', value: detailTenant.tin_number || 'Not Provided' },
+                             { label: 'Registration Date', value: detailTenant.created_at ? new Date(detailTenant.created_at).toLocaleDateString() : 'Legacy Entry' },
+                             { label: 'VAT Registration', value: detailTenant.vat_reg_number || 'N/A' }
+                           ].map((item, idx) => (
+                             <div key={idx} className="group">
+                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">{item.label}</div>
+                               <div className="text-sm font-black text-slate-700 dark:text-slate-200">{item.value || '—'}</div>
+                             </div>
+                           ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[.25em] mb-6 flex items-center gap-3">
+                          <MapPin size={14} className="text-emerald-500" /> Assigned Location
+                        </h3>
+                        <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[35px] border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-indigo-100 transition-all">
+                           <div className="flex items-center gap-6">
+                              <div className="w-16 h-16 rounded-[24px] bg-white dark:bg-slate-800 shadow-xl flex items-center justify-center border border-slate-100 dark:border-slate-700">
+                                <Building2 size={24} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                              </div>
+                              <div>
+                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Residence</div>
+                                 <div className="text-lg font-black text-slate-800 dark:text-slate-200">The Atrium, F4 • Suite 402</div>
+                                 <div className="text-xs font-medium text-slate-400 mt-0.5">Northern District • Commercial Zone A</div>
+                              </div>
+                           </div>
+                           <button className="p-4 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95">
+                              <ArrowRight size={20} />
+                           </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-1 space-y-8">
+                       <div className="p-8 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-[40px] border border-indigo-100 dark:border-indigo-900/30">
+                          <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                             <span>Operational Status</span>
+                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                          </div>
+                          <div className="space-y-6">
+                             <div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Lease Renewal</div>
+                                <div className="text-lg font-black text-slate-800 dark:text-slate-200">14 Days Remaining</div>
+                                <div className="mt-2 w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                   <div className="w-[85%] h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full"></div>
+                                </div>
+                             </div>
+                             <div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Portfolio Value</div>
+                                <div className="text-lg font-black text-indigo-600">ETB 450,250.00</div>
+                                <div className="text-[10px] font-medium text-slate-400">Total lifetime value assigned</div>
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="space-y-3">
+                          <button className="w-full py-4 bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95">
+                             Issue Site Notice
+                          </button>
+                          <button className="w-full py-4 bg-white dark:bg-slate-800 text-slate-400 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] border border-slate-100 dark:border-slate-700 hover:bg-slate-50 transition-all">
+                             Archive Tenant
+                          </button>
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeDetailTab === 'ledger' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-5 duration-500 space-y-8">
+                     <div className="flex items-center justify-between p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[40px] border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-6">
+                           <div className="w-16 h-16 rounded-[24px] bg-indigo-600 shadow-xl shadow-indigo-200 flex items-center justify-center text-white">
+                              <CreditCard size={28} />
+                           </div>
+                           <div>
+                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outstanding Balance</div>
+                              <div className={`text-4xl font-black ${(ledger[ledger.length - 1]?.balance || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                ETB {Number(ledger[ledger.length - 1]?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </div>
+                           </div>
+                        </div>
+                        <a
+                          href={financeApi.getTenantLedgerPdfUrl(String(detailTenant.id))}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] border border-slate-200 dark:border-slate-700 shadow-sm hover:bg-slate-50 transition-all flex items-center gap-3"
+                        >
+                          <FileText size={16} className="text-indigo-600" /> Download PDF Statement
+                        </a>
+                     </div>
+
+                     {ledgerLoading ? (
+                       <div className="py-20 flex flex-col items-center justify-center text-slate-400 italic">
+                          <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                          <span className="text-xs font-bold uppercase tracking-widest">Auditing Accounts...</span>
+                       </div>
+                     ) : ledger.length === 0 ? (
+                       <div className="py-20 text-center text-slate-400 italic font-medium">No financial history found for this profile.</div>
+                     ) : (
+                       <div className="rounded-[35px] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                         <table className="w-full text-left">
+                           <thead className="bg-slate-50 dark:bg-slate-900/80 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                             <tr>
+                               <th className="px-8 py-5">Date</th>
+                               <th className="px-8 py-5">Descriptor</th>
+                               <th className="px-8 py-5 text-right">Debit</th>
+                               <th className="px-8 py-5 text-right">Credit</th>
+                               <th className="px-8 py-5 text-right bg-indigo-50/30 dark:bg-indigo-900/10">Running Balance</th>
+                             </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                             {ledger.map((entry, idx) => (
+                               <tr key={idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                                 <td className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">{entry.date}</td>
+                                 <td className="px-8 py-5">
+                                    <div className="text-sm font-black text-slate-800 dark:text-slate-200">{entry.description}</div>
+                                    <div className="text-[10px] font-bold text-slate-400 tracking-wider">REF: {entry.reference}</div>
+                                 </td>
+                                 <td className="px-8 py-5 text-right text-sm font-black text-rose-600">{entry.debit > 0 ? entry.debit.toFixed(2) : '—'}</td>
+                                 <td className="px-8 py-5 text-right text-sm font-black text-emerald-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '—'}</td>
+                                 <td className="px-8 py-5 text-right text-sm font-black text-slate-900 dark:text-white bg-indigo-50/10 dark:bg-indigo-900/5">{entry.balance.toFixed(2)}</td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     )}
+                  </div>
+                )}
+
+                {activeDetailTab === 'messages' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-5 duration-500 space-y-6">
+                    <div className="flex items-center justify-between mb-4">
+                       <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                          <MessageCircle size={24} className="text-indigo-600" /> Communication Log
+                       </h3>
+                       <button className="px-6 py-2.5 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                          New Message
+                       </button>
+                    </div>
+
+                    {messages.length === 0 ? (
+                      <div className="py-20 text-center text-slate-400 italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[40px]">
+                        No active communication history found.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages.map(m => (
+                          <div key={m.id} className="p-8 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[35px] hover:shadow-xl hover:shadow-indigo-500/5 transition-all group">
+                             <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-500">
+                                      <Mail size={18} />
+                                   </div>
+                                   <div>
+                                      <h5 className="font-black text-slate-900 dark:text-slate-200 text-sm tracking-tight">{m.subject}</h5>
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Outbound Announcement</p>
+                                   </div>
+                                </div>
+                                <div className="text-[11px] font-bold text-slate-400">12:45 PM</div>
+                             </div>
+                             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-14">
+                                {m.body}
+                             </p>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-
-              {/* Documents list moved to the Documents card below */}
-
-              {/* applications moved to separate card below */}
-            </aside>
-
-            {/* Documents (separate card) */}
-            <div className="md:col-span-3 bg-white dark:bg-slate-800 p-4 rounded shadow-sm mb-4">
-              <h3 className="font-semibold mb-3">Documents</h3>
-              <div className="mb-3">
-                <button onClick={handleListDocs} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded hover:bg-gray-50 dark:bg-slate-900">List Documents</button>
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm text-gray-600 mb-1">Select tenant</label>
-                <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="w-full p-2 border rounded">
-                  <option value="">-- select tenant --</option>
-                  {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name} ({t.email})</option>))}
-                </select>
-              </div>
-              <form onSubmit={handleUploadForSelected} className="mb-3">
-                <label className="block text-sm text-gray-600 mb-1">Upload document</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                  <select value={docType} onChange={e => setDocType(e.target.value)} className="p-2 border rounded">
-                    <option value="ID">ID</option>
-                    <option value="Passport">Passport</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Primary ID">Primary ID</option>
-                  </select>
-                  <input type="file" onChange={e => setDocFile(e.target.files?.[0] || null)} className="col-span-2 md:col-span-1" />
-                  <div className="md:col-span-3">
-                    <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Upload</button>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Required: tenant_id, type, file (multipart/form-data)</p>
-              </form>
-              {/* Manual Verify-by-ID form removed; use per-document Verify buttons in the list below */}
-              {docsList.length > 0 && (
-                <div className="mt-3 text-sm">
-                  <strong>Documents</strong>
-                  <ul className="list-disc pl-6">
-                    {docsList.map(d => {
-                      const fileUrl = d?.file_url || d?.fileUrl || d?.url || ''
-                      const baseUrl = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '')
-                      const href = fileUrl && fileUrl.startsWith('/') ? `${baseUrl}${fileUrl}` : fileUrl
-                      return (
-                        <li key={d.id} className="mb-1">
-                          <span className="font-medium">{d.type || d.name || 'Document'}</span>
-                          {d.verified ? (
-                            <span className="ml-2 text-xs text-green-700">(verified)</span>
-                          ) : (
-                            <>
-                              <span className="ml-2 text-xs text-yellow-700">(unverified)</span>
-                              <button type="button" onClick={() => handleVerifyDocument(d.id)} className="ml-2 text-sm px-2 py-1 bg-green-600 text-white rounded">Verify</button>
-                            </>
-                          )}
-                          {href ? (
-                            <a className="ml-2 text-blue-600 hover:underline" href={href} target="_blank" rel="noreferrer">View</a>
-                          ) : null}
-                          <div className="text-xs text-gray-500">{d.created_at ? new Date(d.created_at).toLocaleString() : ''}</div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {/* Applications (separate card) */}
-            <div className="md:col-span-3 bg-white dark:bg-slate-800 p-4 rounded shadow-sm">
-              <h3 className="font-semibold mb-3">Applications</h3>
-              <div className="mb-3">
-                <button onClick={handleListPendingApps} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded hover:bg-gray-50 dark:bg-slate-900">List pending applications</button>
-              </div>
-              <div>
-                {applications.length > 0 ? (
-                  <div className="text-sm">
-                    <strong>Pending Applications</strong>
-                    <ul className="list-disc pl-6">
-                      {applications.map(a => (<li key={a.id}>{a.id} — {a.email || a.name}</li>))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500">No pending applications loaded</div>
-                )}
-              </div>
-
-              <div className="mt-4">
-                <h4 className="font-medium mb-2">Create Application</h4>
-                <form onSubmit={handleCreateApplication}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="form-label">Select tenant</label>
-                      <select value={selectedTenantId} onChange={e => setSelectedTenantId(e.target.value)} className="form-select">
-                        <option value="">-- select tenant --</option>
-                        {tenants.map(t => (<option key={t.id} value={String(t.id)}>{t.first_name || t.name} ({t.email})</option>))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="form-label">Building</label>
-                      <div className="flex gap-2">
-                        <select value={appBuildingId as string} onChange={e => setAppBuildingId(e.target.value)} className="form-select flex-1">
-                          <option value="">-- optional --</option>
-                          {buildings.map(b => (<option key={b.id} value={String(b.id)}>{b.name || b.title || b.id}</option>))}
-                        </select>
-                        <button type="button" onClick={async () => {
-                          try {
-                            const res: any = await listUnits({ building_id: appBuildingId, page: 1, per_page: 200 })
-                            const list = Array.isArray(res) ? res : (res?.data || res || [])
-                            console.debug('loaded units (manual):', list)
-                            setUnits(list)
-                          } catch (err) { console.error('failed load units (manual)', err); toast.addToast('Failed to load units', 'error') }
-                        }} className="px-3 py-2 bg-white dark:bg-slate-800 border rounded">Load units</button>
-                      </div>
-                      {appBuildingId && units.length === 0 && (
-                        <div className="text-xs text-gray-500 mt-1">No units found for selected building (try "Load units")</div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="form-label">Unit</label>
-                      <select value={appUnitId} onChange={e => setAppUnitId(e.target.value)} className="form-select">
-                        <option value="">-- optional --</option>
-                        {units.map(u => {
-                          const status = (u.status || '').toString()
-                          const available = ['vacant', 'available', 'free', 'empty', 'unoccupied'].includes(status.toLowerCase()) || status === ''
-                          const label = `${u.unit_number || u.unit_number || u.name || u.number || u.id}${status ? ' — ' + status : ''}`
-                          return (<option key={u.id} value={String(u.id)} disabled={!available}>{label}</option>)
-                        })}
-                      </select>
-                      <div className="text-xs text-gray-500 mt-1">Occupied units are disabled in the list.</div>
-                    </div>
-                    <div>
-                      <label className="form-label">Move-in date</label>
-                      <input type="date" value={appMoveInDate} onChange={e => setAppMoveInDate(e.target.value)} className="form-input" />
-                    </div>
-                    <div>
-                      <label className="form-label">Additional Details</label>
-                      <textarea placeholder="Details (optional)" value={appBody} onChange={e => setAppBody(e.target.value)} className="form-input h-24 pt-2" />
-                    </div>
-                    <button type="submit" className="button w-full">Create Application</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Register modal */}
-        {showRegister && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-800 rounded p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-3">Register Tenant</h3>
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div>
-                  <label className="form-label">First Name</label>
-                  <input required placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Last Name</label>
-                  <input required placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Email Address</label>
-                  <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Password</label>
-                  <input required type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Phone Number</label>
-                  <input required placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Tenant Type</label>
-                  <select value={tenantType} onChange={e => setTenantType(e.target.value)} className="form-select">
-                    <option value="personal">Personal</option>
-                    <option value="organizational">Organizational</option>
-                  </select>
-                </div>
-                {tenantType === 'personal' && (
-                  <>
-                    <div>
-                      <label className="form-label">Detailed Address</label>
-                      <input placeholder="Detailed Address" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="form-input" />
-                    </div>
-                    <div>
-                      <label className="form-label">ID / Passport Image</label>
-                      <div className="flex items-center gap-2">
-                        <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
-                        <button type="button" onClick={() => idImageRef.current?.click()} className="button-secondary text-xs">Upload ID</button>
-                        {idImage && <img src={`http://localhost:3000${idImage}`} alt="ID Preview" className="h-8 w-8 object-cover rounded" />}
-                      </div>
-                    </div>
-                  </>
-                )}
-                {tenantType === 'organizational' && (
-                  <>
-                    <div>
-                      <label className="form-label">Organized Address</label>
-                      <input placeholder="Detailed Address" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="form-input" />
-                    </div>
-                    <div>
-                      <label className="form-label">TIN Number</label>
-                      <input placeholder="TIN Number" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="form-input" />
-                    </div>
-                    <div>
-                      <label className="form-label">VAT Reg Number</label>
-                      <input placeholder="VAT Registration" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="form-input" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="form-label">License Image</label>
-                        <div className="flex items-center gap-2">
-                          <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
-                          <button type="button" onClick={() => licenseImageRef.current?.click()} className="button-secondary text-xs">Upload License</button>
-                          {licenseImage && <img src={`http://localhost:3000${licenseImage}`} alt="License" className="h-8 w-8 object-cover rounded" />}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="form-label">Profile Image</label>
-                        <div className="flex items-center gap-2">
-                          <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
-                          <button type="button" onClick={() => profileImageRef.current?.click()} className="button-secondary text-xs">Upload Profile</button>
-                          {profileImage && <img src={`http://localhost:3000${profileImage}`} alt="Profile" className="h-8 w-8 object-cover rounded" />}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-slate-100">
-                  <button type="button" onClick={() => setShowRegister(false)} className="px-3 py-2 border rounded">Cancel</button>
-                  <button type="submit" className="px-3 py-2 bg-blue-600 text-white rounded">Register</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Tenant detail simple modal */}
-        {detailTenant && (
-          <div className="fixed inset-0 bg-black/40 flex items-start justify-center py-10 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded p-6 w-full max-w-2xl">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold">Tenant #{detailTenant.id} - {detailTenant.first_name || detailTenant.name}</h3>
-                <button onClick={() => setDetailTenant(null)} className="px-2 py-1 border rounded">Close</button>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p><strong>ID:</strong> {detailTenant.id}</p>
-                  <p><strong>First name:</strong> {detailTenant.first_name}</p>
-                  <p><strong>Last name:</strong> {detailTenant.last_name}</p>
-                  <p><strong>Email:</strong> {detailTenant.email}</p>
-                </div>
-                <div>
-                  <p><strong>Phone:</strong> {detailTenant.phone}</p>
-                  <p><strong>TIN:</strong> {detailTenant.tin_number || '-'}</p>
-                  <p><strong>VAT Reg:</strong> {detailTenant.vat_reg_number || '-'}</p>
-                  <p><strong>Status:</strong> {detailTenant.status || '-'}</p>
-                  <p className="text-sm text-gray-500"><strong>Created:</strong> {detailTenant.created_at || '-'}</p>
-                </div>
-              </div>
-
-              <hr className="my-4" />
-              <div>
-                <div className="mt-2 space-y-2">
-                  {messages.map(m => (<div key={m.id} className="p-2 border rounded"><strong>{m.subject}</strong><div>{m.body}</div></div>))}
-                </div>
               </div>
             </div>
           </div>

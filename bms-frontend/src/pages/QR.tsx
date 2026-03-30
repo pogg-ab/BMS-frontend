@@ -3,13 +3,9 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import * as qrApi from '../api/qr'
 import { listUnits } from '../api/units'
+import { QrCode, TrendingUp, Settings2, Download, Trash2, CheckCircle2, XCircle, Search, Home, Building2, ExternalLink, Activity, Info, BarChart3, Plus } from 'lucide-react'
 
 type Tab = 'manage' | 'analytics'
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'manage', label: 'Generate & Manage' },
-  { key: 'analytics', label: 'Analytics' },
-]
 
 export default function QR() {
   const toast = useToast()
@@ -26,18 +22,15 @@ export default function QR() {
   // Analytics
   const [analyticsData, setAnalyticsData] = useState<any[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Selected for export
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadUnits()
+    loadAnalytics()
   }, [])
-
-  useEffect(() => {
-    if (tab === 'analytics') loadAnalytics()
-    if (tab === 'manage') loadAnalytics()
-  }, [tab])
 
   async function loadUnits() {
     try {
@@ -54,32 +47,32 @@ export default function QR() {
       setAnalyticsData(Array.isArray(data) ? data : [])
     } catch (e: any) {
       console.error(e)
-      toast.addToast('Failed to load QR data', 'error')
+      toast.addToast('Failed to load QR deployment data', 'error')
     } finally { setAnalyticsLoading(false) }
   }
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedUnitId) { toast.addToast('Select a unit', 'error'); return }
+    if (!selectedUnitId) { toast.addToast('Please select a target unit', 'error'); return }
     setGenerating(true)
     try {
       const data = await qrApi.generateQr(selectedUnitId)
       setLastGenerated(data)
-      toast.addToast('QR code generated', 'success')
+      toast.addToast('Digital twin QR generated', 'success')
       loadAnalytics()
     } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Generate failed', 'error')
+      toast.addToast(e?.response?.data?.message || 'Generation failed', 'error')
     } finally { setGenerating(false) }
   }
 
   async function handleDeactivate(id: string) {
-    if (!confirm('Deactivate this QR code?')) return
+    if (!confirm('Deactivate this QR code? Access will be revoked.')) return
     try {
       await qrApi.deactivateQr(id)
-      toast.addToast('QR code deactivated', 'success')
+      toast.addToast('QR access revoked', 'success')
       loadAnalytics()
     } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Deactivate failed', 'error')
+      toast.addToast(e?.response?.data?.message || 'Revocation failed', 'error')
     }
   }
 
@@ -98,234 +91,328 @@ export default function QR() {
     window.open(url, '_blank')
   }
 
-  function unitLabel(u: any) {
-    if (!u) return ''
-    return u.unit_number || u.name || u.id
+  const filteredData = analyticsData.filter(qr => 
+    !searchQuery || 
+    qr.token?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    qr.unit_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    qr.building?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const stats = {
+    total: analyticsData.length,
+    active: analyticsData.filter(q => q.status === 'active').length,
+    scans: analyticsData.reduce((s, q) => s + (q.scan_count || 0), 0)
   }
 
   return (
-    <PageLayout title="QR Codes" subtitle="Generate, manage, and export QR codes for units">
-      {/* Tab Bar */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 mb-6">
-        <div className="flex overflow-x-auto">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                tab === t.key
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+    <PageLayout 
+      title="QR Deployment" 
+      subtitle="Issue and track high-security digital twin QR codes for physical unit access and reporting."
+      actions={
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+          <button
+            onClick={() => setTab('manage')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'manage' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Management
+          </button>
+          <button
+            onClick={() => setTab('analytics')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${tab === 'analytics' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Analytics
+          </button>
         </div>
-      </div>
+      }
+    >
+      <div className="space-y-8 pb-10">
+        
+        {/* STATS OVERVIEW */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <QrCode size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Issued Tokens</p>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</h4>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Activity size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Links</p>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.active}</h4>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <TrendingUp size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Scanning Traffic</p>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.scans}</h4>
+            </div>
+          </div>
+        </div>
 
-      {/* ────── MANAGE TAB ────── */}
-      {tab === 'manage' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Generate Form */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold mb-4 text-lg">Generate QR Code</h3>
-              <form onSubmit={handleGenerate} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                  <select
-                    value={selectedUnitId}
-                    onChange={e => setSelectedUnitId(e.target.value)}
-                    className="w-full p-2 border rounded"
-                    required
-                  >
-                    <option value="">Select unit</option>
-                    {units.map((u: any) => (
-                      <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end">
+        {tab === 'manage' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Issuance Section */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                  <Plus size={18} className="text-indigo-600" /> Token Issuance
+                </h3>
+                <form onSubmit={handleGenerate} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Unit</label>
+                    <div className="relative">
+                      <Home size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={selectedUnitId}
+                        onChange={e => setSelectedUnitId(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                        required
+                      >
+                        <option value="">Select a unit...</option>
+                        {units.map((u: any) => (
+                          <option key={u.id} value={String(u.id)}>Unit {u.unit_number || u.id}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                   <button
                     type="submit"
                     disabled={generating}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="w-full button shadow-lg shadow-indigo-600/20 py-3"
                   >
-                    {generating ? 'Generating...' : 'Generate QR'}
+                    {generating ? 'Generating Link...' : 'Issue Access Code'}
                   </button>
+                </form>
+              </div>
+
+              {/* Preview Section */}
+              <div className={`bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm transition-all duration-500 ${lastGenerated ? 'opacity-100 scale-100' : 'opacity-50'}`}>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                  <QrCode size={18} className="text-indigo-600" /> Issuance Receipt
+                </h3>
+                <div className="flex flex-col items-center">
+                  <div className="w-full aspect-square bg-slate-50 dark:bg-slate-950 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center p-6 mb-6">
+                    {lastGenerated?.token ? (
+                      <img
+                        src={qrApi.getQrPngUrl(lastGenerated.token)}
+                        alt="QR Code"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-center text-slate-300">
+                        <QrCode size={64} className="mx-auto mb-2 opacity-20" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">Awaiting Command</p>
+                      </div>
+                    )}
+                  </div>
+                  {lastGenerated && (
+                    <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-700">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Token ID</span>
+                        <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{lastGenerated.token}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</span>
+                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full">ACTIVE</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </form>
+              </div>
             </div>
 
-            {/* Preview */}
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-              <h3 className="font-semibold mb-4 text-lg">QR Preview</h3>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center min-h-[200px] flex flex-col items-center justify-center">
-                {lastGenerated?.token ? (
-                  <>
-                    <img
-                      src={qrApi.getQrPngUrl(lastGenerated.token)}
-                      alt="QR Code"
-                      className="w-48 h-48 object-contain mb-3"
-                    />
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <div><strong>Token:</strong> {lastGenerated.token}</div>
-                      <div><strong>Unit:</strong> {lastGenerated.unit_id}</div>
-                      <div><strong>Status:</strong> <span className="text-green-600">Active</span></div>
+            {/* List Section */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-8 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Deployed Fleet</h3>
+                    <p className="text-sm text-slate-500 font-medium">Overview of all active and historical access tokens.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Filter tokens..." 
+                        className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm w-48 focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                      />
                     </div>
-                  </>
+                    <button
+                      onClick={handleExportPdf}
+                      className="button-secondary text-xs font-bold gap-2 py-2"
+                    >
+                      <Download size={14} /> Export {selectedIds.size > 0 ? `(${selectedIds.size})` : 'All'}
+                    </button>
+                  </div>
+                </div>
+
+                {analyticsLoading ? (
+                  <div className="py-20 flex justify-center"><div className="w-6 h-6 border-4 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" /></div>
+                ) : filteredData.length === 0 ? (
+                  <div className="py-20 text-center text-slate-400 italic text-sm">No tokens matched your search.</div>
                 ) : (
-                  <div className="text-gray-400">
-                    <div className="text-4xl mb-2">📱</div>
-                    <span className="text-sm">Generate a QR code to see the preview</span>
+                  <div className="space-y-3">
+                    {filteredData.map((qr) => (
+                      <div key={qr.id} className="group flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 transition-all">
+                        <div className="flex items-center gap-4">
+                           <input 
+                            type="checkbox" 
+                            checked={selectedIds.has(qr.id)} 
+                            onChange={() => toggleSelect(qr.id)}
+                            className="w-4 h-4 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                           />
+                           <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100 dark:border-slate-700">
+                             <QrCode size={20} />
+                           </div>
+                           <div>
+                             <div className="flex items-center gap-2">
+                               <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">{qr.token}</span>
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                 qr.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                               }`}>
+                                 {qr.status}
+                               </span>
+                             </div>
+                             <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                               <div className="flex items-center gap-1"><Home size={10} /> {qr.unit_number || '-'}</div>
+                               <div className="flex items-center gap-1"><Building2 size={10} /> {qr.building || '-'}</div>
+                             </div>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-6">
+                           <div className="text-right">
+                             <div className="text-xs font-bold text-slate-700 dark:text-slate-300">{qr.scan_count || 0}</div>
+                             <div className="text-[10px] font-bold text-slate-400">SCANS</div>
+                           </div>
+                           {qr.status === 'active' && (
+                             <button onClick={() => handleDeactivate(qr.id)} className="p-2 text-slate-300 hover:text-rose-500 bg-white hover:bg-rose-50 rounded-xl shadow-sm transition-all">
+                               <Trash2 size={16} />
+                             </button>
+                           )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
           </div>
-
-          {/* QR Codes Table */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">All QR Codes</h3>
-              <button
-                onClick={handleExportPdf}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
-              >
-                📥 Export PDF {selectedIds.size > 0 ? `(${selectedIds.size})` : '(All)'}
-              </button>
-            </div>
-            {analyticsLoading ? <div className="text-gray-500">Loading...</div> : analyticsData.length === 0 ? (
-              <div className="text-gray-400 text-sm">No QR codes generated yet</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
-                      <th className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.size === analyticsData.length && analyticsData.length > 0}
-                          onChange={() => {
-                            if (selectedIds.size === analyticsData.length) setSelectedIds(new Set())
-                            else setSelectedIds(new Set(analyticsData.map(q => q.id)))
-                          }}
-                        />
-                      </th>
-                      <th className="p-3">Token</th>
-                      <th className="p-3">Unit</th>
-                      <th className="p-3">Building</th>
-                      <th className="p-3">Scans</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analyticsData.map((qr: any) => (
-                      <tr key={qr.id} className="border-b hover:bg-gray-50 dark:bg-slate-900">
-                        <td className="p-3">
-                          <input type="checkbox" checked={selectedIds.has(qr.id)} onChange={() => toggleSelect(qr.id)} />
-                        </td>
-                        <td className="p-3 font-mono text-xs">{qr.token}</td>
-                        <td className="p-3">{qr.unit_number || qr.unit_id?.slice(0, 8) || '-'}</td>
-                        <td className="p-3">{qr.building || '-'}</td>
-                        <td className="p-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                            {qr.scan_count || 0}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            qr.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {qr.status}
-                          </span>
-                        </td>
-                        <td className="p-3 space-x-2">
-                          {qr.status === 'active' && (
-                            <button onClick={() => handleDeactivate(qr.id)} className="text-red-600 hover:underline text-xs">
-                              Deactivate
-                            </button>
-                          )}
-                        </td>
-                      </tr>
+        ) : (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               {/* Scan Velocity Chart Placeholder */}
+               <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+                 <div className="flex items-center justify-between mb-8">
+                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <BarChart3 size={20} className="text-indigo-500" /> Scanning Velocity
+                    </h3>
+                    <div className="bg-slate-50 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 uppercase tracking-widest">LAST 30 DAYS</div>
+                 </div>
+                 <div className="h-64 flex items-end gap-1.5 pt-4">
+                    {[34, 45, 23, 56, 78, 45, 34, 23, 67, 89, 45, 34, 56, 23, 45, 67, 89, 34, 23, 56].map((h, i) => (
+                      <div 
+                        key={i} 
+                        className="flex-1 bg-indigo-500/10 rounded-t-sm relative group"
+                        style={{ height: `${h}%` }}
+                      >
+                        <div className="absolute inset-0 bg-indigo-500 opacity-20 group-hover:opacity-100 transition-all rounded-t-sm" />
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                 </div>
+                 <div className="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                   <span>30 Days Ago</span>
+                   <span>Today (LIVE)</span>
+                 </div>
+               </div>
 
-      {/* ────── ANALYTICS TAB ────── */}
-      {tab === 'analytics' && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
-              <div className="text-sm text-gray-500 mb-1">Total QR Codes</div>
-              <div className="text-2xl font-bold text-blue-700">{analyticsData.length}</div>
-            </div>
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
-              <div className="text-sm text-gray-500 mb-1">Active</div>
-              <div className="text-2xl font-bold text-green-700">{analyticsData.filter(q => q.status === 'active').length}</div>
-            </div>
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
-              <div className="text-sm text-gray-500 mb-1">Total Scans</div>
-              <div className="text-2xl font-bold text-indigo-700">{analyticsData.reduce((s, q) => s + (q.scan_count || 0), 0)}</div>
-            </div>
-          </div>
-
-          {/* Top Scanned */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-            <h3 className="font-semibold mb-4">Top Scanned QR Codes</h3>
-            {analyticsData.length === 0 ? (
-              <div className="text-gray-400 text-sm">No scan data available yet</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50 dark:bg-slate-900">
-                      <th className="p-3">#</th>
-                      <th className="p-3">Token</th>
-                      <th className="p-3">Unit</th>
-                      <th className="p-3">Building</th>
-                      <th className="p-3">Scans</th>
-                      <th className="p-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+               {/* Top Performers */}
+               <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+                 <h3 className="font-bold text-slate-900 dark:text-white mb-8 flex items-center gap-2">
+                   <TrendingUp size={20} className="text-amber-500" /> Viral Access Points
+                 </h3>
+                 <div className="space-y-4">
                     {[...analyticsData]
                       .sort((a, b) => (b.scan_count || 0) - (a.scan_count || 0))
-                      .map((qr: any, i: number) => (
-                        <tr key={qr.id} className="border-b hover:bg-gray-50 dark:bg-slate-900">
-                          <td className="p-3 font-medium text-gray-400">{i + 1}</td>
-                          <td className="p-3 font-mono text-xs">{qr.token}</td>
-                          <td className="p-3">{qr.unit_number || '-'}</td>
-                          <td className="p-3">{qr.building || '-'}</td>
-                          <td className="p-3">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                              {qr.scan_count || 0}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              qr.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                            }`}>
-                              {qr.status}
-                            </span>
-                          </td>
-                        </tr>
+                      .slice(0, 5)
+                      .map((qr, i) => (
+                        <div key={qr.id} className="flex items-center justify-between gap-4">
+                           <div className="flex items-center gap-4 flex-1">
+                             <div className="text-lg font-black text-slate-200 w-6">#{i + 1}</div>
+                             <div className="bg-slate-50 dark:bg-slate-900 w-full rounded-2xl p-3 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                               <div>
+                                 <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Unit {qr.unit_number || 'N/A'}</div>
+                                 <div className="text-[10px] font-bold text-slate-400 truncate max-w-[120px]">{qr.building || 'General Portfolio'}</div>
+                               </div>
+                               <div className="text-xs font-black text-indigo-600">{qr.scan_count || 0} SQ.</div>
+                             </div>
+                           </div>
+                           <ExternalLink size={14} className="text-slate-300" />
+                        </div>
                       ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                 </div>
+               </div>
+            </div>
+
+            {/* Geographic Distribution Mockup */}
+            <div className="bg-slate-900 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+               <div className="absolute inset-0 opacity-10 pointer-events-none">
+                 <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200')] bg-cover bg-center" />
+               </div>
+               <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
+                 <div className="md:w-1/3 text-center md:text-left">
+                   <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white mb-6 mx-auto md:mx-0 shadow-lg">
+                     <BarChart3 size={24} />
+                   </div>
+                   <h3 className="text-2xl font-black text-white leading-tight mb-4 uppercase tracking-tighter">Strategic<br />Pulse Map</h3>
+                   <p className="text-slate-400 text-sm leading-relaxed">Geographic heatmaps of scanning activity allow security teams to monitor physical presence across diverse sites in real-time.</p>
+                 </div>
+                 <div className="flex-1 w-full grid grid-cols-2 gap-4">
+                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
+                      <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Highest Density</h4>
+                      <p className="text-lg font-bold text-white">Central District</p>
+                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 w-[85%]" />
+                      </div>
+                   </div>
+                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
+                      <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Peak Hour</h4>
+                      <p className="text-lg font-bold text-white">14:00 - 16:00</p>
+                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-500 w-[62%]" />
+                      </div>
+                   </div>
+                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
+                      <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Conversion Rate</h4>
+                      <p className="text-lg font-bold text-white">2.4 Scans / Day</p>
+                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 w-[45%]" />
+                      </div>
+                   </div>
+                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
+                      <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Uptime</h4>
+                      <p className="text-lg font-bold text-white">99.98%</p>
+                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 w-[99%]" />
+                      </div>
+                   </div>
+                 </div>
+               </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </PageLayout>
   )
 }

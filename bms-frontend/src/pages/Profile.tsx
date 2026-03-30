@@ -35,24 +35,27 @@ export default function Profile() {
   }, [permissions])
 
   const moduleColors: Record<string, string> = {
-    users: 'bg-blue-50 text-blue-700 border-blue-200',
-    buildings: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    units: 'bg-violet-50 text-violet-700 border-violet-200',
-    tenants: 'bg-purple-50 text-purple-700 border-purple-200',
-    leases: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
-    finance: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    maintenance: 'bg-amber-50 text-amber-700 border-amber-200',
-    visitors: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-    roles: 'bg-rose-50 text-rose-700 border-rose-200',
-    permissions: 'bg-pink-50 text-pink-700 border-pink-200',
-    sites: 'bg-teal-50 text-teal-700 border-teal-200',
-    owners: 'bg-lime-50 text-lime-700 border-lime-200',
-    documents: 'bg-sky-50 text-sky-700 border-sky-200',
-    amenities: 'bg-orange-50 text-orange-700 border-orange-200',
-    qr: 'bg-slate-50 dark:bg-slate-900 text-slate-700 border-slate-200 dark:border-slate-700',
-    utilities: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    reports: 'bg-green-50 text-green-700 border-green-200',
-    settings: 'bg-gray-50 dark:bg-slate-900 text-gray-700 border-gray-200',
+    users: 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+    buildings: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20',
+    units: 'bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-500/20',
+    tenants: 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/20',
+    leases: 'bg-fuchsia-50 dark:bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-200 dark:border-fuchsia-500/20',
+    finance: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
+    maintenance: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
+    visitors: 'bg-cyan-50 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/20',
+    roles: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20',
+    permissions: 'bg-pink-50 dark:bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-500/20',
+    sites: 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/20',
+    owners: 'bg-lime-50 dark:bg-lime-500/10 text-lime-700 dark:text-lime-400 border-lime-200 dark:border-lime-500/20',
+    documents: 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/20',
+    amenities: 'bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/20',
+    qr: 'bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/60',
+    utilities: 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/20',
+    reports: 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/20',
+    settings: 'bg-gray-50 dark:bg-slate-900/50 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700/60',
+    applications: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20',
+    announcements: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
+    messages: 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
   }
 
   if (error) {
@@ -139,7 +142,7 @@ export default function Profile() {
               <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               Permissions
             </h3>
-            <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-full shadow-sm">
               {permissions.length} total
             </span>
           </div>
@@ -153,7 +156,7 @@ export default function Profile() {
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {actions.map(action => (
-                    <span key={action} className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-white dark:bg-slate-800/60 border border-current/10">
+                    <span key={action} className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight bg-white dark:bg-slate-800/60 border border-current/20 shadow-sm transition-transform hover:scale-105">
                       {action}
                     </span>
                   ))}

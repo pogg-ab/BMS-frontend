@@ -1,0 +1,5 @@
+﻿src/components/NavBar.tsx(162,41): error TS2339: Property 'exact' does not exist on type '{ to: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; exact: boolean; permission: string; roles?: undefined; } | ... 6 more ... | { ...; }'.
+  Property 'exact' does not exist on type '{ to: string; label: string; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; permission: string; permissions?: undefined; }'.
+src/pages/AnalyticsDashboard.tsx(10,10): error TS2614: Module '"../api/reports"' has no exported member 'reportsApi'. Did you mean to use 'import reportsApi from "../api/reports"' instead?
+src/pages/Buildings.tsx(179,31): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/pages/Tenants.tsx(89,31): error TS2339: Property 'env' does not exist on type 'ImportMeta'.

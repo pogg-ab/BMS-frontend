@@ -1,0 +1,268 @@
+Line 454: +1 -0 -> Net: 1 | <div className="flex items-center gap-3">
+Line 466: +0 -1 -> Net: 0 | </div>
+Line 469: +1 -0 -> Net: 1 | <div className="space-y-6">
+Line 472: +1 -0 -> Net: 2 | <div className="flex flex-col sm:flex-row sm:items
+Line 473: +1 -0 -> Net: 3 | <div className="flex items-center gap-1 border-b b
+Line 486: +0 -1 -> Net: 2 | </div>
+Line 489: +1 -0 -> Net: 3 | <div className="flex items-center bg-slate-100 dar
+Line 502: +0 -1 -> Net: 2 | </div>
+Line 504: +0 -1 -> Net: 1 | </div>
+Line 508: +1 -0 -> Net: 2 | <div className="grid grid-cols-1 xl:grid-cols-4 ga
+Line 509: +1 -0 -> Net: 3 | <div className="xl:col-span-3 space-y-6">
+Line 511: +1 -0 -> Net: 4 | <div className="grid grid-cols-1 md:grid-cols-3 ga
+Line 513: +1 -0 -> Net: 5 | <div className="space-y-4">
+Line 514: +1 -0 -> Net: 6 | <div className="flex items-center justify-between"
+Line 515: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 521: +0 -1 -> Net: 6 | </div>
+Line 522: +0 -1 -> Net: 5 | </div>
+Line 523: +1 -0 -> Net: 6 | <div className="space-y-3">
+Line 527: +1 -0 -> Net: 7 | <div key={req.id} className="bg-white dark:bg-slat
+Line 528: +1 -0 -> Net: 8 | <div className="flex justify-between items-start m
+Line 537: +0 -1 -> Net: 7 | </div>
+Line 540: +1 -0 -> Net: 8 | <div className="flex items-center gap-2 pt-3 borde
+Line 541: +1 -0 -> Net: 9 | <div className="w-6 h-6 rounded-full bg-indigo-100
+Line 543: +0 -1 -> Net: 8 | </div>
+Line 544: +1 -0 -> Net: 9 | <div className="flex-1 min-w-0">
+Line 547: +0 -1 -> Net: 8 | </div>
+Line 548: +0 -1 -> Net: 7 | </div>
+Line 549: +0 -1 -> Net: 6 | </div>
+Line 551: +0 -1 -> Net: 5 | </div>
+Line 552: +0 -1 -> Net: 4 | </div>
+Line 555: +1 -0 -> Net: 5 | <div className="space-y-4">
+Line 556: +1 -0 -> Net: 6 | <div className="flex items-center justify-between"
+Line 557: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 563: +0 -1 -> Net: 6 | </div>
+Line 564: +0 -1 -> Net: 5 | </div>
+Line 565: +1 -0 -> Net: 6 | <div className="space-y-3">
+Line 569: +1 -0 -> Net: 7 | <div key={req.id} className="bg-indigo-50/30 dark:
+Line 570: +1 -0 -> Net: 8 | <div className="flex justify-between items-start m
+Line 573: +0 -1 -> Net: 7 | </div>
+Line 575: +1 -0 -> Net: 8 | <div className="w-full bg-indigo-100 dark:bg-indig
+Line 577: +0 -1 -> Net: 7 | </div>
+Line 578: +1 -0 -> Net: 8 | <div className="flex items-center gap-2 pt-2">
+Line 581: +0 -1 -> Net: 7 | </div>
+Line 582: +0 -1 -> Net: 6 | </div>
+Line 584: +0 -1 -> Net: 5 | </div>
+Line 585: +0 -1 -> Net: 4 | </div>
+Line 588: +1 -0 -> Net: 5 | <div className="space-y-4">
+Line 589: +1 -0 -> Net: 6 | <div className="flex items-center justify-between"
+Line 590: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 596: +0 -1 -> Net: 6 | </div>
+Line 597: +0 -1 -> Net: 5 | </div>
+Line 598: +1 -0 -> Net: 6 | <div className="space-y-3">
+Line 602: +1 -0 -> Net: 7 | <div key={req.id} className="bg-white dark:bg-slat
+Line 603: +1 -0 -> Net: 8 | <div className="flex justify-between items-center 
+Line 606: +0 -1 -> Net: 7 | </div>
+Line 609: +0 -1 -> Net: 6 | </div>
+Line 611: +0 -1 -> Net: 5 | </div>
+Line 612: +0 -1 -> Net: 4 | </div>
+Line 613: +0 -1 -> Net: 3 | </div>
+Line 615: +1 -0 -> Net: 4 | <div className="space-y-6">
+Line 616: +1 -0 -> Net: 5 | <div className="grid grid-cols-1 lg:grid-cols-2 ga
+Line 618: +1 -0 -> Net: 6 | <div className="bg-white dark:bg-slate-800 rounded
+Line 621: +1 -0 -> Net: 7 | <div>
+Line 635: +0 -1 -> Net: 6 | </div>
+Line 637: +1 -0 -> Net: 7 | <div>
+Line 650: +0 -1 -> Net: 6 | </div>
+Line 652: +1 -0 -> Net: 7 | <div className="grid grid-cols-2 gap-2">
+Line 653: +1 -0 -> Net: 8 | <div>
+Line 672: +0 -1 -> Net: 7 | </div>
+Line 673: +1 -0 -> Net: 8 | <div>
+Line 682: +0 -1 -> Net: 7 | </div>
+Line 683: +0 -1 -> Net: 6 | </div>
+Line 685: +1 -0 -> Net: 7 | <div>
+Line 695: +0 -1 -> Net: 6 | </div>
+Line 697: +1 -0 -> Net: 7 | <div className="flex justify-end">
+Line 701: +0 -1 -> Net: 6 | </div>
+Line 703: +0 -1 -> Net: 5 | </div>
+Line 706: +1 -0 -> Net: 6 | <div className="bg-white dark:bg-slate-800 rounded
+Line 708: +1 -0 -> Net: 7 | <div className="grid grid-cols-2 gap-3">
+Line 709: +1 -0 -> Net: 8 | <div className="p-4 rounded-xl border border-indig
+Line 712: +0 -1 -> Net: 7 | </div>
+Line 713: +1 -0 -> Net: 8 | <div className="p-4 rounded-xl border border-amber
+Line 716: +0 -1 -> Net: 7 | </div>
+Line 717: +1 -0 -> Net: 8 | <div className="p-4 rounded-xl border border-emera
+Line 720: +0 -1 -> Net: 7 | </div>
+Line 721: +1 -0 -> Net: 8 | <div className="p-4 rounded-xl border border-rose-
+Line 724: +0 -1 -> Net: 7 | </div>
+Line 725: +0 -1 -> Net: 6 | </div>
+Line 726: +0 -1 -> Net: 5 | </div>
+Line 729: +1 -0 -> Net: 6 | <div className="bg-white dark:bg-slate-800 p-6 rou
+Line 734: +1 -0 -> Net: 7 | <div className="table-container shadow-none ring-0
+Line 786: +1 -0 -> Net: 8 | <div className="text-[10px] text-slate-500 leading
+Line 788: +0 -1 -> Net: 7 | </div>
+Line 817: +0 -1 -> Net: 6 | </div>
+Line 819: +0 -1 -> Net: 5 | </div>
+Line 820: +0 -1 -> Net: 4 | </div>
+Line 822: +0 -1 -> Net: 3 | </div>
+Line 825: +1 -0 -> Net: 4 | <div className="xl:col-span-1 space-y-6">
+Line 826: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 827: +1 -0 -> Net: 6 | <div className="p-6 border-b border-slate-100 dark
+Line 830: +0 -1 -> Net: 5 | </div>
+Line 831: +1 -0 -> Net: 6 | <div className="p-6 space-y-6">
+Line 832: +1 -0 -> Net: 7 | <div>
+Line 833: +1 -0 -> Net: 8 | <div className="flex justify-between items-center 
+Line 836: +0 -1 -> Net: 7 | </div>
+Line 837: +1 -0 -> Net: 8 | <div className="w-full bg-slate-100 dark:bg-slate-
+Line 839: +0 -1 -> Net: 7 | </div>
+Line 840: +0 -1 -> Net: 6 | </div>
+Line 842: +1 -0 -> Net: 7 | <div className="grid grid-cols-2 gap-4">
+Line 843: +1 -0 -> Net: 8 | <div className="bg-slate-50 dark:bg-slate-900/50 p
+Line 846: +0 -1 -> Net: 7 | </div>
+Line 847: +1 -0 -> Net: 8 | <div className="bg-slate-50 dark:bg-slate-900/50 p
+Line 850: +0 -1 -> Net: 7 | </div>
+Line 851: +0 -1 -> Net: 6 | </div>
+Line 854: +1 -0 -> Net: 7 | <div className="bg-rose-50 dark:bg-rose-900/20 p-4
+Line 855: +1 -0 -> Net: 8 | <div className="w-8 h-8 rounded-full bg-rose-100 d
+Line 857: +0 -1 -> Net: 7 | </div>
+Line 858: +1 -0 -> Net: 8 | <div>
+Line 861: +0 -1 -> Net: 7 | </div>
+Line 862: +0 -1 -> Net: 6 | </div>
+Line 865: +1 -0 -> Net: 7 | <div className="pt-4 border-t border-slate-100 dar
+Line 867: +1 -0 -> Net: 8 | <div className="space-y-3">
+Line 869: +1 -0 -> Net: 9 | <div key={sch.id} className="flex items-center gap
+Line 871: +1 -0 -> Net: 10 | <div className="flex-1 min-w-0">
+Line 874: +0 -1 -> Net: 9 | </div>
+Line 876: +0 -1 -> Net: 8 | </div>
+Line 879: +0 -1 -> Net: 7 | </div>
+Line 880: +0 -1 -> Net: 6 | </div>
+Line 881: +0 -1 -> Net: 5 | </div>
+Line 882: +0 -1 -> Net: 4 | </div>
+Line 883: +0 -1 -> Net: 3 | </div>
+Line 884: +0 -1 -> Net: 2 | </div>
+Line 889: +1 -0 -> Net: 3 | <div className="space-y-6">
+Line 890: +1 -0 -> Net: 4 | <div className="grid grid-cols-1 lg:grid-cols-2 ga
+Line 892: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 895: +1 -0 -> Net: 6 | <div>
+Line 913: +0 -1 -> Net: 5 | </div>
+Line 915: +1 -0 -> Net: 6 | <div>
+Line 933: +0 -1 -> Net: 5 | </div>
+Line 935: +1 -0 -> Net: 6 | <div>
+Line 943: +0 -1 -> Net: 5 | </div>
+Line 945: +1 -0 -> Net: 6 | <div>
+Line 947: +1 -0 -> Net: 7 | <div className="relative">
+Line 956: +0 -1 -> Net: 6 | </div>
+Line 957: +0 -1 -> Net: 5 | </div>
+Line 959: +1 -0 -> Net: 6 | <div>
+Line 968: +0 -1 -> Net: 5 | </div>
+Line 970: +1 -0 -> Net: 6 | <div className="flex justify-end">
+Line 974: +0 -1 -> Net: 5 | </div>
+Line 976: +0 -1 -> Net: 4 | </div>
+Line 979: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 981: +1 -0 -> Net: 6 | <div className="space-y-2 text-sm text-gray-600">
+Line 982: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 985: +0 -1 -> Net: 6 | </div>
+Line 986: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 989: +0 -1 -> Net: 6 | </div>
+Line 990: +1 -0 -> Net: 7 | <div className="flex items-center gap-2">
+Line 993: +0 -1 -> Net: 6 | </div>
+Line 994: +0 -1 -> Net: 5 | </div>
+Line 995: +0 -1 -> Net: 4 | </div>
+Line 996: +0 -1 -> Net: 3 | </div>
+Line 999: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 p-6 rou
+Line 1004: +1 -0 -> Net: 5 | <div className="table-container shadow-none ring-0
+Line 1037: +1 -0 -> Net: 6 | <div className="text-[10px] text-slate-500 leading
+Line 1039: +0 -1 -> Net: 5 | </div>
+Line 1060: +0 -1 -> Net: 4 | </div>
+Line 1062: +0 -1 -> Net: 3 | </div>
+Line 1063: +0 -1 -> Net: 2 | </div>
+Line 1068: +1 -0 -> Net: 3 | <div className="fixed inset-0 bg-black/50 flex ite
+Line 1069: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1072: +1 -0 -> Net: 5 | <div>
+Line 1081: +0 -1 -> Net: 4 | </div>
+Line 1082: +1 -0 -> Net: 5 | <div>
+Line 1091: +0 -1 -> Net: 4 | </div>
+Line 1092: +1 -0 -> Net: 5 | <div>
+Line 1103: +0 -1 -> Net: 4 | </div>
+Line 1104: +1 -0 -> Net: 5 | <div className="flex justify-end gap-2 pt-2">
+Line 1115: +0 -1 -> Net: 4 | </div>
+Line 1117: +0 -1 -> Net: 3 | </div>
+Line 1118: +0 -1 -> Net: 2 | </div>
+Line 1123: +1 -0 -> Net: 3 | <div className="fixed inset-0 bg-black/50 flex ite
+Line 1124: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1128: +1 -0 -> Net: 5 | <div className="flex justify-center gap-2 text-4xl
+Line 1140: +0 -1 -> Net: 4 | </div>
+Line 1149: +1 -0 -> Net: 5 | <div className="flex justify-end gap-2 pt-2">
+Line 1160: +0 -1 -> Net: 4 | </div>
+Line 1162: +0 -1 -> Net: 3 | </div>
+Line 1163: +0 -1 -> Net: 2 | </div>
+Line 1168: +1 -0 -> Net: 3 | <div className="fixed inset-0 bg-black/50 flex ite
+Line 1169: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1173: +1 -0 -> Net: 5 | <div>
+Line 1181: +0 -1 -> Net: 4 | </div>
+Line 1182: +1 -0 -> Net: 5 | <div className="flex justify-end gap-2 pt-2">
+Line 1193: +0 -1 -> Net: 4 | </div>
+Line 1195: +0 -1 -> Net: 3 | </div>
+Line 1196: +0 -1 -> Net: 2 | </div>
+Line 1201: +1 -0 -> Net: 3 | <div className="fixed inset-0 bg-black/50 flex ite
+Line 1202: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1205: +1 -0 -> Net: 5 | <div>
+Line 1214: +0 -1 -> Net: 4 | </div>
+Line 1215: +1 -0 -> Net: 5 | <div>
+Line 1224: +0 -1 -> Net: 4 | </div>
+Line 1225: +1 -0 -> Net: 5 | <div className="flex justify-end gap-2 pt-2">
+Line 1236: +0 -1 -> Net: 4 | </div>
+Line 1238: +0 -1 -> Net: 3 | </div>
+Line 1239: +0 -1 -> Net: 2 | </div>
+Line 1244: +1 -0 -> Net: 3 | <div className="space-y-6">
+Line 1245: +1 -0 -> Net: 4 | <div className="flex justify-between items-center"
+Line 1255: +0 -1 -> Net: 3 | </div>
+Line 1259: +1 -0 -> Net: 4 | <div className="table-container shadow-none ring-0
+Line 1278: +1 -0 -> Net: 5 | <div className="flex items-center justify-end gap-
+Line 1287: +0 -1 -> Net: 4 | </div>
+Line 1293: +0 -1 -> Net: 3 | </div>
+Line 1295: +0 -1 -> Net: 2 | </div>
+Line 1300: +1 -0 -> Net: 3 | <div className="space-y-6">
+Line 1301: +1 -0 -> Net: 4 | <div className="flex justify-between items-center"
+Line 1309: +0 -1 -> Net: 3 | </div>
+Line 1311: +1 -0 -> Net: 4 | <div className="grid grid-cols-1 lg:grid-cols-3 ga
+Line 1312: +1 -0 -> Net: 5 | <div className="lg:col-span-1 bg-white dark:bg-sla
+Line 1315: +1 -0 -> Net: 6 | <div>
+Line 1324: +0 -1 -> Net: 5 | </div>
+Line 1325: +1 -0 -> Net: 6 | <div className="grid grid-cols-2 gap-4">
+Line 1326: +1 -0 -> Net: 7 | <div>
+Line 1331: +0 -1 -> Net: 6 | </div>
+Line 1332: +1 -0 -> Net: 7 | <div>
+Line 1337: +0 -1 -> Net: 6 | </div>
+Line 1338: +0 -1 -> Net: 5 | </div>
+Line 1339: +1 -0 -> Net: 6 | <div className="grid grid-cols-2 gap-4">
+Line 1340: +1 -0 -> Net: 7 | <div>
+Line 1349: +0 -1 -> Net: 6 | </div>
+Line 1350: +1 -0 -> Net: 7 | <div>
+Line 1359: +0 -1 -> Net: 6 | </div>
+Line 1360: +0 -1 -> Net: 5 | </div>
+Line 1361: +1 -0 -> Net: 6 | <div>
+Line 1367: +0 -1 -> Net: 5 | </div>
+Line 1368: +1 -0 -> Net: 6 | <div>
+Line 1376: +0 -1 -> Net: 5 | </div>
+Line 1379: +0 -1 -> Net: 4 | </div>
+Line 1381: +1 -0 -> Net: 5 | <div className="lg:col-span-2 bg-white dark:bg-sla
+Line 1384: +1 -0 -> Net: 6 | <div className="table-container border border-slat
+Line 1407: +1 -0 -> Net: 7 | <div className={`font-medium ${new Date(s.next_due
+Line 1409: +0 -1 -> Net: 6 | </div>
+Line 1418: +0 -1 -> Net: 5 | </div>
+Line 1420: +0 -1 -> Net: 4 | </div>
+Line 1421: +0 -1 -> Net: 3 | </div>
+Line 1422: +0 -1 -> Net: 2 | </div>
+Line 1427: +1 -0 -> Net: 3 | <div className="space-y-6">
+Line 1431: +1 -0 -> Net: 4 | <div className="grid grid-cols-1 md:grid-cols-3 ga
+Line 1432: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1434: +1 -0 -> Net: 6 | <div className="text-2xl font-bold text-blue-700">
+Line 1438: +0 -1 -> Net: 5 | </div>
+Line 1439: +0 -1 -> Net: 4 | </div>
+Line 1440: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1442: +1 -0 -> Net: 6 | <div className="text-2xl font-bold text-indigo-700
+Line 1444: +0 -1 -> Net: 5 | </div>
+Line 1445: +0 -1 -> Net: 4 | </div>
+Line 1446: +1 -0 -> Net: 5 | <div className="bg-white dark:bg-slate-800 rounded
+Line 1448: +1 -0 -> Net: 6 | <div className="text-2xl font-bold text-green-700"
+Line 1450: +0 -1 -> Net: 5 | </div>
+Line 1451: +0 -1 -> Net: 4 | </div>
+Line 1452: +0 -1 -> Net: 3 | </div>
+Line 1455: +1 -0 -> Net: 4 | <div className="bg-white dark:bg-slate-800 p-6 rou
+Line 1458: +1 -0 -> Net: 5 | <div className="table-container shadow-none ring-0
+Line 1477: +0 -1 -> Net: 4 | </div>
+Line 1481: +0 -1 -> Net: 3 | </div>
+Line 1486: +0 -1 -> Net: 2 | </div>
+Line 1488: +0 -1 -> Net: 1 | </div>
+Final balance: 1

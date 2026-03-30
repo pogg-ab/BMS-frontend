@@ -60,6 +60,26 @@ export async function verifyPayment(id: string, dto: { status: 'confirmed' | 're
   return res.data
 }
 
+export async function getTenantLedger(tenantId: string) {
+  const res = await api.get(`/finance/ledger/tenant/${tenantId}`)
+  return res.data
+}
+
+export async function getMySummary() {
+  const res = await api.get('/finance/my-summary')
+  return res.data
+}
+
+export function getTenantLedgerPdfUrl(tenantId: string) {
+  const baseUrl = (api.defaults.baseURL || '').replace(/\/$/, '')
+  return `${baseUrl}/finance/ledger/tenant/${tenantId}/pdf`
+}
+
+export function getPaymentReceiptPdfUrl(paymentId: string) {
+  const baseUrl = (api.defaults.baseURL || '').replace(/\/$/, '')
+  return `${baseUrl}/finance/payments/${paymentId}/receipt`
+}
+
 // --- Deposit Advice ---
 export async function createDepositAdvice(dto: {
   bank_account_id: string
@@ -90,5 +110,37 @@ export async function getRevenueReport(params?: { building_id?: string; month?: 
 
 export async function getTaxReport(params?: { month?: string }) {
   const res = await api.get('/finance/reports/tax', { params })
+  return res.data
+}
+
+// --- Expenses ---
+export async function getExpenses(params?: {
+  building_id?: string
+  category?: string
+  start_date?: string
+  end_date?: string
+}) {
+  const res = await api.get('/finance/expenses', { params })
+  return res.data
+}
+
+export async function createExpense(dto: {
+  amount: number
+  date: string
+  category: string
+  description?: string
+  building_id?: string
+}) {
+  const res = await api.post('/finance/expenses', dto)
+  return res.data
+}
+
+// --- Profit & Loss ---
+export async function getPandLReport(params?: {
+  building_id?: string
+  year?: number
+  month?: number
+}) {
+  const res = await api.get('/finance/reports/p-and-l', { params })
   return res.data
 }

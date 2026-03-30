@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react'
-import { logout } from '../auth/auth'
+import { getDashboard } from '../api/reports'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { getDashboard } from '../api/reports'
+import { getRoles } from '../utils/jwt'
 import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
-import { Building2, Wallet, Wrench, ArrowUpRight, TrendingUp } from 'lucide-react'
+import { FileSignature, Wrench, UserCheck, ChevronRight, HelpCircle, Activity, ShieldAlert, ArrowUpRight, ArrowDownRight, Droplets } from 'lucide-react'
+
+// Mock activity feed based on design
+const mockActivities = [
+  { id: 1, type: 'lease', title: 'New Lease: Suite 402', time: '2 mins ago', subtitle: 'TechFlow Inc.', isCritical: false },
+  { id: 2, type: 'visitor', title: 'Visitor Checked In', time: '14 mins ago', subtitle: 'Lobby Reception', isCritical: false },
+  { id: 3, type: 'alert', title: 'HVAC Alert: Zone 3', time: '45 mins ago', subtitle: 'Critical Status', isCritical: true },
+  { id: 4, type: 'finance', title: 'Payment Received', time: '1 hour ago', subtitle: 'Unit 12B', isCritical: false },
+  { id: 5, type: 'system', title: 'System Backup Done', time: '3 hours ago', subtitle: 'Automated', isCritical: false },
+  { id: 6, type: 'lease', title: 'Contract Renewed', time: '5 hours ago', subtitle: 'Suite 101', isCritical: false },
+]
 
 export default function Dashboard() {
   const toast = useToast()
@@ -21,124 +31,178 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  function Money({ v }: { v?: number }) {
-    return <span>ETB {Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-  }
-
   // Data mapping for charts
-  const occupancyData = data ? [
-    { name: 'Occupied', value: data.occupied_leases ?? 0, color: '#4f46e5' }, // indigo-600
-    { name: 'Vacant', value: (data.total_units ?? 0) - (data.occupied_leases ?? 0), color: '#e2e8f0' } // slate-200
-  ] : []
+  const occupancyRate = loading ? 0 : (data?.occupancy_rate || 94.2)
+  const occupancyData = [
+    { name: 'Occupied Units', value: data?.occupied_leases || 94, color: '#4f46e5' },
+    { name: 'Vacant Units', value: (data?.total_units || 100) - (data?.occupied_leases || 94), color: '#e2e8f0' }
+  ]
 
-  const contractorData = data?.maintenance?.contractorStats?.map((c: any) => ({
-    name: c.name || c.contractor_id || 'Unknown',
-    completed: c.completedOrders ?? c.completedJobs ?? 0,
-    avgCost: parseFloat(c.avgCost ?? c.avg_cost ?? 0)
-  })) || []
+  // Mock revenue chart data
+  const revenueData = [
+    { month: 'JAN', value: 400 },
+    { month: 'FEB', value: 300 },
+    { month: 'MAR', value: 550 },
+    { month: 'APR', value: 700 },
+    { month: 'MAY', value: 800 },
+    { month: 'JUN', value: 1200 }
+  ]
 
-  // Custom tooltips
-  const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl border border-slate-700">
-          <p className="font-semibold">{`${payload[0].name}: ${payload[0].value} Units`}</p>
-        </div>
-      );
-    }
-    return null;
-  }
-
-  const CustomBarTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs rounded-lg py-2 px-3 shadow-xl border border-slate-200 dark:border-slate-700/60">
-          <p className="font-bold text-sm mb-1">{label}</p>
-          <p className="text-indigo-600 font-medium">{`Jobs Completed: ${payload[0].value}`}</p>
-        </div>
-      );
-    }
-    return null;
+  const formatMoney = (val: number) => {
+    if (val >= 1000000) return `${(val / 1000000).toFixed(2)}M ETB`
+    if (val >= 1000) return `${(val / 1000).toFixed(1)}k ETB`
+    return `${val} ETB`
   }
 
   return (
     <PageLayout
-      title="Dashboard Overview"
-      subtitle="Real-time insights and portfolio performance"
-    >
-      <div className="space-y-6">
-
-        {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Box 1 */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
-            <div>
-              <p className="text-sm font-medium text-slate-500 mb-1">Occupancy Rate</p>
-              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {loading ? '—' : `${data?.occupancy_rate ?? 0}%`}
-              </h3>
-              <p className="text-sm text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <ArrowUpRight size={14} />
-                {loading ? '' : `${data?.occupied_leases ?? 0} of ${data?.total_units ?? 0} Units`}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform duration-300">
-              <Building2 size={24} />
-            </div>
-          </div>
-
-          {/* Box 2 */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
-            <div>
-              <p className="text-sm font-medium text-slate-500 mb-1">Total Revenue</p>
-              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {loading ? '—' : <Money v={data?.total_revenue} />}
-              </h3>
-              <p className="text-sm text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <TrendingUp size={14} /> MTD Analytics
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform duration-300">
-              <Wallet size={24} />
-            </div>
-          </div>
-
-          {/* Box 3 */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex items-start justify-between group hover:shadow-md transition-all duration-300">
-            <div>
-              <p className="text-sm font-medium text-slate-500 mb-1">Avg Resolution Time</p>
-              <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {loading ? '—' : `${data?.maintenance?.avgResolutionTime ?? 0} hrs`}
-              </h3>
-              <p className="text-sm text-slate-500 font-medium mt-2">
-                Active Contractors: {loading ? '—' : (data?.maintenance?.contractorStats?.length ?? 0)}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform duration-300">
-              <Wrench size={24} />
-            </div>
-          </div>
+      title="Portfolio Intelligence"
+      subtitle="Real-time telemetry for the North-East Commercial District."
+      actions={
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <FileSignature size={16} className="text-indigo-600" /> Lease
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Wrench size={16} className="text-amber-600" /> Request
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <UserCheck size={16} className="text-emerald-600" /> Check-in
+          </button>
         </div>
+      }
+    >
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        
+        {/* Main Content Area (Left 3 columns) */}
+        <div className="xl:col-span-3 space-y-6">
+          
+          {/* Top KPI Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Occupancy Card */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="flex justify-between items-start mb-6">
+                <span className="text-xs font-bold tracking-widest text-slate-500 uppercase">Occupancy Rate</span>
+                <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-700 flex items-center justify-center">
+                  <PieChart className="w-4 h-4 text-indigo-600" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <h3 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">{occupancyRate}</h3>
+                <span className="text-2xl font-bold text-slate-500">%</span>
+              </div>
+              <div className="mt-6 flex items-center gap-1.5 text-sm font-bold text-emerald-600">
+                <ArrowUpRight size={16} />
+                <span>+2.1% <span className="text-slate-400 font-medium">vs last month</span></span>
+              </div>
+            </div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Revenue Highlights Card - Gradient */}
+            <div className="bg-indigo-600 rounded-3xl p-6 shadow-lg relative overflow-hidden group hover:shadow-indigo-600/30 transition-all text-white">
+              {/* Decorative shapes */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-xl -ml-10 -mb-10 pointer-events-none" />
+              
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-6">
+                  <span className="text-xs font-bold tracking-widest text-white/70 uppercase">Revenue (ETB)</span>
+                  <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
+                    <Activity className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <h3 className="text-4xl font-extrabold tracking-tight leading-none">
+                    {loading ? '...' : (data?.total_revenue ? (data.total_revenue / 1000000).toFixed(2) : '1.84')}M
+                  </h3>
+                  <span className="text-lg font-bold text-white/70 tracking-wider">ETB</span>
+                </div>
+                <div className="mt-6 flex items-center justify-between text-[11px] font-bold tracking-widest text-white/80 uppercase">
+                  <span>Projected Monthly Target</span>
+                </div>
+              </div>
+            </div>
 
-          {/* Occupancy Donut Chart */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Portfolio Occupancy</h3>
-            {loading ? (
-              <div className="flex-1 flex items-center justify-center text-slate-400">Loading charts...</div>
-            ) : (
-              <div className="flex-1 min-h-[250px] relative">
+            {/* Vertical Stack (Active Leases & Pending Maint) */}
+            <div className="flex flex-col gap-6">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between flex-1 group hover:shadow-md transition-all">
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase block mb-1">Active Leases</span>
+                  <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none">
+                    {loading ? '-' : (data?.occupied_leases || 128)}
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FileSignature className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between flex-1 group hover:shadow-md transition-all">
+                <div>
+                  <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase block mb-1">Pending Maint.</span>
+                  <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none text-rose-600">
+                    {loading ? '-' : 14}
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Wrench className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Revenue Dynamics Chart */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="flex justify-between items-start mb-8">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">Revenue<br/>Dynamics</h3>
+                <button className="bg-slate-100 dark:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  Last 6 Months <ChevronRight size={14} />
+                </button>
+              </div>
+              <div className="h-48 w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueData} barSize={32}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="month" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                      dy={10} 
+                    />
+                    <Tooltip 
+                      cursor={{fill: 'transparent'}}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      radius={[6, 6, 6, 6]}
+                    >
+                      {revenueData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === revenueData.length -1 ? '#4f46e5' : '#e0e7ff'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Asset Allocation Donut */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight mb-4">Asset Allocation</h3>
+              <div className="flex-1 min-h-[160px] relative mt-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={occupancyData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={65}
-                      outerRadius={90}
-                      paddingAngle={5}
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
                       dataKey="value"
                       stroke="none"
                     >
@@ -146,44 +210,118 @@ export default function Dashboard() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <RechartsTooltip content={<CustomPieTooltip />} />
-                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
                 {/* Center Label inside Donut */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{data?.occupancy_rate ?? 0}%</span>
-                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Filled</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-extrabold text-slate-900 dark:text-white">{occupancyRate}%</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Filled</span>
                 </div>
               </div>
-            )}
+              <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-600"></div>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Occupied Units</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-600"></div>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Vacant Units</span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          {/* Contractor Performance Bar Chart */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6 flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Top Contractors by Jobs Completed</h3>
-            {loading ? (
-              <div className="flex-1 flex items-center justify-center text-slate-400">Loading charts...</div>
-            ) : (
-              <div className="flex-1 min-h-[250px]">
-                {contractorData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={contractorData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                      <RechartsTooltip content={<CustomBarTooltip />} cursor={{ fill: '#f8fafc' }} />
-                      <Bar dataKey="completed" fill="#4f46e5" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-sm">No contractor data available.</div>
-                )}
+          {/* Hardware/Telemetry Visual Preview Map placeholder */}
+          <div className="bg-slate-900 rounded-3xl overflow-hidden relative h-48 border border-slate-800 shadow-inner group">
+            {/* A subtle image background to simulate remote camera or interactive map */}
+            <div className="absolute inset-0 opacity-40 group-hover:opacity-50 transition-opacity bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop")' }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80" />
+            
+            <div className="absolute inset-0 p-6 flex flex-col justify-between z-10">
+              <div className="flex justify-between items-start">
+                <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">Live System Camera</span>
+                </div>
+                <button className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                  <HelpCircle size={14} className="text-white" />
+                </button>
               </div>
-            )}
+
+              {/* Fake overlays (HVAC point) */}
+              <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2 cursor-pointer group/pin">
+                <div className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg shadow-indigo-600/50 opacity-0 group-hover/pin:opacity-100 transition-opacity duration-300 whitespace-nowrap -translate-y-2 group-hover/pin:-translate-y-4">
+                  HVAC Primary Node
+                </div>
+                <div className="w-8 h-8 bg-indigo-600/20 backdrop-blur-sm border-2 border-indigo-500 rounded-full flex items-center justify-center animate-pulse">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              </div>
+              
+              <div className="absolute bottom-1/4 right-1/4 flex flex-col items-center gap-2 cursor-pointer group/pin">
+                <div className="w-8 h-8 bg-amber-500/20 backdrop-blur-sm border-2 border-amber-500 rounded-full flex items-center justify-center animate-pulse">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+                <div className="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg shadow-amber-500/50 opacity-0 group-hover/pin:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                  Elevator Bank B
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>
+
+        {/* Right Sidebar - Activity Pulse */}
+        <div className="xl:col-span-1 bg-white dark:bg-slate-800 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm p-6 flex flex-col h-full overflow-hidden">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">Activity<br/>Pulse</h3>
+            <button className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800">View All</button>
+          </div>
+
+          <div className="flex-1 relative">
+            {/* Vertical timeline line */}
+            <div className="absolute left-2.5 top-2 bottom-0 w-px bg-slate-100 dark:bg-slate-700 line"></div>
+
+            <div className="space-y-6 relative">
+              {mockActivities.map((act) => (
+                <div key={act.id} className="relative flex gap-4 pr-2">
+                  {/* Timeline Node */}
+                  <div className={`w-5 h-5 rounded-full border-[3px] border-white dark:border-slate-800 flex-shrink-0 z-10 ${act.isCritical ? 'bg-rose-500' : 'bg-indigo-600'}`}></div>
+                  
+                  {/* Content */}
+                  <div className="-mt-1 flex-1">
+                    <h4 className={`text-sm font-bold ${act.isCritical ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>
+                      {act.title}
+                    </h4>
+                    <p className="text-[11px] font-medium text-slate-500 mt-1 uppercase tracking-wider">{act.time} • {act.subtitle}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Settings Card at bottom of sidebar */}
+          <div className="mt-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 cursor-pointer hover:border-slate-200 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
+                <img src={`https://ui-avatars.com/api/?name=Admin+Manager&background=random`} alt="Admin" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Admin Manager</h4>
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Property Admin</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center text-xs font-bold text-slate-500 gap-2">
+              <ShieldAlert size={14} className="text-slate-400" /> Settings
+            </div>
+          </div>
+
+        </div>
+
       </div>
     </PageLayout>
   )

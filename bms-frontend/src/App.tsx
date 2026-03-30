@@ -1,5 +1,6 @@
 import React from 'react'
 import { Routes, Route, Link, Outlet } from 'react-router-dom'
+// New Portal Routes below
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -26,6 +27,7 @@ import Utilities from './pages/Utilities'
 import Automations from './pages/Automations'
 import Notifications from './pages/Notifications'
 import PublicBuildingView from './pages/PublicBuildingView'
+import { InspectionWorkflow } from './pages/InspectionWorkflow'
 import { LayoutProvider, useLayout } from './contexts/LayoutContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 
@@ -64,8 +66,9 @@ export default function App() {
       <Route path="/public/building/:token" element={<PublicBuildingView />} />
       <Route element={<AuthLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/inspection/:id" element={<InspectionWorkflow />} />
         <Route path="/units" element={<Units />} />
-        <Route path="/amenities" element={<Amenities />} />
+        <Route path="/facilities" element={<Amenities />} />
         <Route path="/sites" element={<Sites />} />
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/leases" element={<Leases />} />

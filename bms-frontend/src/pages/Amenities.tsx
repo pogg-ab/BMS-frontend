@@ -2,13 +2,44 @@ import React, { useEffect, useState } from 'react'
 import { listAmenities, createAmenity, deleteAmenity, getAmenity, linkAmenityToBuilding, removeAmenityFromBuilding, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
 import { listBuildings } from '../api/buildings'
 import { listUnits } from '../api/units'
+import PageLayout from '../components/PageLayout'
+import { useToast } from '../components/ToastProvider'
+import { Plus, Trash2, Edit2, Info, Search, Coffee, Wifi, Car, Shield, Dumbbell, Wind, Sun, Waves, X, Link, Building2, Home } from 'lucide-react'
+
+const AMENITY_ICONS: Record<string, any> = {
+  'GYM': Dumbbell,
+  'POOL': Waves,
+  'PARKING': Car,
+  'WIFI': Wifi,
+  'SECURITY': Shield,
+  'CAFE': Coffee,
+  'LOUNGE': Wind,
+  'ROOFTOP': Sun,
+}
+
+const CATEGORIES = ['General', 'Wellness', 'Utility', 'Security', 'Entertainment']
 
 export default function Amenities() {
+  const toast = useToast()
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Form states
+  const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState('General')
+
+  // Manage Links states
+  const [manageId, setManageId] = useState<string | number | null>(null)
+  const [amenityDetail, setAmenityDetail] = useState<any | null>(null)
+  const [linkedBuildings, setLinkedBuildings] = useState<any[]>([])
+  const [linkedUnits, setLinkedUnits] = useState<any[]>([])
+  const [linkBuildingId, setLinkBuildingId] = useState('')
+  const [linkUnitId, setLinkUnitId] = useState('')
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
+  const [allUnits, setAllUnits] = useState<any[]>([])
 
   async function load() {
     setLoading(true)
@@ -18,13 +49,12 @@ export default function Amenities() {
       setItems(list)
     } catch (e: any) {
       console.error('load amenities', e)
-      alert('Failed to load amenities')
+      toast.addToast('Failed to load amenities', 'error')
     } finally { setLoading(false) }
   }
 
   useEffect(() => {
     load()
-    // Load buildings and units for dropdowns
     listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
       const list = Array.isArray(res) ? res : (res?.data || [])
       setAllBuildings(list)
@@ -35,19 +65,23 @@ export default function Amenities() {
     }).catch(console.error)
   }, [])
 
+  const filteredItems = items.filter(a => 
+    !searchQuery || 
+    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (a.category && a.category.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     try {
       await createAmenity({ name, description, category })
-      setName('')
-      setDescription('')
-      setCategory('')
+      setName(''); setDescription(''); setCategory('General'); setShowForm(false)
       load()
-      alert('Amenity created')
+      toast.addToast('Amenity created successfully', 'success')
     } catch (err: any) {
       console.error('create amenity', err)
       const msg = err?.response?.data?.message
-      alert(Array.isArray(msg) ? msg.join(',') : (msg || 'Failed to create amenity'))
+      toast.addToast(Array.isArray(msg) ? msg.join(',') : (msg || 'Failed to create amenity'), 'error')
     }
   }
 
@@ -55,22 +89,13 @@ export default function Amenities() {
     if (!confirm('Delete amenity?')) return
     try {
       await deleteAmenity(id)
-      alert('Amenity deleted')
+      toast.addToast('Amenity deleted', 'success')
       load()
     } catch (e: any) {
       console.error('delete amenity', e)
-      alert(e?.response?.data?.message || 'Failed to delete amenity')
+      toast.addToast(e?.response?.data?.message || 'Failed to delete amenity', 'error')
     }
   }
-
-  const [manageId, setManageId] = useState<string | number | null>(null)
-  const [amenityDetail, setAmenityDetail] = useState<any | null>(null)
-  const [linkedBuildings, setLinkedBuildings] = useState<any[]>([])
-  const [linkedUnits, setLinkedUnits] = useState<any[]>([])
-  const [linkBuildingId, setLinkBuildingId] = useState('')
-  const [linkUnitId, setLinkUnitId] = useState('')
-  const [allBuildings, setAllBuildings] = useState<any[]>([])
-  const [allUnits, setAllUnits] = useState<any[]>([])
 
   async function openManageLinks(id: any) {
     setManageId(id)
@@ -82,177 +107,255 @@ export default function Amenities() {
       setLinkedUnits(d.linked_units || [])
     } catch (e: any) {
       console.error('get amenity details', e)
-      alert('Failed to load amenity details')
+      toast.addToast('Failed to load amenity details', 'error')
     }
   }
 
   async function handleLinkToBuilding() {
-    if (!manageId) return
-    if (!linkBuildingId) { alert('Enter building id'); return }
+    if (!manageId || !linkBuildingId) return
     try {
       await linkAmenityToBuilding(linkBuildingId, manageId)
-      alert('Linked to building')
+      toast.addToast('Linked to building', 'success')
       openManageLinks(manageId)
       load()
     } catch (e: any) {
-      console.error('link to building', e)
-      alert(e?.response?.data?.message || 'Failed to link')
+      toast.addToast(e?.response?.data?.message || 'Failed to link', 'error')
     }
   }
 
   async function handleRemoveBuilding(bId: any) {
-    if (!manageId) return
-    if (!confirm('Remove amenity from building?')) return
+    if (!manageId || !confirm('Remove amenity from building?')) return
     try {
       await removeAmenityFromBuilding(bId, manageId)
-      alert('Removed link')
+      toast.addToast('Removed link', 'success')
       openManageLinks(manageId)
       load()
     } catch (e: any) {
-      console.error('remove link building', e)
-      alert(e?.response?.data?.message || 'Failed to remove link')
+      toast.addToast(e?.response?.data?.message || 'Failed to remove link', 'error')
     }
   }
 
   async function handleLinkToUnit() {
-    if (!manageId) return
-    if (!linkUnitId) { alert('Enter unit id'); return }
+    if (!manageId || !linkUnitId) return
     try {
       await linkAmenityToUnitByIds(linkUnitId, manageId)
-      alert('Linked to unit')
+      toast.addToast('Linked to unit', 'success')
       openManageLinks(manageId)
       load()
     } catch (e: any) {
-      console.error('link to unit', e)
-      alert(e?.response?.data?.message || 'Failed to link')
+      toast.addToast(e?.response?.data?.message || 'Failed to link', 'error')
     }
   }
 
   async function handleRemoveUnit(uId: any) {
-    if (!manageId) return
-    if (!confirm('Remove amenity from unit?')) return
+    if (!manageId || !confirm('Remove amenity from unit?')) return
     try {
       await removeAmenityFromUnitByIds(uId, manageId)
-      alert('Removed link')
+      toast.addToast('Removed link', 'success')
       openManageLinks(manageId)
       load()
     } catch (e: any) {
-      console.error('remove link unit', e)
-      alert(e?.response?.data?.message || 'Failed to remove link')
+      toast.addToast(e?.response?.data?.message || 'Failed to remove link', 'error')
     }
   }
 
+  function getIcon(name: string) {
+    const key = name.toUpperCase()
+    for (const [k, Icon] of Object.entries(AMENITY_ICONS)) {
+      if (key.includes(k)) return <Icon size={24} />
+    }
+    return <Plus size={24} />
+  }
+
   return (
-    <div className="container">
-      <div className="header flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Amenities</h1>
-      </div>
+    <PageLayout 
+      title="Property Amenities" 
+      subtitle="Manage shared services and facilities across buildings and units."
+      actions={
+        <div className="flex items-center gap-3">
+          <div className="relative hidden sm:block">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search amenities..."
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+            />
+          </div>
+          <button onClick={() => setShowForm(true)} className="button shadow-md">
+            <Plus size={16} /> Create Amenity
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-8 pb-10">
+        {loading ? (
+          <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
+        ) : filteredItems.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+            <Coffee size={48} className="mb-4 opacity-50 text-slate-300" />
+            <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No amenities found</p>
+            <p className="text-sm font-medium mt-1">Define amenities and link them to your properties.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredItems.map((a) => (
+              <div 
+                key={a.id} 
+                className="bg-white dark:bg-slate-800 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100 dark:border-slate-700 overflow-hidden group hover:-translate-y-1 transition-all duration-300 flex flex-col hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] relative"
+              >
+                {/* Actions */}
+                <div className="absolute top-4 right-4 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openManageLinks(a.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Manage Links">
+                    <Link size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(a.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-rose-600 transition-colors" title="Delete">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
 
-      <div className="card my-4">
-        <form onSubmit={handleCreate} className="grid grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <input value={description} onChange={e => setDescription(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Category</label>
-            <input value={category} onChange={e => setCategory(e.target.value)} className="mt-1 block w-full rounded-md border-gray-200 shadow-sm" />
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="button ml-auto" type="submit">Create</button>
-          </div>
-        </form>
-      </div>
-
-      <div className="card">
-        {loading && <div>Loading...</div>}
-        {!loading && items.length === 0 && <div className="muted">No amenities found</div>}
-        {!loading && items.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2">Name</th>
-                <th className="py-2">Type</th>
-                <th className="py-2">Shared</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(a => (
-                <tr key={a.id} className="border-b hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900">
-                  <td className="py-2">{a.name}</td>
-                  <td className="py-2">{a.category || '-'}</td>
-                  <td className="py-2">-</td>
-                  <td className="py-2">
-                    <div className="flex items-center gap-3">
-                      <button className="text-primary" onClick={() => openManageLinks(a.id)}>Manage Links</button>
-                      <button className="text-red-700" onClick={() => handleDelete(a.id)}>Delete</button>
+                <div className="p-6">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm">
+                    {getIcon(a.name)}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight mb-2">{a.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-4 line-clamp-2">{a.description || 'No description provided.'}</p>
+                  
+                  <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-700/50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded">
+                      {a.category || 'General'}
+                    </span>
+                    <div className="flex -space-x-1.5 overflow-hidden">
+                       <span className="text-[10px] items-center flex font-bold text-slate-400 uppercase tracking-wider">
+                         {(a.linked_buildings?.length || 0) + (a.linked_units?.length || 0)} Linked
+                       </span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
-      {manageId && (
-        <div className="fixed inset-0 flex items-start justify-center bg-black/30 pt-20">
-          <div className="bg-white dark:bg-slate-800 rounded shadow p-6 w-3/4 max-w-3xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Manage links for {amenityDetail?.name || manageId}</h3>
-              <button className="px-2 py-1 border rounded" onClick={() => { setManageId(null); setAmenityDetail(null); }}>Close</button>
+
+      {/* CREATE FORM MODAL */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">New Amenity</h2>
+              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setShowForm(false)}>✕</button>
             </div>
-            <div className="grid grid-cols-2 gap-6">
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
-                <h4 className="font-medium mb-2">Linked Buildings</h4>
-                {linkedBuildings.length === 0 && <div className="muted">No buildings linked</div>}
-                {linkedBuildings.length > 0 && (
-                  <ul className="list-disc pl-5">
-                    {linkedBuildings.map((b: any) => (
-                      <li key={b.id} className="flex items-center justify-between">
-                        <span>{b.name} ({b.id})</span>
-                        <button className="text-red-700" onClick={() => handleRemoveBuilding(b.id)}>Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <select value={linkBuildingId} onChange={e => setLinkBuildingId(e.target.value)} className="block w-48 rounded-md border-gray-200 shadow-sm">
-                    <option value="">Select building</option>
-                    {allBuildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || `Building #${b.id}`}</option>)}
-                  </select>
-                  <button className="button" onClick={handleLinkToBuilding}>Link to Building</button>
-                </div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Amenity Name</label>
+                <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Swimming Pool" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
               </div>
               <div>
-                <h4 className="font-medium mb-2">Linked Units</h4>
-                {linkedUnits.length === 0 && <div className="muted">No units linked</div>}
-                {linkedUnits.length > 0 && (
-                  <ul className="list-disc pl-5">
-                    {linkedUnits.map((u: any) => (
-                      <li key={u.id} className="flex items-center justify-between">
-                        <span>{u.unit_number || u.id}</span>
-                        <button className="text-red-700" onClick={() => handleRemoveUnit(u.id)}>Remove</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <select value={linkUnitId} onChange={e => setLinkUnitId(e.target.value)} className="block w-48 rounded-md border-gray-200 shadow-sm">
-                    <option value="">Select unit</option>
-                    {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
-                  </select>
-                  <button className="button" onClick={handleLinkToUnit}>Link to Unit</button>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Category</label>
+                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm">
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe the amenity..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm h-24 resize-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
+              </div>
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">Create Amenity</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE LINKS MODAL */}
+      {manageId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-700">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+                  <Link size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Manage Links: {amenityDetail?.name || '...'}</h3>
+              </div>
+              <button 
+                className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" 
+                onClick={() => { setManageId(null); setAmenityDetail(null); }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Building Links */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Building2 size={14} className="text-indigo-500" /> Linked Buildings
+                  </h4>
+                  <div className="space-y-3 mb-4">
+                    {linkedBuildings.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic">No buildings linked.</p>
+                    ) : (
+                      linkedBuildings.map((b: any) => (
+                        <div key={b.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{b.name}</span>
+                          <button className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" onClick={() => handleRemoveBuilding(b.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <select value={linkBuildingId} onChange={e => setLinkBuildingId(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:bg-white transition-all">
+                      <option value="">Select building...</option>
+                      {allBuildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+                    </select>
+                    <button className="button text-xs font-bold px-4" onClick={handleLinkToBuilding}>Link Building</button>
+                  </div>
+                </div>
+
+                {/* Unit Links */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Home size={14} className="text-emerald-500" /> Linked Units
+                  </h4>
+                  <div className="space-y-3 mb-4">
+                    {linkedUnits.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic">No units linked.</p>
+                    ) : (
+                      linkedUnits.map((u: any) => (
+                        <div key={u.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">Unit {u.unit_number || u.id}</span>
+                          <button className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" onClick={() => handleRemoveUnit(u.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <select value={linkUnitId} onChange={e => setLinkUnitId(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:bg-white transition-all">
+                      <option value="">Select unit...</option>
+                      {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>Unit {u.unit_number}</option>)}
+                    </select>
+                    <button className="button bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 text-xs font-bold px-4" onClick={handleLinkToUnit}>Link Unit</button>
+                  </div>
                 </div>
               </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end">
+              <button className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl transition-colors" onClick={() => { setManageId(null); setAmenityDetail(null); }}>Done</button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   )
 }

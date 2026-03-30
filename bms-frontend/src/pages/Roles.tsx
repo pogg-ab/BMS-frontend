@@ -5,7 +5,7 @@ import {
 } from '../api/roles'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { ShieldCheck, UserCheck, KeySquare, Plus, Trash2, Edit } from 'lucide-react'
+import { ShieldCheck, UserCheck, KeySquare, Plus, Trash2, Edit2, Shield, Lock, Check, X, Info } from 'lucide-react'
 
 type Role = {
   id: string
@@ -16,7 +16,7 @@ type Role = {
 }
 
 export default function Roles() {
-  const { addToast } = useToast()
+  const toast = useToast()
   
   const [activeTab, setActiveTab] = useState<'roles' | 'permissions'>('roles')
   const [roles, setRoles] = useState<Role[]>([])
@@ -55,7 +55,7 @@ export default function Roles() {
       else if (resPerms?.permissions) pList = resPerms.permissions
       setPermissions(pList)
     } catch (e: any) {
-      addToast(e?.response?.data?.message || 'Failed to load RBAC data', 'error')
+      toast.addToast(e?.response?.data?.message || 'Failed to load RBAC data', 'error')
     } finally {
       setLoading(false)
     }
@@ -65,20 +65,15 @@ export default function Roles() {
 
   // --- Roles Logic ---
   function openCreateRole() {
-    setEditingRole(null)
-    setRoleName('')
-    setRoleType('company')
-    setRoleDescription('')
-    setShowRoleForm(true)
+    setEditingRole(null); setRoleName(''); setRoleType('company'); setRoleDescription(''); setShowRoleForm(true)
   }
 
   function openEditRole(r: Role) {
-    if (r.name === 'super_admin') return
-    setEditingRole(r)
-    setRoleName(r.name || '')
-    setRoleType(r.type || 'company')
-    setRoleDescription(r.description || '')
-    setShowRoleForm(true)
+    if (r.name === 'super_admin') {
+      toast.addToast('Super Admin role is protected.', 'info')
+      return
+    }
+    setEditingRole(r); setRoleName(r.name || ''); setRoleType(r.type || 'company'); setRoleDescription(r.description || ''); setShowRoleForm(true)
   }
 
   async function handleRoleSubmit(e: React.FormEvent) {
@@ -86,57 +81,53 @@ export default function Roles() {
     try {
       if (editingRole) {
         await updateRole(editingRole.id, { name: roleName, type: roleType, description: roleDescription })
-        addToast('Role updated successfully', 'success')
+        toast.addToast('Role updated successfully', 'success')
       } else {
         await createRole({ name: roleName, type: roleType, description: roleDescription })
-        addToast('Role created successfully', 'success')
+        toast.addToast('Role created successfully', 'success')
       }
-      setShowRoleForm(false)
-      loadData()
+      setShowRoleForm(false); loadData()
     } catch (err: any) {
-      addToast(err?.response?.data?.message || 'Operation failed', 'error')
+      toast.addToast(err?.response?.data?.message || 'Operation failed', 'error')
     }
   }
 
   async function handleDeleteRole(id: string, name: string) {
-    if (name === 'super_admin') {
-      addToast('Super Admin role cannot be deleted', 'error')
-      return
-    }
-    if (!confirm(`Delete role "${name}"? This fails if users are still assigned.`)) return
+    if (name === 'super_admin') return
+    if (!confirm(`Delete role "${name}"?`)) return
     try {
       await deleteRole(id)
-      addToast('Role deleted', 'success')
+      toast.addToast('Role deleted', 'success')
       loadData()
     } catch (e: any) {
-      addToast(e?.response?.data?.message || 'Failed to delete role', 'error')
+      toast.addToast(e?.response?.data?.message || 'Failed to delete role', 'error')
     }
   }
 
   // --- Assign Permissions Logic ---
   function openManagePermissions(r: Role) {
     if (r.name === 'super_admin') {
-      addToast('Super Admin naturally possesses all permissions.', 'info')
+      toast.addToast('Super Admin naturally possesses all permissions.', 'info')
       return
     }
     setManageRoleId(r.id)
     const currentPerms = r.permissions || []
-    setSelectedPermIds(currentPerms.map((p:any) => p.id || p))
+    setSelectedPermIds(currentPerms.map((p:any) => String(p.id || p)))
   }
 
   function togglePermissionSelection(id: string) {
-    setSelectedPermIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    const sId = String(id)
+    setSelectedPermIds(prev => prev.includes(sId) ? prev.filter(x => x !== sId) : [...prev, sId])
   }
 
   async function saveRolePermissions() {
     if (!manageRoleId) return
     try {
       await assignPermissions(manageRoleId, { permissions: selectedPermIds })
-      addToast('Permissions assigned successfully', 'success')
-      setManageRoleId(null)
-      loadData()
+      toast.addToast('Permissions updated', 'success')
+      setManageRoleId(null); loadData()
     } catch (e:any) {
-      addToast(e?.response?.data?.message || 'Failed to assign permissions', 'error')
+      toast.addToast(e?.response?.data?.message || 'Failed to assign permissions', 'error')
     }
   }
 
@@ -145,231 +136,241 @@ export default function Roles() {
     e.preventDefault()
     try {
       await createPermission({ code: permCode, description: permDescription })
-      setPermCode('')
-      setPermDescription('')
-      addToast('Permission created', 'success')
+      setPermCode(''); setPermDescription('')
+      toast.addToast('Permission registered', 'success')
       loadData()
     } catch (e:any) {
-      addToast(e?.response?.data?.message || 'Failed to create permission', 'error')
+      toast.addToast(e?.response?.data?.message || 'Failed to create permission', 'error')
     }
   }
 
   async function handleDeletePermission(id: string) {
-    if (!confirm('Delete this permission permanently?')) return
+    if (!confirm('Delete permission?')) return
     try {
-      await deletePermission(id)
-      addToast('Permission deleted', 'success')
-      loadData()
+      await deletePermission(id); toast.addToast('Permission deleted', 'success'); loadData()
     } catch (e:any) {
-      addToast(e?.response?.data?.message || 'Failed to delete permission', 'error')
+      toast.addToast(e?.response?.data?.message || 'Failed to delete permission', 'error')
     }
   }
 
   return (
     <PageLayout
       title="Access Control"
-      subtitle="Manage roles, permissions, and system access policies."
+      subtitle="Manage security roles and fine-grained system permissions."
       actions={
-        activeTab === 'roles' && (
-          <button onClick={openCreateRole} className="flex items-center gap-2 bg-white dark:bg-slate-800 text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-sm">
-            <Plus size={18} /> New Role
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'roles' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Roles
           </button>
-        )
+          <button
+            onClick={() => setActiveTab('permissions')}
+            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'permissions' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Permissions
+          </button>
+        </div>
       }
     >
-      <div className="mb-6 flex space-x-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('roles')}
-          className={`pb-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-            activeTab === 'roles' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <UserCheck size={18} /> Roles ({roles.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('permissions')}
-          className={`pb-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
-            activeTab === 'permissions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-          }`}
-        >
-          <KeySquare size={18} /> Permissions List
-        </button>
+      <div className="space-y-8 pb-10">
+        
+        {activeTab === 'roles' ? (
+          <>
+            <div className="flex justify-end">
+              <button onClick={openCreateRole} className="button shadow-md">
+                <Plus size={16} /> Create Role
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
+            ) : roles.length === 0 ? (
+               <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                <Shield size={48} className="mb-4 opacity-50 text-slate-300" />
+                <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No roles defined</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {roles.map(r => {
+                  const isSudo = r.name === 'super_admin'
+                  return (
+                    <div key={r.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 group hover:shadow-md transition-all relative overflow-hidden">
+                      {isSudo && <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-400/10 rounded-full -mr-12 -mt-12 flex items-end justify-start p-4"><ShieldCheck size={24} className="text-yellow-500" /></div>}
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSudo ? 'bg-yellow-50 text-yellow-600' : 'bg-indigo-50 text-indigo-600'} dark:bg-slate-900 border border-slate-100`}>
+                          <UserCheck size={20} />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {!isSudo && (
+                            <>
+                              <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
+                              <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">{r.name.replace('_', ' ')}</h3>
+                      <p className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">{r.type || 'Staff'}</p>
+                      
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-4 line-clamp-2 min-h-[40px] italic">
+                        {r.description || 'No system description provided for this security role.'}
+                      </p>
+
+                      <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                           <Lock size={14} className="text-slate-400" />
+                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{isSudo ? 'Unlimited' : r.permissions?.length || 0} Permissions</span>
+                         </div>
+                         {!isSudo && (
+                           <button 
+                            onClick={() => openManagePermissions(r)}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                           >
+                            View Rights
+                           </button>
+                         )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm sticky top-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Register Permission</h3>
+                <form onSubmit={handleCreatePermission} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Permission Code</label>
+                    <input required value={permCode} onChange={e=>setPermCode(e.target.value)} placeholder="scope:action" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
+                    <textarea value={permDescription} onChange={e=>setPermDescription(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm h-24 resize-none" placeholder="What does this grant?" />
+                  </div>
+                  <button type="submit" className="w-full button shadow-md">Register Code</button>
+                </form>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 space-y-4">
+               {permissions.length === 0 ? (
+                 <div className="p-10 text-center text-slate-400">No raw permissions found</div>
+               ) : (
+                 permissions.map(p => (
+                   <div key={p.id || p.code} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-slate-100 dark:border-slate-800">
+                          <KeySquare size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">{p.code || p.id}</h4>
+                          <p className="text-xs text-slate-500 font-medium">{p.description || 'Global system permission code.'}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeletePermission(p.id || p.code)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                   </div>
+                 ))
+               )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {showRoleForm && activeTab === 'roles' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{editingRole ? 'Update Role' : 'Create New Role'}</h3>
-          <form onSubmit={handleRoleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
-              <input required value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="e.g. Front Desk" className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+      {/* ROLE FORM MODAL */}
+      {showRoleForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editingRole ? 'Update Role' : 'New System Role'}</h2>
+              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setShowRoleForm(false)}>✕</button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">System Scope (Type)</label>
-              <select value={roleType} onChange={e => setRoleType(e.target.value)} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                <option value="company">Company</option>
-                <option value="building">Building</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-              <textarea value={roleDescription} onChange={e => setRoleDescription(e.target.value)} rows={2} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
-            </div>
-            <div className="md:col-span-3 flex justify-end gap-3">
-              <button type="button" onClick={() => setShowRoleForm(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-slate-800 border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-slate-900">Cancel</button>
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">
-                {editingRole ? 'Save Changes' : 'Create Role'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ROLES TAB */}
-      {activeTab === 'roles' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {loading ? (
-            <div className="p-10 text-center text-gray-500">Loading roles...</div>
-          ) : roles.length === 0 ? (
-            <div className="p-10 text-center text-gray-500">No roles found</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 dark:bg-slate-900">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Scope</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Permissions</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200">
-                  {roles.map(r => {
-                    const isProtected = r.name === 'super_admin'
-                    return (
-                      <tr key={r.id} className="hover:bg-gray-50 dark:bg-slate-900 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            {isProtected && <ShieldCheck size={16} className="text-yellow-500" />}
-                            <span className={`font-medium ${isProtected ? 'text-gray-900' : 'text-gray-700'}`}>{r.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${r.type === 'system' ? 'bg-purple-100 text-purple-800' : r.type === 'building' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                            {r.type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{r.description || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {isProtected ? 'ALL' : r.permissions?.length || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                          {!isProtected ? (
-                            <>
-                              <button onClick={() => openManagePermissions(r)} className="text-blue-600 hover:text-blue-900">Permissions</button>
-                              <button onClick={() => openEditRole(r)} className="text-indigo-600 hover:text-indigo-900"><Edit size={16} className="inline"/></button>
-                              <button onClick={() => handleDeleteRole(r.id, r.name)} className="text-red-500 hover:text-red-700"><Trash2 size={16} className="inline"/></button>
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">Protected</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* GET/MANAGE PERMISSIONS MODAL */}
-      {manageRoleId && activeTab === 'roles' && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-gray-900">Manage Role Permissions</h3>
-              <span className="text-sm px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">Selected: {selectedPermIds.length}</span>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-slate-900">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {permissions.map(p => (
-                  <label key={p.id || p.code} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPermIds.includes(p.id || p.code) ? 'bg-blue-50 border-blue-200' : 'bg-white dark:bg-slate-800 border-gray-200 hover:border-blue-300'}`}>
-                    <input 
-                      type="checkbox" 
-                      className="mt-1 flex-shrink-0 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                      checked={selectedPermIds.includes(p.id || p.code)} 
-                      onChange={() => togglePermissionSelection(p.id || p.code)} 
-                    />
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">{p.code || p.id}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{p.description || 'No description'}</div>
-                    </div>
-                  </label>
-                ))}
+            <form onSubmit={handleRoleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Role Identifier</label>
+                <input required value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="e.g. front_desk" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm" />
               </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-white dark:bg-slate-800 rounded-b-xl">
-              <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-slate-800 border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-slate-900" onClick={() => setManageRoleId(null)}>Cancel</button>
-              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm" onClick={saveRolePermissions}>Save Permissions</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PERMISSIONS TAB */}
-      {activeTab === 'permissions' && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><Plus size={20} className="text-blue-600"/> Create Permission</h3>
-            <form onSubmit={handleCreatePermission} className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Permission Code</label>
-                <input required placeholder="e.g. documents:download" value={permCode} onChange={e=>setPermCode(e.target.value)} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">System Scope</label>
+                <select value={roleType} onChange={e => setRoleType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm">
+                  <option value="company">Company Global</option>
+                  <option value="building">Building Restricted</option>
+                  <option value="system">Pure System/Dev</option>
+                </select>
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <input placeholder="e.g. Allows downloading tenant documents" value={permDescription} onChange={e=>setPermDescription(e.target.value)} className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
+                <textarea value={roleDescription} onChange={e => setRoleDescription(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm h-24 shadow-sm" placeholder="Purpose of this role..." />
               </div>
-              <button type="submit" className="px-6 py-2 h-[42px] text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">
-                Register
-              </button>
+              <div className="pt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowRoleForm(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all">
+                  {editingRole ? 'Update Role' : 'Create Role'}
+                </button>
+              </div>
             </form>
           </div>
+        </div>
+      )}
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {permissions.length === 0 ? (
-              <div className="p-10 text-center text-gray-500">No permissions registered yet</div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 dark:bg-slate-900">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200">
-                  {permissions.map(p => (
-                    <tr key={p.id || p.code} className="hover:bg-gray-50 dark:bg-slate-900">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{p.code || p.id}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{p.description || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-red-500 hover:text-red-700" onClick={() => handleDeletePermission(p.id || p.code)}><Trash2 size={16}/></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      {/* MANAGE PERMISSIONS MODAL */}
+      {manageRoleId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-700">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={24} className="text-indigo-600" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Role Privileges</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-1 rounded border border-indigo-100">{selectedPermIds.length} ACTIVE</span>
+                <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setManageRoleId(null)}>✕</button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {permissions.map(p => {
+                  const isChecked = selectedPermIds.includes(String(p.id || p.code))
+                  return (
+                    <label key={p.id || p.code} className={`flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${isChecked ? 'bg-white dark:bg-slate-800 border-indigo-500 shadow-md ring-2 ring-indigo-500/10' : 'bg-white/60 dark:bg-slate-800/60 border-slate-100 dark:border-slate-700 hover:border-slate-300'}`}>
+                      <div className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${isChecked ? 'bg-indigo-600 border-indigo-600' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600'}`}>
+                        {isChecked && <Check size={14} className="text-white" />}
+                        <input 
+                          type="checkbox" 
+                          className="hidden"
+                          checked={isChecked} 
+                          onChange={() => togglePermissionSelection(p.id || p.code)} 
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase tracking-tight">{p.code || p.id}</div>
+                        <div className="text-[10px] text-slate-500 font-medium leading-tight mt-1">{p.description || 'No description listed.'}</div>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex justify-end gap-3">
+              <button className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors" onClick={() => setManageRoleId(null)}>Discard</button>
+              <button className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all" onClick={saveRolePermissions}>
+                Update Privileges
+              </button>
+            </div>
           </div>
         </div>
       )}
+
     </PageLayout>
   )
 }

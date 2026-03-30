@@ -99,6 +99,22 @@ export function getMessages(tenantId: string | number) {
   return axios.get(`/messages/${tenantId}`).then(r => r.data)
 }
 
+export function getMyLease() {
+  return axios.get('/tenants/my-lease').then(r => r.data)
+}
+
+export function getMyPendingInspection() {
+  return axios.get('/inspections/my-pending').then(r => r.data)
+}
+
+export function updateInspectionItem(itemId: string, dto: { condition: string; comment?: string; photos?: string[] }) {
+  return axios.patch(`/inspections/items/${itemId}`, dto).then(r => r.data)
+}
+
+export function submitInspection(id: string, dto: { signature_url?: string; notes?: string }) {
+  return axios.post(`/inspections/${id}/submit`, dto).then(r => r.data)
+}
+
 export default {
   listTenants,
   registerTenant,
@@ -106,6 +122,8 @@ export default {
   listPendingApplications,
   approveApplication,
   rejectApplication,
+  getTenant,
+  updateTenant,
   createDocument,
   listDocuments,
   verifyDocument,
@@ -113,4 +131,8 @@ export default {
   listAnnouncements,
   sendMessage,
   getMessages,
+  getMyLease,
+  getMyPendingInspection,
+  updateInspectionItem,
+  submitInspection,
 }
