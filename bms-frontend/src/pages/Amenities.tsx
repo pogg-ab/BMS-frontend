@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { listAmenities, createAmenity, deleteAmenity, getAmenity, linkAmenityToBuilding, removeAmenityFromBuilding, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
+import { listAmenities, createAmenity, updateAmenity, deleteAmenity, getAmenity, linkAmenityToBuilding, removeAmenityFromBuilding, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
 import { listBuildings } from '../api/buildings'
 import { listUnits } from '../api/units'
 import PageLayout from '../components/PageLayout'
@@ -27,6 +27,7 @@ export default function Amenities() {
 
   // Form states
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<any>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('General')
@@ -71,18 +72,37 @@ export default function Amenities() {
     (a.category && a.category.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await createAmenity({ name, description, category })
-      setName(''); setDescription(''); setCategory('General'); setShowForm(false)
+      if (editing) {
+        await updateAmenity(editing.id, { name, description, category })
+        toast.addToast('Amenity updated successfully', 'success')
+      } else {
+        await createAmenity({ name, description, category })
+        toast.addToast('Amenity created successfully', 'success')
+      }
+      setName(''); setDescription(''); setCategory('General'); setEditing(null); setShowForm(false)
       load()
-      toast.addToast('Amenity created successfully', 'success')
     } catch (err: any) {
-      console.error('create amenity', err)
+      console.error('submit amenity', err)
       const msg = err?.response?.data?.message
-      toast.addToast(Array.isArray(msg) ? msg.join(',') : (msg || 'Failed to create amenity'), 'error')
+      toast.addToast(Array.isArray(msg) ? msg.join(',') : (msg || 'Operation failed'), 'error')
     }
+  }
+
+  function openEdit(a: any) {
+    setEditing(a)
+    setName(a.name || '')
+    setDescription(a.description || '')
+    setCategory(a.category || 'General')
+    setShowForm(true)
+  }
+
+  function openCreate() {
+    setEditing(null)
+    setName(''); setDescription(''); setCategory('General')
+    setShowForm(true)
   }
 
   async function handleDelete(id: any) {
@@ -183,7 +203,7 @@ export default function Amenities() {
               className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
             />
           </div>
-          <button onClick={() => setShowForm(true)} className="button shadow-md">
+          <button onClick={openCreate} className="button shadow-md">
             <Plus size={16} /> Create Amenity
           </button>
         </div>
@@ -207,6 +227,9 @@ export default function Amenities() {
               >
                 {/* Actions */}
                 <div className="absolute top-4 right-4 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEdit(a)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Edit">
+                    <Edit2 size={14} />
+                  </button>
                   <button onClick={() => openManageLinks(a.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Manage Links">
                     <Link size={14} />
                   </button>
@@ -244,10 +267,10 @@ export default function Amenities() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
           <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">New Amenity</h2>
-              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setShowForm(false)}>✕</button>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editing ? `Edit ${editing.name}` : 'New Amenity'}</h2>
+              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => { setShowForm(false); setEditing(null) }}>✕</button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Amenity Name</label>
                 <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Swimming Pool" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
@@ -263,8 +286,8 @@ export default function Amenities() {
                 <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe the amenity..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm h-24 resize-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">Create Amenity</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditing(null) }} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="submit" className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all">{editing ? 'Update Amenity' : 'Create Amenity'}</button>
               </div>
             </form>
           </div>

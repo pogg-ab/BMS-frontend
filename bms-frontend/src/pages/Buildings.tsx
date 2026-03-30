@@ -46,6 +46,7 @@ export default function Buildings() {
   const [ownerId, setOwnerId] = useState<string>('')
   const [type, setType] = useState<string>('residential')
   const [imageUrl, setImageUrl] = useState<string>('')
+  const [description, setDescription] = useState<string>('')
   const imageRef = useRef<HTMLInputElement | null>(null)
 
   const [sites, setSites] = useState<any[]>([])
@@ -113,13 +114,13 @@ export default function Buildings() {
   }, [buildings])
 
   function openCreate() {
-    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setShowForm(true)
+    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setDescription(''); setShowForm(true)
   }
 
   function openEdit(b: Building) {
     setEditing(b); setName(b.name || ''); setCode(b.code || ''); setAddress(b.address || '')
     setSiteId(b.siteId || (b as any).site_id || ''); setOwnerId(b.ownerId || (b as any).owner_id || '')
-    setType(b.type || 'residential'); setImageUrl(b.image_url || ''); setShowForm(true)
+    setType(b.type || 'residential'); setImageUrl(b.image_url || ''); setDescription((b as any).description || ''); setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -127,6 +128,7 @@ export default function Buildings() {
     try {
       const payload: any = { name, code, address, siteId, ownerId, type }
       if (imageUrl) payload.image_url = imageUrl
+      if (description) payload.description = description
       if (editing) { await updateBuilding(editing.id, payload) }
       else { await createBuilding(payload) }
       setShowForm(false); load()
@@ -393,15 +395,19 @@ export default function Buildings() {
                 <div>
                   <label className="form-label">Type</label>
                   <select value={type} onChange={e => setType(e.target.value)} className="form-select">
-                    <option value="RESIDENTIAL">Residential</option>
-                    <option value="COMMERCIAL">Commercial</option>
-                    <option value="MIXED">Mixed Use</option>
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="mixed">Mixed Use</option>
                   </select>
                 </div>
                 <div>
                   <label className="form-label">Address</label>
                   <input required value={address} onChange={e => setAddress(e.target.value)} className="form-input" />
                 </div>
+              </div>
+              <div className="col-span-2">
+                <label className="form-label">Description</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} className="form-input h-20 resize-none" placeholder="Brief description of the property..." />
               </div>
               <div>
                 <label className="form-label">Building Image</label>

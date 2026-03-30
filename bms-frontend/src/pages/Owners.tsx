@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { listOwners, createOwner, updateOwner, deleteOwner } from '../api/owners'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { Plus, Trash2, Edit2, User, Mail, Phone, Building2, Search, Briefcase, ExternalLink, MoreVertical, X } from 'lucide-react'
+import { Plus, Trash2, Edit2, User, Mail, Phone, Building2, Search, Briefcase, ExternalLink, MoreVertical, X, Camera } from 'lucide-react'
+import api from '../api/axios'
 
 type Owner = {
   id: string
   name: string
   email?: string
   phone?: string
+  profile_image?: string
   buildings_count?: number
 }
 
@@ -26,6 +28,8 @@ export default function Owners() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [profileImage, setProfileImage] = useState('')
+  const imageRef = React.useRef<HTMLInputElement | null>(null)
 
   async function load() {
     setLoading(true)
@@ -57,6 +61,7 @@ export default function Owners() {
     setName('')
     setEmail('')
     setPhone('')
+    setProfileImage('')
     setShowForm(true)
   }
 
@@ -65,17 +70,21 @@ export default function Owners() {
     setName(o.name || '')
     setEmail(o.email || '')
     setPhone(o.phone || '')
+    setProfileImage(o.profile_image || '')
     setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
+      const payload: any = { name, email, phone }
+      if (profileImage) payload.profile_image = profileImage
+      
       if (editing) {
-        await updateOwner(editing.id, { name, email, phone })
+        await updateOwner(editing.id, payload)
         toast.addToast('Owner updated successfully', 'success')
       } else {
-        await createOwner({ name, email, phone })
+        await createOwner(payload)
         toast.addToast('Owner registered successfully', 'success')
       }
       setShowForm(false)
@@ -84,6 +93,19 @@ export default function Owners() {
       console.error('owner submit', err)
       const msg = err?.response?.data?.message
       toast.addToast(Array.isArray(msg) ? msg.join(', ') : (msg || 'Operation failed'), 'error')
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/upload/image', fd)
+      if (res.data?.path) setProfileImage(res.data.path)
+    } catch (err) {
+      toast.addToast('Image upload failed', 'error')
     }
   }
 
@@ -151,8 +173,12 @@ export default function Owners() {
 
                 <div className="p-6">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                      <User size={28} />
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50 overflow-hidden">
+                      {o.profile_image ? (
+                        <img src={`http://localhost:3000${o.profile_image}`} alt={o.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={28} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate">{o.name}</h3>
@@ -175,7 +201,7 @@ export default function Owners() {
                     <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
                       <Building2 size={14} className="text-indigo-600 dark:text-indigo-400" />
                       <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                        {o.buildings_count || 0} Assets
+                        {(o as any).buildings?.length || o.buildings_count || 0} Assets
                       </span>
                     </div>
                     <ExternalLink size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
@@ -238,6 +264,17 @@ export default function Owners() {
                     placeholder="+251..." 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" 
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Profile Image</label>
+                <div className="flex gap-4 items-center">
+                  <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                  <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
+                    <Camera size={16} /> Upload Photo
+                  </button>
+                  {profileImage && <img src={`http://localhost:3000${profileImage}`} alt="preview" className="h-10 w-10 object-cover rounded-full border border-slate-200 shadow-sm" />}
                 </div>
               </div>
 

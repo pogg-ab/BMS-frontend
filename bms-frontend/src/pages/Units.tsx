@@ -81,34 +81,35 @@ export default function Units() {
       .catch((e) => console.error('buildings load fail', e))
   }, [])
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      try {
-        // Fetch context Building
-        if (selectedBuildingId) {
-          const b = await getBuilding(selectedBuildingId)
-          setCurrentBuilding(b)
-        } else {
-          setCurrentBuilding(null)
-        }
-
-        // Fetch Units
-        // If a building is selected, fetch all units for it. Otherwise, fetch all units across buildings.
-        let uRes
-        if (selectedBuildingId) {
-          uRes = await listUnits({ building_id: selectedBuildingId, per_page: 500 })
-        } else {
-          uRes = await listUnits({ page: 1, per_page: 500 })
-        }
-
-        setUnits(Array.isArray(uRes) ? uRes : (uRes?.data || []))
-      } catch (err) {
-        console.error('Failed to load data', err)
-      } finally {
-        setLoading(false)
+  async function loadData() {
+    setLoading(true)
+    try {
+      // Fetch context Building
+      if (selectedBuildingId) {
+        const b = await getBuilding(selectedBuildingId)
+        setCurrentBuilding(b)
+      } else {
+        setCurrentBuilding(null)
       }
+
+      // Fetch Units
+      // If a building is selected, fetch all units for it. Otherwise, fetch all units across buildings.
+      let uRes
+      if (selectedBuildingId) {
+        uRes = await listUnits({ building_id: selectedBuildingId, per_page: 500 })
+      } else {
+        uRes = await listUnits({ page: 1, per_page: 500 })
+      }
+
+      setUnits(Array.isArray(uRes) ? uRes : (uRes?.data || []))
+    } catch (err) {
+      console.error('Failed to load data', err)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     loadData()
   }, [selectedBuildingId])
 
@@ -207,8 +208,7 @@ export default function Units() {
         await createUnit(dto)
       }
       setShowForm(false)
-      // trigger refresh manually
-      setSelectedBuildingId(selectedBuildingId) 
+      loadData()
     } catch (err: any) {
       console.error('submit unit', err)
       alert(err?.response?.data?.message || 'Operation failed')
@@ -219,7 +219,7 @@ export default function Units() {
     if (!confirm('Delete this unit completely?')) return
     try {
       await deleteUnit(id)
-      setSelectedBuildingId(selectedBuildingId)
+      loadData()
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Failed to delete unit')
     }
@@ -246,7 +246,7 @@ export default function Units() {
     try {
       await bulkUploadUnits(fd)
       if (fileRef.current) fileRef.current.value = ''
-      setSelectedBuildingId(selectedBuildingId)
+      loadData()
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Bulk upload failed')
     }
@@ -354,13 +354,6 @@ export default function Units() {
               style={{ backgroundImage: `url("${currentBuilding?.image_url ? `http://localhost:3000${currentBuilding.image_url}` : 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop'}")` }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
-            
-            <div className="absolute top-6 left-6 flex items-center gap-3">
-              <span className="bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">Premium Asset</span>
-              <span className="bg-black/40 backdrop-blur-md border border-white/20 text-amber-400 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-                <Star size={12} className="fill-amber-400 text-amber-400" /> 4.9 Rating
-              </span>
-            </div>
 
             <div className="absolute bottom-8 left-8">
               <h1 className="text-4xl font-bold text-white tracking-tight mb-2 drop-shadow-md">{currentBuilding.name || currentBuilding.code}</h1>
@@ -450,7 +443,7 @@ export default function Units() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {group.items.map((u, i) => {
-                    const fallbackImg = fallbackImages[i % fallbackImages.length]
+                    const fallbackImg = u.building?.image_url ? `http://localhost:3000${u.building.image_url}` : fallbackImages[i % fallbackImages.length]
                     const imgUrl = u.image_url ? `http://localhost:3000${u.image_url}` : fallbackImg
                     
                     const statUpper = (u.status || 'VACANT').toUpperCase()

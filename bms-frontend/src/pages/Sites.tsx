@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { listSites, createSite, updateSite, deleteSite } from '../api/sites'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { Plus, Trash2, Globe, Edit2, Info, MapPin, Search, Building2, User, Mail, Navigation } from 'lucide-react'
+import { Plus, Trash2, Globe, Edit2, Info, MapPin, Search, Building2, User, Mail, Navigation, Camera } from 'lucide-react'
+import api from '../api/axios'
 
 // Helper for fallback site imagery (e.g., maps, generic landscapes)
 const fallbackImages = [
@@ -36,6 +37,8 @@ export default function Sites() {
   const [currency, setCurrency] = useState('ETB')
   const [contactEmail, setContactEmail] = useState('')
   const [notes, setNotes] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const imageRef = React.useRef<HTMLInputElement | null>(null)
 
   async function load() {
     setLoading(true)
@@ -62,10 +65,11 @@ export default function Sites() {
     e.preventDefault()
     setLoading(true)
     try {
-      const payload = {
+      const payload: any = {
         name, city, subcity, location_lat_long: locationLatLong,
         code, address, timezone, currency, contact_email: contactEmail, notes
       }
+      if (imageUrl) payload.image_url = imageUrl
       if (editingSite) {
         await updateSite(editingSite.id, payload)
         toast.addToast('Site updated successfully', 'success')
@@ -86,7 +90,20 @@ export default function Sites() {
   function resetForm() {
     setName(''); setCity(''); setSubcity(''); setLocationLatLong('')
     setCode(''); setAddress(''); setTimezone(''); setCurrency('ETB')
-    setContactEmail(''); setNotes(''); setEditingSite(null)
+    setContactEmail(''); setNotes(''); setImageUrl(''); setEditingSite(null)
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/upload/image', fd)
+      if (res.data?.path) setImageUrl(res.data.path)
+    } catch (err) {
+      toast.addToast('Image upload failed', 'error')
+    }
   }
 
   function openEdit(site: any) {
@@ -101,6 +118,7 @@ export default function Sites() {
     setCurrency(site.currency || 'ETB')
     setContactEmail(site.contact_email || '')
     setNotes(site.notes || '')
+    setImageUrl(site.image_url || '')
     setShowForm(true)
   }
 
@@ -153,7 +171,8 @@ export default function Sites() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((s, i) => {
               const bCount = Array.isArray(s.buildings) ? s.buildings.length : 0
-              const imgUrl = fallbackImages[i % fallbackImages.length]
+              const fallbackUrl = fallbackImages[i % fallbackImages.length]
+              const imgUrl = s.image_url ? `http://localhost:3000${s.image_url}` : fallbackUrl
 
               return (
                 <div 
@@ -264,6 +283,16 @@ export default function Sites() {
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Notes</label>
                   <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Additional information..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Image</label>
+                  <div className="flex gap-4 items-center">
+                    <input type="file" accept="image/*" ref={imageRef} onChange={handleImageUpload} className="hidden" />
+                    <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
+                      Choose File
+                    </button>
+                    {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
+                  </div>
                 </div>
               </form>
             </div>
