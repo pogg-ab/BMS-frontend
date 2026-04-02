@@ -99,7 +99,7 @@ export default function Sites() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await api.post('/upload/image', fd)
+      const res = await api.post('/upload/image?type=sites', fd)
       if (res.data?.path) setImageUrl(res.data.path)
     } catch (err) {
       toast.addToast('Image upload failed', 'error')

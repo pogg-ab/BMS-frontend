@@ -28,6 +28,7 @@ import Automations from './pages/Automations'
 import Notifications from './pages/Notifications'
 import PublicBuildingView from './pages/PublicBuildingView'
 import { InspectionWorkflow } from './pages/InspectionWorkflow'
+import Assets from './pages/Assets'
 import { LayoutProvider, useLayout } from './contexts/LayoutContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/users" element={<Users />} />
         <Route path="/roles" element={<Roles />} />
         <Route path="/buildings" element={<Buildings />} />
+        <Route path="/assets" element={<Assets />} />
         <Route path="/owners" element={<Owners />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />

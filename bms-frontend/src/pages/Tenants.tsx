@@ -156,7 +156,7 @@ export default function Tenants() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await api.post('/upload/image', fd)
+      const res = await api.post('/upload/image?type=tenants', fd)
       if (res.data?.path) setter(res.data.path)
     } catch {
       toast.addToast('Image upload failed', 'error')

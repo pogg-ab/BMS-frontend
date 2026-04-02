@@ -10,7 +10,7 @@ import {
   Users, FileSignature, Zap, UserCheck, Wrench,
   Wallet, FileText, UserCog, ShieldCheck, UserSquare2,
   BarChart3, Settings, QrCode, User, History, Bell, Bot,
-  Menu, ChevronLeft, ChevronRight, HelpCircle, CircleDot, LayoutGrid
+  Menu, ChevronLeft, ChevronRight, HelpCircle, CircleDot, LayoutGrid, Package
 } from 'lucide-react'
 
 // Grouped navigation structure matching Stitch design
@@ -29,6 +29,7 @@ const NAV_GROUPS = [
       { to: '/sites', label: 'Sites', icon: Map, permission: 'sites:read' },
       { to: '/buildings', label: 'Buildings', icon: Building2, permission: 'buildings:read' },
       { to: '/units', label: 'Units', icon: DoorOpen, permission: 'units:read' },
+      { to: '/assets', label: 'Assets', icon: Package, permission: 'assets:read' },
       { to: '/facilities', label: 'Facilities', icon: LayoutGrid, permissions: ['amenities:read', 'reports:view'] },
       { to: '/owners', label: 'Owners', icon: UserSquare2, permission: 'owners:read' },
     ],

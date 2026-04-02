@@ -231,7 +231,7 @@ export default function Units() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await api.post('/upload/image', fd)
+      const res = await api.post('/upload/image?type=units', fd)
       if (res.data?.path) setImageUrl(res.data.path)
     } catch (err) {
       alert('Image upload failed')

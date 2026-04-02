@@ -144,7 +144,7 @@ export default function Buildings() {
     if (!file) return
     const fd = new FormData(); fd.append('file', file)
     try {
-      const res = await api.post('/upload/image', fd)
+      const res = await api.post('/upload/image?type=buildings', fd)
       if (res.data?.path) setImageUrl(res.data.path)
     } catch { alert('Image upload failed') }
   }

@@ -102,7 +102,7 @@ export default function Owners() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await api.post('/upload/image', fd)
+      const res = await api.post('/upload/image?type=owners', fd)
       if (res.data?.path) setProfileImage(res.data.path)
     } catch (err) {
       toast.addToast('Image upload failed', 'error')

@@ -38,9 +38,14 @@ export default function Amenities() {
   const [linkedBuildings, setLinkedBuildings] = useState<any[]>([])
   const [linkedUnits, setLinkedUnits] = useState<any[]>([])
   const [linkBuildingId, setLinkBuildingId] = useState('')
+  const [linkUnitBuildingId, setLinkUnitBuildingId] = useState('')
   const [linkUnitId, setLinkUnitId] = useState('')
   const [allBuildings, setAllBuildings] = useState<any[]>([])
   const [allUnits, setAllUnits] = useState<any[]>([])
+
+  const filteredUnitsForLinking = linkUnitBuildingId
+    ? allUnits.filter(u => String(u.building?.id || u.buildingId) === linkUnitBuildingId)
+    : [];
 
   async function load() {
     setLoading(true)
@@ -129,6 +134,14 @@ export default function Amenities() {
       console.error('get amenity details', e)
       toast.addToast('Failed to load amenity details', 'error')
     }
+  }
+
+  function closeManageLinks() {
+    setManageId(null)
+    setAmenityDetail(null)
+    setLinkUnitBuildingId('')
+    setLinkUnitId('')
+    setLinkBuildingId('')
   }
 
   async function handleLinkToBuilding() {
@@ -307,7 +320,7 @@ export default function Amenities() {
               </div>
               <button 
                 className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" 
-                onClick={() => { setManageId(null); setAmenityDetail(null); }}
+                onClick={closeManageLinks}
               >
                 ✕
               </button>
@@ -354,7 +367,9 @@ export default function Amenities() {
                     ) : (
                       linkedUnits.map((u: any) => (
                         <div key={u.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">Unit {u.unit_number || u.id}</span>
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">
+                            Unit {u.unit_number || u.id} <span className="text-xs text-slate-400 font-normal ml-1">({u.building?.name || 'Unknown Building'})</span>
+                          </span>
                           <button className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 rounded-lg transition-colors" onClick={() => handleRemoveUnit(u.id)}>
                             <Trash2 size={16} />
                           </button>
@@ -362,19 +377,25 @@ export default function Amenities() {
                       ))
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <select value={linkUnitId} onChange={e => setLinkUnitId(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:bg-white transition-all">
-                      <option value="">Select unit...</option>
-                      {allUnits.map((u: any) => <option key={u.id} value={String(u.id)}>Unit {u.unit_number}</option>)}
+                  <div className="flex flex-col gap-2">
+                    <select value={linkUnitBuildingId} onChange={e => {setLinkUnitBuildingId(e.target.value); setLinkUnitId('')}} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:bg-white transition-all">
+                      <option value="">1. Select building...</option>
+                      {allBuildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
                     </select>
-                    <button className="button bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 text-xs font-bold px-4" onClick={handleLinkToUnit}>Link Unit</button>
+                    <div className="flex gap-2">
+                      <select value={linkUnitId} onChange={e => setLinkUnitId(e.target.value)} disabled={!linkUnitBuildingId} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <option value="">2. Select unit...</option>
+                        {filteredUnitsForLinking.map((u: any) => <option key={u.id} value={String(u.id)}>Unit {u.unit_number}</option>)}
+                      </select>
+                      <button className="button bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 text-xs font-bold px-4 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!linkUnitId} onClick={handleLinkToUnit}>Link Unit</button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             
             <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end">
-              <button className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl transition-colors" onClick={() => { setManageId(null); setAmenityDetail(null); }}>Done</button>
+              <button className="px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl transition-colors" onClick={closeManageLinks}>Done</button>
             </div>
           </div>
         </div>
