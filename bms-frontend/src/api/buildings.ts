@@ -1,7 +1,7 @@
 import api from './axios'
 
-export async function listBuildings({ page = 1, per_page = 25 } = {}) {
-  const res = await api.get('/buildings', { params: { page, per_page } })
+export async function listBuildings(params: any = { page: 1, per_page: 25 }) {
+  const res = await api.get('/buildings', { params })
   return res.data
 }
 

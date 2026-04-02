@@ -159,6 +159,23 @@ export default function Documents() {
     }
   }
 
+  async function handlePromoteAndVerify(doc: any) {
+    if (!doc || !doc.id || !doc.module_id) { toast.addToast('Cannot verify this document', 'error'); return }
+    try {
+      // Determine tenant id and type
+      const tenantId = doc.module_type === 'tenant' ? doc.module_id : null
+      if (!tenantId) { toast.addToast('Document is not linked to a tenant', 'error'); return }
+      // map category or use PRIMARY_ID by default
+      const dtype = (doc.category && ['ID','PRIMARY_ID','PASSPORT'].includes(doc.category)) ? doc.category : 'PRIMARY_ID'
+      await docApi.promoteToTenantAndVerify(doc.id, { tenant_id: tenantId, type: dtype })
+      toast.addToast('Document promoted and verified', 'success')
+      loadDocuments()
+    } catch (e: any) {
+      console.error('Promote+verify failed', e)
+      toast.addToast('Operation failed', 'error')
+    }
+  }
+
   return (
     <PageLayout title="Document Center" subtitle="Automated contract generation and document lifecycle management">
       {/* Tabs */}
@@ -362,6 +379,11 @@ export default function Documents() {
                           )}
                           <div className="flex gap-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => handleDelete(doc.id)} className="p-2 bg-white dark:bg-slate-800 text-rose-500 rounded-lg shadow-sm hover:bg-rose-50"><Trash2 size={14} /></button>
+                            {doc.module_type === 'tenant' && (
+                              <button onClick={() => handlePromoteAndVerify(doc)} className="p-2 bg-emerald-500 text-white rounded-lg shadow-sm hover:bg-emerald-600 flex items-center gap-2 px-3">
+                                <CheckCircle2 size={14} /> Verify
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

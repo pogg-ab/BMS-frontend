@@ -67,7 +67,22 @@ export default function Visitors() {
 
   useEffect(() => {
     if (siteId) {
-      setSiteBuildings(allBuildings.filter(b => String(b.site_id || b.siteId) === String(siteId)))
+      // prefer server-side filtering when available
+      listBuildings({ page: 1, per_page: 500, site_id: siteId })
+        .then((res: any) => {
+          const list = Array.isArray(res) ? res : (res?.data || res || [])
+          setSiteBuildings(list)
+        })
+        .catch(() => {
+          // fallback to client-side filter if API call fails
+          setSiteBuildings(
+            allBuildings.filter((b: any) => {
+              const bid = String(siteId)
+              const siteVals = [b.site_id, b.siteId, b.site && (b.site.id || b.site._id), b.site && (b.site_id || b.siteId)]
+              return siteVals.some((val) => val !== undefined && String(val) === bid)
+            }),
+          )
+        })
       setBuildingId('')
       setUnitId('')
     } else {
@@ -145,10 +160,15 @@ export default function Visitors() {
     setPurpose(v.purpose || '')
     setHostUserId(String(v.host_user_id || ''))
     setVehicleNumber(v.vehicle_number || '')
-    setSiteId(String(v.site_id || ''))
+    // prefer site_id, fallback to nested site object
+    const sid = v.site_id || (v.site && (v.site.id || v.site._id)) || v.siteId || ''
+    setSiteId(String(sid || ''))
     // Wait for effect to load units? Yes, or just set it manually if we delay.
     // For simplicity, just set unit_id if present
     if (v.unit_id) setUnitId(String(v.unit_id))
+    // building may be v.building_id or v.building.id
+    const bid = v.building_id || (v.building && (v.building.id || v.building._id)) || v.buildingId || ''
+    if (bid) setBuildingId(String(bid))
     setNotes(v.notes || '')
     setShowForm(true)
   }
@@ -184,83 +204,88 @@ export default function Visitors() {
       <div className="space-y-6">
         {/* Form Overlay/Section */}
         {showForm && (
-          <div className="card animate-in slide-in-from-top duration-300">
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                {editing ? <FiEdit2 className="text-indigo-600" /> : <FiPlus className="text-emerald-600" />}
-                {editing ? 'Edit Visitor Record' : 'Resident/Guest Check-in'}
-              </h3>
-              <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">✕</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/30" onClick={resetForm}></div>
+            <div className="relative bg-white dark:bg-slate-800 rounded-[16px] p-6 w-full max-w-3xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.10)] border border-white/20 dark:border-slate-700/50 max-h-[70vh] overflow-y-auto animate-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {editing ? 'Edit Visitor Record' : 'Resident/Guest Check-in'}
+                  </h3>
+                  <p className="text-sm font-medium text-slate-500 mt-1">Quickly check-in guests or contractors</p>
+                </div>
+                <button onClick={resetForm} className="p-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all">✕</button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                    <div className="relative">
+                      <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                    <div className="relative">
+                      <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="+251..." value={phone} onChange={e => setPhone(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Number / Card No</label>
+                    <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="ID-12345" value={idNumber} onChange={e => setIdNumber(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance</label>
+                    <div className="relative">
+                      <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required value={siteId} onChange={e => setSiteId(e.target.value)}>
+                        <option value="">Select Site</option>
+                        {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Building (Optional)</label>
+                    <div className="relative">
+                      <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!siteId} value={buildingId} onChange={e => setBuildingId(e.target.value)}>
+                        <option value="">Select Building</option>
+                        {siteBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit (Optional)</label>
+                    <div className="relative">
+                      <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!buildingId} value={unitId} onChange={e => setUnitId(e.target.value)}>
+                        <option value="">Select Unit</option>
+                        {buildingUnits.map(u => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vehicle Number (Optional)</label>
+                    <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="AA-B12345" value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purpose of Visit</label>
+                    <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="Maintenance, Delivery, etc." value={purpose} onChange={e => setPurpose(e.target.value)} />
+                  </div>
+                  <div className="lg:col-span-3">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Internal Notes / Instructions</label>
+                    <textarea className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold h-28 focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="Any additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button type="button" onClick={resetForm} className="button-secondary">Cancel</button>
+                  <button type="submit" className="button px-8">{editing ? 'Save Changes' : 'Complete Check-in'}</button>
+                </div>
+              </form>
             </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="form-label">Full Name</label>
-                  <div className="relative">
-                    <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input className="form-input pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Phone Number</label>
-                  <div className="relative">
-                    <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input className="form-input pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="+251..." value={phone} onChange={e => setPhone(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">ID Number / Card No</label>
-                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="ID-12345" value={idNumber} onChange={e => setIdNumber(e.target.value)} />
-                </div>
-                <div>
-                  <label className="form-label">Site / Entrance</label>
-                  <div className="relative">
-                    <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" required value={siteId} onChange={e => setSiteId(e.target.value)}>
-                      <option value="">Select Site</option>
-                      {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Building (Optional)</label>
-                  <div className="relative">
-                    <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" disabled={!siteId} value={buildingId} onChange={e => setBuildingId(e.target.value)}>
-                      <option value="">Select Building</option>
-                      {siteBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Unit (Optional)</label>
-                  <div className="relative">
-                    <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select className="form-select pl-10 dark:bg-slate-800 dark:border-slate-700 dark:text-white" disabled={!buildingId} value={unitId} onChange={e => setUnitId(e.target.value)}>
-                      <option value="">Select Unit</option>
-                      {buildingUnits.map(u => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Vehicle Number (Optional)</label>
-                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="AA-B12345" value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} />
-                </div>
-                <div>
-                  <label className="form-label">Purpose of Visit</label>
-                  <input className="form-input dark:bg-slate-800 dark:border-slate-700 dark:text-white" required placeholder="Maintenance, Delivery, etc." value={purpose} onChange={e => setPurpose(e.target.value)} />
-                </div>
-                <div className="lg:col-span-3">
-                  <label className="form-label">Internal Notes / Instructions</label>
-                  <textarea className="form-input h-20 pt-2 dark:bg-slate-800 dark:border-slate-700 dark:text-white" placeholder="Any additional details..." value={notes} onChange={e => setNotes(e.target.value)} />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={resetForm} className="button-secondary">Cancel</button>
-                <button type="submit" className="button px-8">{editing ? 'Save Changes' : 'Complete Check-in'}</button>
-              </div>
-            </form>
           </div>
         )}
 

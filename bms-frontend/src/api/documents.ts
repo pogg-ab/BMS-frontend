@@ -29,3 +29,8 @@ export async function generateContract(data: { lease_id: string; template_id: st
   const res = await api.post('/documents/generate-contract', data)
   return res.data
 }
+
+export async function promoteToTenantAndVerify(documentId: string, data: { tenant_id: string; type: string }) {
+  const res = await api.post(`/documents/${documentId}/promote-to-tenant/verify`, data)
+  return res.data
+}

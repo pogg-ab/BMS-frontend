@@ -13,6 +13,7 @@ import {
   sendMessage,
   getMessages,
   createApplication,
+  createAndVerifyFromTenant,
 } from '../api/tenants'
 import * as financeApi from '../api/finance'
 import api from '../api/axios'
@@ -77,7 +78,7 @@ export default function Tenants() {
   const profileImageRef = useRef<HTMLInputElement>(null)
 
   const [detailTenant, setDetailTenant] = useState<Tenant | null>(null)
-  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'ledger' | 'messages'>('info')
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'ledger' | 'messages' | 'documents'>('info')
   const [ledger, setLedger] = useState<any[]>([])
   const [ledgerLoading, setLedgerLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -128,17 +129,21 @@ export default function Tenants() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const payload: any = { first_name: firstName, last_name: lastName, email, password, phone, tenant_type: tenantType }
-      if (tenantType === 'personal') {
-        if (idImage) payload.id_image = idImage
-        if (detailedAddress) payload.detailed_address = detailedAddress
-      } else {
-        if (licenseImage) payload.license_image = licenseImage
-        if (profileImage) payload.profile_image = profileImage
-        if (tinNumber) payload.tin_number = tinNumber
-        if (vatRegNumber) payload.vat_reg_number = vatRegNumber
-        if (detailedAddress) payload.detailed_address = detailedAddress
+      const payload: any = {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password,
+        phone,
+        tenant_type: tenantType,
       }
+      // Always attach optional documentation fields if provided
+      if (idImage) payload.id_image = idImage
+      if (licenseImage) payload.license_image = licenseImage
+      if (profileImage) payload.profile_image = profileImage
+      if (tinNumber) payload.tin_number = tinNumber
+      if (vatRegNumber) payload.vat_reg_number = vatRegNumber
+      if (detailedAddress) payload.detailed_address = detailedAddress
       await registerTenant(payload)
       toast.addToast('Registered', 'success')
       setShowRegister(false)
@@ -167,14 +172,11 @@ export default function Tenants() {
     const isObj = typeof idOrTenant === 'object'
     const id = isObj ? (idOrTenant as Tenant).id : idOrTenant
     try {
-      let d: any = null
-      if (isObj) {
-        d = idOrTenant as Tenant
-        setDetailTenant(d)
-      } else {
-        d = await getTenant(id)
-        setDetailTenant(d)
-      }
+      // Always fetch full tenant details from the API so fields like
+      // TIN, VAT, lease and unit are populated even if the list item
+      // provided a lightweight object.
+      const d: any = await getTenant(id)
+      setDetailTenant(d)
       setActiveDetailTab('info')
 
       // load related lists (best-effort)
@@ -184,9 +186,12 @@ export default function Tenants() {
         const lRes = await financeApi.getTenantLedger(String(id))
         setLedger(lRes)
       } catch { setLedger([]) } finally { setLedgerLoading(false) }
+      try { await handleListDocs() } catch { setDocsList([]) }
     } catch (e: any) {
       console.error(e)
-      toast.addToast('Failed to load tenant', 'error')
+      // Fallback: if a lightweight object was passed, display it
+      if (isObj) setDetailTenant(idOrTenant as Tenant)
+      toast.addToast('Failed to load tenant details (showing basic info)', 'warning')
     }
   }
 
@@ -234,10 +239,11 @@ export default function Tenants() {
 
   async function handleListDocs() {
     try {
-      // If a tenant is selected, filter by tenant_id; otherwise fetch all documents
-      if (selectedTenantId) console.debug('Listing documents for tenant (tenant_id)', selectedTenantId)
+      // If tenantId overridden, use it; else use selectedTenantId
+      const tenantId = arguments[0] || selectedTenantId
+      if (tenantId) console.debug('Listing documents for tenant (tenant_id)', tenantId)
       else console.debug('Listing all documents (no tenant filter)')
-      const params = selectedTenantId ? { tenant_id: selectedTenantId } : undefined
+      const params = tenantId ? { tenant_id: tenantId } : undefined
       const res: any = await listDocuments(params)
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       console.debug('Documents list response', list)
@@ -267,12 +273,35 @@ export default function Tenants() {
   // Verify a single document by id (used from the documents list)
   async function handleVerifyDocument(id: string | number) {
     try {
-      await verifyDocument(id, { action: 'verify' })
+      await verifyDocument(id, { verified: true })
       toast.addToast('Document verified', 'success')
       // refresh list to reflect verification state
       try { await handleListDocs() } catch { /* ignore */ }
     } catch (e: any) {
       console.error('Verify failed', e)
+      const server = e?.response?.data
+      let msg = e?.message || 'Verify failed'
+      try {
+        if (server) {
+          if (Array.isArray(server?.message)) msg = server.message.join('; ')
+          else if (typeof server?.message === 'string') msg = server.message
+          else if (server?.message) msg = JSON.stringify(server.message)
+          else msg = JSON.stringify(server)
+        }
+      } catch { /* ignore */ }
+      toast.addToast(msg, 'error')
+    }
+  }
+
+  // Verify a tenant-stored image (profile/license/id) by creating a document record and auto-verifying it
+  async function handleVerifyTenantImage(type: string) {
+    if (!detailTenant || !detailTenant.id) { toast.addToast('Tenant not loaded', 'error'); return }
+    try {
+      await createAndVerifyFromTenant(detailTenant.id, { type })
+      toast.addToast('Document verified', 'success')
+      try { await handleListDocs(detailTenant.id) } catch { /* ignore */ }
+    } catch (e: any) {
+      console.error('Verify tenant image failed', e)
       const server = e?.response?.data
       let msg = e?.message || 'Verify failed'
       try {
@@ -348,6 +377,8 @@ export default function Tenants() {
     loadUnits()
   }, [appBuildingId])
 
+  
+
   async function handleCreateAnnouncement(e: React.FormEvent) {
     e.preventDefault()
     try {
@@ -374,7 +405,21 @@ export default function Tenants() {
       toast.addToast('Message sent', 'success')
       setMsgSubject(''); setMsgBody('')
     } catch (e: any) { console.error(e); toast.addToast('Send message failed', 'error') }
-  }  return (
+  }
+
+  // compute lease value to display (try multiple possible fields)
+  const leaseAmountRaw = (
+    (detailTenant as any)?.lease?.monthly_amount ??
+    (detailTenant as any)?.lease?.rent ??
+    (detailTenant as any)?.lease?.amount ??
+    (detailTenant as any)?.unit?.rent_price ??
+    (detailTenant as any)?.rent_price ??
+    (detailTenant as any)?.monthly_rent ??
+    null
+  )
+  const formattedLease = leaseAmountRaw ? `${new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(Number(leaseAmountRaw))} / mo` : '—'
+
+  return (
     <PageLayout
       title="Tenant Management"
       subtitle={`Curating ${tenants.length.toLocaleString()} active lease agreements across 14 properties.`}
@@ -446,7 +491,7 @@ export default function Tenants() {
 
                       {/* Building */}
                       <div className="col-span-3">
-                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">The Atrium, F4</div>
+                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">{t.building?.name || t.building_name || t.building || '—'}</div>
                       </div>
 
                       {/* Status */}
@@ -480,9 +525,13 @@ export default function Tenants() {
                       Due in 14 Days
                     </div>
                     <div className="w-36 h-36 mx-auto rounded-[35px] overflow-hidden border-4 border-slate-50 dark:border-slate-900 shadow-lg">
-                      <img 
-                        src={`https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=6366f1&color=fff&size=512&bold=true`} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={
+                          detailTenant.profile_image
+                            ? `http://localhost:3000${detailTenant.profile_image}`
+                            : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=6366f1&color=fff&size=512&bold=true`
+                        }
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   </div>
@@ -502,11 +551,11 @@ export default function Tenants() {
                   <div className="grid grid-cols-2 gap-3 mb-8">
                     <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Building</div>
-                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Medical Plaza</div>
+                           <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—'}</div>
                     </div>
                     <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Unit</div>
-                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">Suite 204</div>
+                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name || '—'}</div>
                     </div>
                   </div>
 
@@ -538,7 +587,7 @@ export default function Tenants() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Lease Value</div>
-                        <div className="text-xs font-black text-slate-900 dark:text-slate-200 truncate">ETB 45,250.00 / mo</div>
+                        <div className="text-xs font-black text-slate-900 dark:text-slate-200 truncate">{formattedLease}</div>
                       </div>
                     </div>
                   </div>
@@ -563,8 +612,8 @@ export default function Tenants() {
 
         {/* Register Tenant Modal */}
         {showRegister && (
-          <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-slate-800 rounded-[40px] p-10 w-full max-w-xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border border-white dark:border-slate-700/50">
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-slate-800 rounded-[16px] p-6 w-full max-w-full md:max-w-xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.10)] border border-white dark:border-slate-700/50 max-h-[70vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Register New Tenant</h3>
@@ -606,6 +655,8 @@ export default function Tenants() {
                   </div>
                 </div>
 
+                
+
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
                     <input required type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
@@ -617,61 +668,47 @@ export default function Tenants() {
                     <Shield size={12} className="text-indigo-500" /> Professional Documentation
                   </h4>
                   
-                  {tenantType === 'personal' ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
-                        <div 
-                          onClick={() => idImageRef.current?.click()}
-                          className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all"
-                        >
-                          <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
-                          {idImage ? (
-                            <img src={`http://localhost:3000${idImage}`} className="h-full w-full object-cover rounded-xl" />
-                          ) : (
-                            <Plus size={18} className="text-slate-300" />
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Detailed Address</label>
-                        <input placeholder="Suite / House #" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
+                      <div onClick={() => idImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                        <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
+                        {idImage ? (<img src={`http://localhost:3000${idImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={18} className="text-slate-300" />)}
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
-                          <input placeholder="8-Digit TIN" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
-                          <input placeholder="VAT Reg #" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
-                          <div onClick={() => licenseImageRef.current?.click()} className="h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
-                            <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
-                            {licenseImage ? <img src={`http://localhost:3000${licenseImage}`} className="w-full h-full object-cover" /> : <Plus size={16} className="text-slate-300" />}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
-                          <div onClick={() => profileImageRef.current?.click()} className="h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
-                            <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
-                            {profileImage ? <img src={`http://localhost:3000${profileImage}`} className="w-full h-full object-cover" /> : <Plus size={16} className="text-slate-300" />}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Address</label>
-                          <input placeholder="HQ Addr" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
-                        </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
+                      <div onClick={() => licenseImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
+                        <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
+                        {licenseImage ? (<img src={`http://localhost:3000${licenseImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
                       </div>
                     </div>
-                  )}
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
+                      <div onClick={() => profileImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
+                        <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
+                        {profileImage ? (<img src={`http://localhost:3000${profileImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
+                      <input placeholder="TIN Number" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
+                      <input placeholder="VAT Reg #" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 mt-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Detailed Address</label>
+                    <input placeholder="Suite / House #" value={detailedAddress} onChange={e => setDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-700/50">
@@ -685,7 +722,7 @@ export default function Tenants() {
 
         {/* Full Profile Detail Modal */}
         {showFullModal && detailTenant && (
-          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xl flex items-center justify-center z-[60] p-4 animate-in zoom-in duration-500">
+          <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 animate-in zoom-in duration-500">
             <div className="bg-white dark:bg-slate-800 rounded-[50px] w-full max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.25)] border border-white/20 dark:border-slate-700/50 overflow-hidden flex flex-col max-h-[92vh]">
               
               {/* Profile Header Block */}
@@ -696,7 +733,14 @@ export default function Tenants() {
                 <div className="absolute bottom-0 left-0 right-0 p-10 flex items-end justify-between">
                   <div className="flex items-end gap-8">
                     <div className="w-32 h-32 rounded-[40px] bg-white p-2 shadow-2xl border-4 border-white/20 -mb-20">
-                      <img src={`https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`} className="w-full h-full object-cover rounded-[32px]" />
+                      <img
+                        src={
+                          detailTenant.profile_image
+                            ? `http://localhost:3000${detailTenant.profile_image}`
+                            : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`
+                        }
+                        className="w-full h-full object-cover rounded-[32px]"
+                      />
                     </div>
                     <div className="pb-2">
                        <h2 className="text-4xl font-black text-white tracking-tight">{detailTenant.first_name} {detailTenant.last_name}</h2>
@@ -717,7 +761,8 @@ export default function Tenants() {
                 {[
                   { id: 'info', icon: Info, label: 'Overview' },
                   { id: 'ledger', icon: CreditCard, label: 'Financial Ledger' },
-                  { id: 'messages', icon: MessageCircle, label: 'Communication' }
+                  { id: 'messages', icon: MessageCircle, label: 'Communication' },
+                  { id: 'documents', icon: FileText, label: 'Documents' }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -770,7 +815,7 @@ export default function Tenants() {
                               </div>
                               <div>
                                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Residence</div>
-                                 <div className="text-lg font-black text-slate-800 dark:text-slate-200">The Atrium, F4 • Suite 402</div>
+                                <div className="text-lg font-black text-slate-800 dark:text-slate-200">{(detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—')}{(detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) ? ' • ' + (detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) : ''}</div>
                                  <div className="text-xs font-medium text-slate-400 mt-0.5">Northern District • Commercial Zone A</div>
                               </div>
                            </div>
@@ -797,7 +842,7 @@ export default function Tenants() {
                              </div>
                              <div>
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Portfolio Value</div>
-                                <div className="text-lg font-black text-indigo-600">ETB 450,250.00</div>
+                                <div className="text-lg font-black text-indigo-600">{formattedLease}</div>
                                 <div className="text-[10px] font-medium text-slate-400">Total lifetime value assigned</div>
                              </div>
                           </div>
@@ -916,6 +961,67 @@ export default function Tenants() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {activeDetailTab === 'documents' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-5 duration-500 space-y-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                        <FileText size={24} className="text-indigo-600" /> Documents
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleListDocs(detailTenant?.id)} className="button-secondary">Refresh</button>
+                      </div>
+                    </div>
+
+                    {/* If there are no document records, also show tenant image fields saved on the tenant record */}
+                    {(() => {
+                      const extraDocs: any[] = [];
+                      if (detailTenant?.profile_image) {
+                        extraDocs.push({ id: 'tenant-profile', type: 'Profile Image', file_url: detailTenant.profile_image, verified: detailTenant.profile_image_verified ?? false });
+                      }
+                      if (detailTenant?.license_image) {
+                        extraDocs.push({ id: 'tenant-license', type: 'License / Work Permit', file_url: detailTenant.license_image, verified: detailTenant.license_image_verified ?? false });
+                      }
+                      if (detailTenant?.id_image) {
+                        extraDocs.push({ id: 'tenant-id', type: 'ID / Passport', file_url: detailTenant.id_image, verified: detailTenant.id_image_verified ?? false });
+                      }
+
+                      const displayDocs = [...extraDocs, ...docsList];
+
+                      if (displayDocs.length === 0) {
+                        return (
+                          <div className="py-20 text-center text-slate-400 italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[40px]">
+                            No documents uploaded for this tenant.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          {displayDocs.map((doc: any) => (
+                            <div key={doc.id} className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-black text-slate-800 dark:text-white">{doc.type || 'Document'}</div>
+                                <div className="text-xs text-slate-500 mt-1 truncate max-w-xl">{doc.file_url || doc.fileUrl || 'No file'}</div>
+                                <div className="text-[10px] text-slate-400 mt-1">{doc.verified ? 'Verified' : 'Not verified'}{doc.reject_reason ? ` — ${doc.reject_reason}` : ''}</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {doc.file_url && (
+                                  <a href={doc.file_url.startsWith('/') ? `http://localhost:3000${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl">View</a>
+                                )}
+                                {!doc.verified && (
+                                  (typeof doc.id === 'string' && !String(doc.id).startsWith('tenant-')) ? (
+                                    <button onClick={() => handleVerifyDocument(doc.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl">Verify</button>
+                                  ) : null
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

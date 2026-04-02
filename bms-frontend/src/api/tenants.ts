@@ -83,6 +83,10 @@ export function verifyDocument(id: string | number, dto: any) {
   return axios.patch(`/documents/${id}/verify`, dto).then(r => r.data)
 }
 
+export function createAndVerifyFromTenant(tenantId: string | number, dto: any) {
+  return axios.patch(`/documents/from-tenant/${tenantId}/verify`, dto).then(r => r.data)
+}
+
 export function createAnnouncement(dto: any) {
   return axios.post('/announcements', dto).then(r => r.data)
 }
@@ -127,6 +131,7 @@ export default {
   createDocument,
   listDocuments,
   verifyDocument,
+  createAndVerifyFromTenant,
   createAnnouncement,
   listAnnouncements,
   sendMessage,
