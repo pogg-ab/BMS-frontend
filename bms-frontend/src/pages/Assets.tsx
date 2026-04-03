@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { listAssets, createAsset, updateAsset, deleteAsset } from '../api/assets'
 import { listBuildings } from '../api/buildings'
 import { listUnits } from '../api/units'
@@ -49,12 +49,29 @@ export default function Assets() {
   const [allUnits, setAllUnits] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
 
+  // Filter States
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterCondition, setFilterCondition] = useState('')
+  const [filterBuildingId, setFilterBuildingId] = useState('')
+  const [filterUnitId, setFilterUnitId] = useState('')
+
+  const filteredUnitsForFilter = useMemo(() => {
+    if (!filterBuildingId) return []
+    return allUnits.filter(u => String(u.building?.id || u.buildingId) === filterBuildingId)
+  }, [filterBuildingId, allUnits])
+
   const apiBase = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000'
 
   async function loadData() {
     setLoading(true)
     try {
-      const res = await listAssets()
+      const params: any = {}
+      if (filterCategory) params.category = filterCategory
+      if (filterCondition) params.condition = filterCondition
+      if (filterBuildingId) params.buildingId = filterBuildingId
+      if (filterUnitId) params.unitId = filterUnitId
+      
+      const res = await listAssets(params)
       const list = Array.isArray(res) ? res : (res?.data || [])
       setItems(list)
     } catch (e) {
@@ -66,6 +83,9 @@ export default function Assets() {
 
   useEffect(() => {
     loadData()
+  }, [filterCategory, filterCondition, filterBuildingId, filterUnitId])
+
+  useEffect(() => {
     listBuildings({ page: 1, per_page: 500 }).then(res => setAllBuildings(Array.isArray(res) ? res : (res.data || [])))
     listUnits({ page: 1, per_page: 500 }).then(res => setAllUnits(Array.isArray(res) ? res : (res.data || [])))
   }, [])
@@ -188,7 +208,82 @@ export default function Assets() {
         </div>
       }
     >
-      <div className="pb-10">
+      <div className="pb-10 space-y-6">
+        
+        {/* Filter Bar */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Tag size={16} className="text-slate-400" />
+            <select 
+              value={filterCategory} 
+              onChange={e => setFilterCategory(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="">All Categories</option>
+              {ASSET_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-slate-400" />
+            <select 
+              value={filterCondition} 
+              onChange={e => setFilterCondition(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="">All Conditions</option>
+              {ASSET_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="h-6 w-px bg-slate-100 dark:bg-slate-700 mx-2 hidden md:block" />
+
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-slate-400" />
+            <select 
+              value={filterBuildingId} 
+              onChange={e => {setFilterBuildingId(e.target.value); setFilterUnitId('')}}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="">All Buildings</option>
+              {allBuildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Home size={16} className="text-slate-400" />
+            <select 
+              value={filterUnitId} 
+              onChange={e => setFilterUnitId(e.target.value)}
+              disabled={!filterBuildingId}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
+            >
+              <option value="">All Units</option>
+              {filteredUnitsForFilter.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number}</option>)}
+            </select>
+          </div>
+
+          {(filterCategory || filterCondition || filterBuildingId || filterUnitId) && (
+            <button 
+              onClick={() => {setFilterCategory(''); setFilterCondition(''); setFilterBuildingId(''); setFilterUnitId('')}}
+              className="ml-auto text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">
+          <div className="flex items-center gap-2">
+            <Activity size={12} className="text-indigo-500" />
+            Showing {filteredItems.length} of {items.length} items
+          </div>
+          {(filterCategory || filterCondition || filterBuildingId || filterUnitId) && (
+            <div className="text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800">
+              Filters Active
+            </div>
+          )}
+        </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 text-slate-400 gap-4">
             <Loader2 className="animate-spin text-indigo-600" size={40} />

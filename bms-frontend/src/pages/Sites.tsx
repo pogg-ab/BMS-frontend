@@ -30,7 +30,7 @@ export default function Sites() {
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
   const [subcity, setSubcity] = useState('')
-  const [locationLatLong, setLocationLatLong] = useState('')
+  const [location, setLocation] = useState('')
   const [code, setCode] = useState('')
   const [address, setAddress] = useState('')
   const [timezone, setTimezone] = useState('')
@@ -66,7 +66,7 @@ export default function Sites() {
     setLoading(true)
     try {
       const payload: any = {
-        name, city, subcity, location_lat_long: locationLatLong,
+        name, city, subcity, location,
         code, address, timezone, currency, contact_email: contactEmail, notes
       }
       if (imageUrl) payload.image_url = imageUrl
@@ -88,7 +88,7 @@ export default function Sites() {
   }
 
   function resetForm() {
-    setName(''); setCity(''); setSubcity(''); setLocationLatLong('')
+    setName(''); setCity(''); setSubcity(''); setLocation('')
     setCode(''); setAddress(''); setTimezone(''); setCurrency('ETB')
     setContactEmail(''); setNotes(''); setImageUrl(''); setEditingSite(null)
   }
@@ -111,7 +111,7 @@ export default function Sites() {
     setName(site.name || '')
     setCity(site.city || '')
     setSubcity(site.subcity || '')
-    setLocationLatLong(site.location_lat_long || '')
+    setLocation(site.location || '')
     setCode(site.code || '')
     setAddress(site.address || '')
     setTimezone(site.timezone || '')
@@ -254,10 +254,10 @@ export default function Sites() {
                   <input required value={subcity} onChange={e => setSubcity(e.target.value)} placeholder="Bole" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Location (Lat/Long)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Location</label>
                   <div className="relative">
                     <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input required value={locationLatLong} onChange={e => setLocationLatLong(e.target.value)} placeholder="9.145, 40.489" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
+                    <input required value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Addis Ababa" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                   </div>
                 </div>
                 <div>
@@ -332,9 +332,9 @@ export default function Sites() {
                   <p className="text-xs font-medium text-slate-500">{viewingSite.subcity || 'No subcity'}</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Coordinates</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Site Location</p>
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <MapPin className="text-rose-500" size={14} /> {viewingSite.location_lat_long || 'Not mapped'}
+                    <MapPin className="text-rose-500" size={14} /> {viewingSite.location || 'Not specified'}
                   </p>
                 </div>
               </div>

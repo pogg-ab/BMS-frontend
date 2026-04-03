@@ -40,7 +40,11 @@ export default function PublicBuildingView() {
       })
       .then(data => {
         setBuilding(data.building || null)
-        setUnits(Array.isArray(data.units) ? data.units : [])
+        const allUnits = Array.isArray(data.units) ? data.units : []
+        const vacantOnly = allUnits.filter(u => 
+          ['vacant', 'available', 'free'].includes((u.status || '').toLowerCase())
+        )
+        setUnits(vacantOnly)
       })
       .catch(e => setError(e.message || 'Failed to load'))
       .finally(() => setLoading(false))
@@ -140,7 +144,7 @@ export default function PublicBuildingView() {
 
       {units.length === 0 && (
         <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
-          No units found for this building.
+          No vacant units found for this building.
         </div>
       )}
 

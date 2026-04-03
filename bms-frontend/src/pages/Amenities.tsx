@@ -43,14 +43,26 @@ export default function Amenities() {
   const [allBuildings, setAllBuildings] = useState<any[]>([])
   const [allUnits, setAllUnits] = useState<any[]>([])
 
+  // Filter States
+  const [filterBuildingId, setFilterBuildingId] = useState('')
+  const [filterUnitId, setFilterUnitId] = useState('')
+
   const filteredUnitsForLinking = linkUnitBuildingId
     ? allUnits.filter(u => String(u.building?.id || u.buildingId) === linkUnitBuildingId)
+    : [];
+
+  const filteredUnitsForFilter = filterBuildingId
+    ? allUnits.filter(u => String(u.building?.id || u.buildingId) === filterBuildingId)
     : [];
 
   async function load() {
     setLoading(true)
     try {
-      const res = await listAmenities({ page: 1, per_page: 200 })
+      const params: any = { page: 1, per_page: 200 }
+      if (filterBuildingId) params.buildingId = filterBuildingId
+      if (filterUnitId) params.unitId = filterUnitId
+
+      const res = await listAmenities(params)
       const list = Array.isArray(res) ? res : (res?.data || [])
       setItems(list)
     } catch (e: any) {
@@ -61,6 +73,9 @@ export default function Amenities() {
 
   useEffect(() => {
     load()
+  }, [filterBuildingId, filterUnitId])
+
+  useEffect(() => {
     listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
       const list = Array.isArray(res) ? res : (res?.data || [])
       setAllBuildings(list)
@@ -223,6 +238,42 @@ export default function Amenities() {
       }
     >
       <div className="space-y-8 pb-10">
+        {/* Filter Bar */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-slate-400" />
+            <select 
+              value={filterBuildingId} 
+              onChange={e => {setFilterBuildingId(e.target.value); setFilterUnitId('')}}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="">All Buildings</option>
+              {allBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Home size={16} className="text-slate-400" />
+            <select 
+              value={filterUnitId} 
+              onChange={e => setFilterUnitId(e.target.value)}
+              disabled={!filterBuildingId}
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
+            >
+              <option value="">All Units</option>
+              {filteredUnitsForFilter.map(u => <option key={u.id} value={String(u.id)}>Unit {u.unit_number}</option>)}
+            </select>
+          </div>
+
+          {(filterBuildingId || filterUnitId) && (
+            <button 
+              onClick={() => {setFilterBuildingId(''); setFilterUnitId('')}}
+              className="ml-auto text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
         {loading ? (
           <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
         ) : filteredItems.length === 0 ? (

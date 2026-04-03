@@ -1,7 +1,7 @@
 import api from './axios'
 
-export async function listAssets() {
-  const res = await api.get('/assets')
+export async function listAssets(params?: any) {
+  const res = await api.get('/assets', { params })
   return res.data
 }
 

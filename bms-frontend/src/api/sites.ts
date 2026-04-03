@@ -4,7 +4,7 @@ export interface SiteCreateDTO {
   name: string
   city: string
   subcity: string
-  location_lat_long: string
+  location: string
   code?: string
   address?: string
   timezone?: string
