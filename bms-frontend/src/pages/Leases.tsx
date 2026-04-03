@@ -24,9 +24,15 @@ export default function Leases() {
   const [tenants, setTenants] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [allBuildings, setAllBuildings] = useState<any[]>([])
+  // Track lease IDs that we created client-side as drafts from existing leases
+  const [clientReferencedPreviousIds, setClientReferencedPreviousIds] = useState<Array<string | number>>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [leaseToDelete, setLeaseToDelete] = useState<any>(null)
+  const [showRenewModal, setShowRenewModal] = useState(false)
+  const [showTerminateModal, setShowTerminateModal] = useState(false)
 
   // Create form
   const [unitId, setUnitId] = useState('')
@@ -84,7 +90,18 @@ export default function Leases() {
     setLoading(true)
     try {
       const list: any = await listLeases({ page: 1, per_page: 50 })
-      setLeases(Array.isArray(list) ? list : [])
+      const normalized = Array.isArray(list) ? list : (list?.data || list || [])
+      // Expose for debugging in browser console and log details to help diagnose duplicates
+      try {
+        (window as any).__leases = normalized
+        console.debug('loadLeases: received', normalized)
+        const refs = normalized.reduce((acc: any[], l: any) => {
+          acc.push({ id: l.id, status: l.status, previous_lease: l.previous_lease || l.previous_lease_id || l.previousLease })
+          return acc
+        }, [])
+        console.debug('loadLeases: lease refs (id/status/previous_lease)', refs)
+      } catch (err) { /* ignore in non-browser contexts */ }
+      setLeases(normalized)
     } catch (e: any) { console.error(e); toast.addToast('Failed to fetch leases. Please try again later.', 'error') }
     finally { setLoading(false) }
   }
@@ -113,12 +130,32 @@ export default function Leases() {
 
   // Tab filtering
   const filteredLeases = useMemo(() => {
-    if (activeTab === 'all') return leases
-    if (activeTab === 'active') return leases.filter(l => ['ACTIVE', 'active', 'RENEWED'].includes(l.status))
-    if (activeTab === 'pending') return leases.filter(l => ['DRAFT', 'draft'].includes(l.status))
-    if (activeTab === 'terminated') return leases.filter(l => ['TERMINATED', 'terminated', 'EXPIRED', 'expired'].includes(l.status))
-    return leases
-  }, [leases, activeTab])
+    // Build a set of lease IDs that are referenced as `previous_lease` by other leases.
+    // Some APIs return the relation as an object `{ id }`, others as a plain id — handle both.
+    const referencedPreviousIds = new Set<string | number>()
+    for (const cand of leases) {
+      const prev = (cand as any).previous_lease || (cand as any).previous_lease_id || (cand as any).previousLease
+      if (!prev) continue
+      if (typeof prev === 'object') {
+        const pid = (prev as any).id || (prev as any).lease_id || undefined
+        if (pid !== undefined) referencedPreviousIds.add(pid)
+      } else {
+        referencedPreviousIds.add(prev as string | number)
+      }
+    }
+
+    // include client-side marked previous ids (created drafts) so originals are hidden
+    for (const id of clientReferencedPreviousIds) referencedPreviousIds.add(id)
+
+    // Default base list: hide leases that have been superseded by a renewed draft
+    const baseList = leases.filter(l => !referencedPreviousIds.has(l.id))
+
+    if (activeTab === 'all') return baseList
+    if (activeTab === 'active') return baseList.filter(l => ['ACTIVE', 'active', 'RENEWED'].includes(l.status))
+    if (activeTab === 'pending') return baseList.filter(l => ['DRAFT', 'draft'].includes(l.status))
+    if (activeTab === 'terminated') return baseList.filter(l => ['TERMINATED', 'terminated', 'EXPIRED', 'expired'].includes(l.status))
+    return baseList
+  }, [leases, activeTab, clientReferencedPreviousIds])
 
   const tabs = [
     { key: 'all', label: `All Leases (${leases.length})` },
@@ -135,10 +172,11 @@ export default function Leases() {
       if (serviceCharge) payload.service_charge = Number(serviceCharge)
       if (depositAmount) payload.deposit_amount = Number(depositAmount)
       if (billingCycle) payload.billing_cycle = billingCycle
-      await createLease(payload)
+      const newLease = await createLease(payload)
       toast.addToast('Lease draft created', 'success')
       setShowCreateModal(false)
       loadLeases()
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || tenantId } })) } catch (err) {}
     } catch (e: any) {
       const server = e?.response?.data
       let msg = e?.message || 'Create lease failed'
@@ -149,9 +187,10 @@ export default function Leases() {
 
   async function handleActivateOnly(id: string | number) {
     try {
-      await activateLease(id, {})
+      const res = await activateLease(id, {})
       toast.addToast('Lease activated', 'success')
       loadLeases()
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) {}
     } catch (e: any) {
       console.error('Activate error', e)
       const server = e?.response?.data
@@ -174,10 +213,11 @@ export default function Leases() {
     try {
       const payload: any = { termination_date: terminateOnlyDate || undefined, reason: terminateOnlyReason || undefined }
       if (terminateOnlyDepositDeduction) payload.deposit_deduction = Number(terminateOnlyDepositDeduction)
-      await terminateLease(terminateOnlyLeaseId, payload)
+      const res = await terminateLease(terminateOnlyLeaseId, payload)
       toast.addToast('Lease terminated', 'success')
       setTerminateOnlyLeaseId(''); setTerminateOnlyDate(''); setTerminateOnlyReason(''); setTerminateOnlyDepositDeduction('')
       loadLeases()
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) {}
     } catch { toast.addToast('Terminate failed', 'error') }
   }
 
@@ -198,11 +238,18 @@ export default function Leases() {
           rent_amount: renewOnlyRent ? Number(renewOnlyRent) : (lease ? Number(lease.rent_amount || lease.rent || lease.rent_price || 0) : undefined),
         }
         if (renewOnlyBillingCycle) payload.billing_cycle = renewOnlyBillingCycle
-        await createLease(payload)
+        const newLease = await createLease(payload)
         toast.addToast('New lease draft created (from terminated lease)', 'success')
+        // mark original as superseded locally and add new draft to state so the UI doesn't duplicate
+        try {
+          if (lease?.id) setClientReferencedPreviousIds(prev => Array.from(new Set([...prev, lease.id])))
+          setLeases(prev => [newLease, ...prev])
+          try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || lease?.tenant?.id || lease?.tenant_id } })) } catch (err) {}
+        } catch (err) { /* ignore */ }
       } else {
-        await renewLease(renewOnlyLeaseId, { start_date: renewOnlyStart || undefined, end_date: renewOnlyEnd || undefined, rent_amount: renewOnlyRent ? Number(renewOnlyRent) : undefined, billing_cycle: renewOnlyBillingCycle || undefined })
+        const renewed = await renewLease(renewOnlyLeaseId, { start_date: renewOnlyStart || undefined, end_date: renewOnlyEnd || undefined, rent_amount: renewOnlyRent ? Number(renewOnlyRent) : undefined, billing_cycle: renewOnlyBillingCycle || undefined })
         toast.addToast('Renewal created', 'success')
+        try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: renewed?.tenant?.id || renewed?.tenant_id } })) } catch (err) {}
       }
       setRenewOnlyLeaseId(''); setRenewOnlyStart(''); setRenewOnlyEnd(''); setRenewOnlyRent(''); setRenewOnlyBillingCycle('MONTHLY')
       loadLeases()
@@ -419,7 +466,7 @@ export default function Leases() {
                         </button>
                       )}
                       <button onClick={() => {
-                        // prefill renew form from this lease and open quick actions in renew mode
+                        // prefill renew form from this lease and open renew modal
                         setRenewOnlyLeaseId(l.id)
                         try {
                           const origStart = l.start_date ? new Date(l.start_date) : null
@@ -435,13 +482,12 @@ export default function Leases() {
                           setRenewOnlyStart(newStart)
                           setRenewOnlyEnd(newEnd)
                         } catch (err) { console.error('prefill renew', err) }
-                        setQuickActionMode('renew')
-                        setShowQuickActions(true)
+                        setShowRenewModal(true)
                       }} className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
                         Renew Now
                       </button>
                       {(l.status === 'ACTIVE' || l.status === 'active' || l.status === 'RENEWED') && (
-                        <button onClick={() => { setTerminateOnlyLeaseId(l.id); setQuickActionMode('terminate'); setShowQuickActions(true) }} className="px-3 py-1.5 text-xs font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">
+                        <button onClick={() => { setTerminateOnlyLeaseId(l.id); setShowTerminateModal(true) }} className="px-3 py-1.5 text-xs font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">
                           Terminate
                         </button>
                       )}
@@ -452,14 +498,7 @@ export default function Leases() {
                         <Download size={16} />
                       </button>
                       {(['DRAFT','draft','TERMINATED','terminated'].includes(String(l.status))) && (
-                        <button onClick={async () => {
-                          if (!confirm('Delete this lease? This action cannot be undone.')) return
-                          try {
-                            await deleteDraftLease(l.id)
-                            toast.addToast('Lease removed', 'success')
-                            loadLeases()
-                          } catch (e:any) { console.error('Delete failed', e); toast.addToast('Delete failed', 'error') }
-                        }} className="p-1.5 text-rose-500 hover:text-rose-700 transition-colors" title="Delete Lease">
+                        <button onClick={(e) => { e.stopPropagation(); setLeaseToDelete(l); setShowDeleteConfirm(true) }} className="p-1.5 text-rose-500 hover:text-rose-700 transition-colors" title="Delete Lease">
                           <Trash2 size={16} />
                         </button>
                       )}
@@ -477,7 +516,7 @@ export default function Leases() {
         )}
 
         {/* Quick Actions Panel (collapsible) */}
-        {showQuickActions && (
+          {showQuickActions && (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/60 p-6 space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-800 dark:text-slate-200">Quick Actions</h3>
@@ -612,6 +651,86 @@ export default function Leases() {
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="button-secondary">Cancel</button>
                 <button type="submit" className="button">Create Draft</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteConfirm && leaseToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500 mx-auto mb-6">
+              <Trash2 size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Delete Lease?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">
+              Are you sure you want to remove this lease ({leaseToDelete.lease_number || leaseToDelete.id})? This action cannot be undone.
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => { setShowDeleteConfirm(false); setLeaseToDelete(null) }} className="flex-1 px-6 py-3.5 font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl transition-all">Cancel</button>
+              <button onClick={async () => {
+                try {
+                  await deleteDraftLease(leaseToDelete.id)
+                  toast.addToast('Lease removed', 'success')
+                  setShowDeleteConfirm(false)
+                  setLeaseToDelete(null)
+                  loadLeases()
+                  try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: leaseToDelete?.tenant?.id || leaseToDelete?.tenant_id } })) } catch (err) {}
+                } catch (e:any) { console.error('Delete failed', e); toast.addToast('Delete failed', 'error') }
+              }} className="flex-1 px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-lg">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RENEW MODAL */}
+      {showRenewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+            <div className="mb-4 flex items-start justify-between">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Renew Lease</h3>
+              <button onClick={() => setShowRenewModal(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <form onSubmit={async (e) => { e.preventDefault(); await handleRenewOnly(); setShowRenewModal(false) }} className="space-y-4">
+              <div>
+                <label className="text-sm font-bold text-slate-600">Start Date</label>
+                <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="form-input w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-slate-600">End Date</label>
+                <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="form-input w-full" />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => setShowRenewModal(false)} className="px-4 py-2 rounded-lg">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Renew</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TERMINATE MODAL */}
+      {showTerminateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+            <div className="mb-4 flex items-start justify-between">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Terminate Lease</h3>
+              <button onClick={() => setShowTerminateModal(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <form onSubmit={async (e) => { e.preventDefault(); await handleTerminateOnly(); setShowTerminateModal(false) }} className="space-y-4">
+              <div>
+                <label className="text-sm font-bold text-slate-600">Termination Date</label>
+                <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="form-input w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-bold text-slate-600">Reason</label>
+                <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input w-full" />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => setShowTerminateModal(false)} className="px-4 py-2 rounded-lg">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-rose-600 text-white rounded-lg">Terminate</button>
               </div>
             </form>
           </div>

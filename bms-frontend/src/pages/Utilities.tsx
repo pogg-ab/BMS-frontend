@@ -3,8 +3,10 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import * as utilitiesApi from '../api/utilities'
 import { listUnits } from '../api/units'
+import { listBuildings } from '../api/buildings'
+import { listSites } from '../api/sites'
 import { getRoles } from '../utils/jwt'
-import { Zap, Droplets, Flame, Plus, History, Activity, Home, Search, Calendar, Hash, Tag, DollarSign, Camera, CheckCircle2, MoreVertical, Trash2, Filter, Settings2, RefreshCw } from 'lucide-react'
+import { Zap, Droplets, Flame, Plus, History, Activity, Home, Search, Calendar, Hash, Tag, DollarSign, Camera, CheckCircle2, MoreVertical, Trash2, Filter, Settings2, RefreshCw, MapPin, Building2 } from 'lucide-react'
 
 export default function Utilities() {
   const toast = useToast()
@@ -12,6 +14,16 @@ export default function Utilities() {
   const [meters, setMeters] = useState<any[]>([])
   const [readings, setReadings] = useState<any[]>([])
   const [allUnits, setAllUnits] = useState<any[]>([])
+  const [allSites, setAllSites] = useState<any[]>([])
+  const [buildingsForSite, setBuildingsForSite] = useState<any[]>([])
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
+  const [siteFilter, setSiteFilter] = useState('')
+  const [buildingFilter, setBuildingFilter] = useState('')
+  const [buildingsForFilter, setBuildingsForFilter] = useState<any[]>([])
+  const [unitsForFilter, setUnitsForFilter] = useState<any[]>([])
+  const [selectedSiteIdPage, setSelectedSiteIdPage] = useState<string | null>(null)
+  const [selectedBuildingIdPage, setSelectedBuildingIdPage] = useState<string | null>(null)
+  const [unitsForBuildingPage, setUnitsForBuildingPage] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
   const userRoles = getRoles()
@@ -27,8 +39,8 @@ export default function Utilities() {
 
   // Form States
   const [meterForm, setMeterForm] = useState({
-    serial_number: '', meter_type: 'electric', manufacturer: '', model: '',
-    unit_id: '', installation_date: '', unit_price: '',
+    serial_number: '', meter_type: 'electricity', manufacturer: '', model: '',
+    site_id: '', building_id: '', unit_id: '', installation_date: '', unit_price: '',
   })
   const [readingForm, setReadingForm] = useState({
     meter_id: '', reading_value: '', reading_unit: 'kWh',
@@ -42,6 +54,17 @@ export default function Utilities() {
     listUnits({ page: 1, per_page: 500 }).then((res: any) => {
       setAllUnits(Array.isArray(res) ? res : (res?.data || []))
     }).catch(console.error)
+
+    // load sites for meter creation cascade
+    listSites({ page: 1, per_page: 500 }).then((res: any) => {
+      const s = Array.isArray(res) ? res : (res?.data || [])
+      setAllSites(s)
+    }).catch(console.error)
+    // preload buildings so we can resolve building names from ids
+    listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
+      const b = Array.isArray(res) ? res : (res?.data || [])
+      setAllBuildings(b)
+    }).catch(console.error)
   }, [])
 
   const meterMap = React.useMemo(() => {
@@ -49,6 +72,27 @@ export default function Utilities() {
     meters.forEach(x => { if (x && x.id) m[String(x.id)] = x })
     return m
   }, [meters])
+
+  function getUnitLabel(id?: string | number | null) {
+    if (!id) return 'Shared'
+    const u = allUnits.find(x => String(x.id) === String(id))
+    if (!u) return String(id)
+    return u.unit_number || u.name || String(u.id)
+  }
+
+  function getBuildingLabel(id?: string | number | null) {
+    if (!id) return '—'
+    const b = buildingsForSite.find(x => String(x.id) === String(id)) || allBuildings.find(x => String(x.id) === String(id))
+    if (!b) return String(id)
+    return b.name || b.code || String(b.id)
+  }
+
+  function getSiteLabel(id?: string | number | null) {
+    if (!id) return ''
+    const s = allSites.find(x => String(x.id) === String(id))
+    if (!s) return String(id)
+    return s.name || s.code || String(s.id)
+  }
 
   async function loadMeters(params?: any) {
     setLoading(true)
@@ -62,6 +106,10 @@ export default function Utilities() {
         manufacturer: m.manufacturer || m.make || '',
         model: m.model || m.model_no || m.model_number || '',
         unit_id: m.unit_id || m.unit || null,
+        building_id: m.building_id || (m.building && m.building.id) || null,
+        building_name: m.building?.name || m.building_name || null,
+        site_id: m.site_id || (m.site && m.site.id) || null,
+        site_name: m.site?.name || m.site_name || null,
         installation_date: m.installation_date || m.created_at || null,
         unit_price: m.unit_price || null,
         last_reading_at: m.last_reading_at || m.last_read || null,
@@ -94,8 +142,12 @@ export default function Utilities() {
     e.preventDefault()
     try {
       await utilitiesApi.createMeter({
-        serial_no: meterForm.serial_number, type: meterForm.meter_type,
-        unit_id: String(meterForm.unit_id), unit_price: meterForm.unit_price ? parseFloat(meterForm.unit_price) : undefined
+        serial_no: meterForm.serial_number,
+        type: meterForm.meter_type,
+        site_id: meterForm.site_id || undefined,
+        building_id: meterForm.building_id || undefined,
+        unit_id: String(meterForm.unit_id),
+        unit_price: meterForm.unit_price ? parseFloat(meterForm.unit_price) : undefined,
       })
       toast.addToast('Meter commissioned successfully', 'success')
       setShowMeterForm(false); loadMeters()
@@ -160,17 +212,38 @@ export default function Utilities() {
               </div>
               <div className="flex items-center gap-2">
                  <Filter size={14} className="text-slate-400" />
+                 <select value={siteFilter} onChange={e => {
+                   const v = e.target.value; setSiteFilter(v); setBuildingFilter(''); setUnitsForFilter([]); setBuildingsForFilter([])
+                   if (!v) { setBuildingsForFilter([]); setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
+                   listBuildings({ page: 1, per_page: 500, site_id: v }).then((res: any) => { const b = Array.isArray(res) ? res : (res?.data || []); setBuildingsForFilter(b) }).catch(console.error)
+                   if (activeTab === 'meters') { loadMeters({ site_id: v }) } else { loadReadings({ site_id: v }) }
+                 }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer">
+                   <option value="">All Sites</option>
+                   {allSites.map(s => <option key={s.id} value={s.id}>{s.name || s.code || s.id}</option>)}
+                 </select>
+                 <select value={buildingFilter} onChange={e => {
+                   const v = e.target.value; setBuildingFilter(v); setUnitsForFilter([])
+                   if (!v) { setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
+                   listUnits({ building_id: v, page: 1, per_page: 500 }).then((res: any) => { setUnitsForFilter(Array.isArray(res) ? res : (res?.data || [])) }).catch(console.error)
+                   if (activeTab === 'meters') { loadMeters({ building_id: v, site_id: siteFilter }) } else { loadReadings({ building_id: v, site_id: siteFilter }) }
+                 }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer">
+                   <option value="">All Buildings</option>
+                   {buildingsForFilter.length ? buildingsForFilter.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>) : allBuildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
+                 </select>
+              </div>
+              <div className="flex items-center gap-2">
+                 <Filter size={14} className="text-slate-400" />
                  <select 
                   value={unitFilter} 
-                  onChange={e => {setUnitFilter(e.target.value); activeTab === 'meters' ? loadMeters({unit_id: e.target.value}) : loadReadings({unit_id: e.target.value})}} 
+                  onChange={e => {setUnitFilter(e.target.value); if (activeTab === 'meters') { loadMeters({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) } else { loadReadings({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) }}} 
                   className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer"
                  >
                    <option value="">All Units</option>
-                   {allUnits.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
+                   {(unitsForFilter.length ? unitsForFilter : allUnits).map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
                  </select>
               </div>
            </div>
-           <button onClick={() => activeTab === 'meters' ? loadMeters() : loadReadings()} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+           <button onClick={() => activeTab === 'meters' ? loadMeters({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined }) : loadReadings({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined })} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
              <RefreshCw size={16} />
            </button>
         </div>
@@ -204,12 +277,17 @@ export default function Utilities() {
                        <span className="text-xs font-medium text-slate-400">· {m.meter_type}</span>
                     </h4>
                     
+                    <div className="mt-3 text-xs text-slate-400 flex items-center gap-2"><MapPin size={14} className="text-slate-300" /> <span className="font-medium">{getSiteLabel(m.site_id)}</span></div>
+
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                        <Home size={14} className="text-slate-300" /> Unit {m.unit_id || 'Shared'}
+                        <Home size={14} className="text-slate-300" /> Unit {getUnitLabel(m.unit_id)}
                       </div>
                       <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                         <Settings2 size={14} className="text-slate-300" /> {m.manufacturer || 'General'} {m.model}
+                        <Building2 size={14} className="text-slate-300" /> {getBuildingLabel(m.building_id)}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                         <Tag size={14} className="text-slate-300" /> {m.manufacturer || 'General'} {m.model}
                       </div>
                       <div className="flex items-center gap-2 text-xs font-bold text-indigo-600">
                         <DollarSign size={14} /> ETB {m.unit_price || '0.00'} / unit
@@ -256,7 +334,7 @@ export default function Utilities() {
                          <div>
                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">{meter?.serial_number || `ID: ${r.meter_id}`}</h5>
                            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                             <span className="flex items-center gap-1"><Home size={10} /> Unit {meter?.unit_id || '-'}</span>
+                             <span className="flex items-center gap-1"><Home size={10} /> Unit {getUnitLabel(meter?.unit_id)}</span>
                              <span className="flex items-center gap-1"><Calendar size={10} /> {new Date(r.recorded_at).toLocaleString()}</span>
                            </div>
                          </div>
@@ -299,9 +377,41 @@ export default function Utilities() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Type</label>
                   <select value={meterForm.meter_type} onChange={e => setMeterForm({ ...meterForm, meter_type: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer">
-                    <option value="electric">⚡ Electric</option>
+                    <option value="electricity">⚡ Electric</option>
                     <option value="water">💧 Water</option>
-                    <option value="gas">🔥 Gas</option>
+                  </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site</label>
+                  <select value={meterForm.site_id} onChange={e => {
+                    const siteId = e.target.value
+                    setMeterForm({ ...meterForm, site_id: siteId, building_id: '', unit_id: '' })
+                    if (!siteId) {
+                      setBuildingsForSite([])
+                      setAllUnits([])
+                      return
+                    }
+                    listBuildings({ page: 1, per_page: 500, site_id: siteId }).then((res: any) => {
+                      const b = Array.isArray(res) ? res : (res?.data || [])
+                      setBuildingsForSite(b)
+                    }).catch(console.error)
+                  }} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer">
+                    <option value="">Select site...</option>
+                    {allSites.map(s => <option key={s.id} value={s.id}>{s.name || s.code || s.id}</option>)}
+                  </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Building</label>
+                  <select value={meterForm.building_id} onChange={e => {
+                    const buildingId = e.target.value
+                    setMeterForm({ ...meterForm, building_id: buildingId, unit_id: '' })
+                    if (!buildingId) { setAllUnits([]); return }
+                    listUnits({ building_id: buildingId, page: 1, per_page: 500 }).then((res: any) => {
+                      setAllUnits(Array.isArray(res) ? res : (res?.data || []))
+                    }).catch(console.error)
+                  }} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer">
+                    <option value="">Select building...</option>
+                    {buildingsForSite.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
                   </select>
                 </div>
                 <div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import {
   listTenants,
   registerTenant,
@@ -19,6 +19,7 @@ import * as financeApi from '../api/finance'
 import api from '../api/axios'
 
 import { listUnits } from '../api/units'
+import { listLeases } from '../api/leases'
 import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { useToast } from '../components/ToastProvider'
@@ -109,12 +110,29 @@ export default function Tenants() {
   const [announceSiteId, setAnnounceSiteId] = useState<string | number>('')
   const [msgSubject, setMsgSubject] = useState('')
   const [msgBody, setMsgBody] = useState('')
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await listTenants({ page: 1, per_page: 200 })
       const list = Array.isArray(res) ? res : (res?.data || res || [])
-      setTenants(list)
+      // Enrich tenants with their primary lease (if any) so building and status display dynamically
+      try {
+        const enriched = await Promise.all((list || []).map(async (t: any) => {
+          try {
+            const leases: any = await listLeases({ tenant_id: t.id, page: 1, per_page: 1 })
+            const first = Array.isArray(leases) ? leases[0] : (leases?.data || leases || [])[0]
+            if (first) {
+              return { ...t, lease: first, building: t.building || first.building, status: t.status || first.status }
+            }
+          } catch (err) {
+            // ignore per-tenant lease fetch errors
+          }
+          return t
+        }))
+        setTenants(enriched)
+      } catch (err) {
+        setTenants(list)
+      }
       // load buildings and sites for selects
       try { const bRes: any = await listBuildings({ page: 1, per_page: 200 }); const bList = Array.isArray(bRes) ? bRes : (bRes?.data || bRes || []); setBuildings(bList) } catch (e) { /* ignore */ }
       try { const sRes: any = await listSites({ page: 1, per_page: 200 }); const sList = Array.isArray(sRes) ? sRes : (sRes?.data || sRes || []); setSites(sList) } catch (e) { /* ignore */ }
@@ -122,9 +140,27 @@ export default function Tenants() {
       console.error(e)
       toast.addToast('Failed to load tenants', 'error')
     } finally { setLoading(false) }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  // Refresh tenant detail when leases change elsewhere in the app
+  useEffect(() => {
+    function onLeaseUpdated(e: any) {
+      try {
+        const tid = e?.detail?.tenantId
+        if (!tid) return
+        // refresh tenants list
+        try { load() } catch (err) { /* ignore */ }
+        if (detailTenant && String(detailTenant.id) === String(tid)) {
+          // reload the tenant detail to pick up latest lease/lease_value
+          openDetail(detailTenant.id)
+        }
+      } catch (err) { console.error('lease update handler', err) }
+    }
+    window.addEventListener('lease:updated', onLeaseUpdated as any)
+    return () => window.removeEventListener('lease:updated', onLeaseUpdated as any)
+  }, [detailTenant, load])
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -177,6 +213,22 @@ export default function Tenants() {
       // provided a lightweight object.
       const d: any = await getTenant(id)
       setDetailTenant(d)
+      // also fetch active lease for this tenant to display lease value dynamically
+      try {
+        const leaseList: any = await listLeases({ tenant_id: id, page: 1, per_page: 10 })
+        const leasesArr = Array.isArray(leaseList) ? leaseList : (leaseList?.data || leaseList || [])
+        // prefer ACTIVE or RENEWED lease
+        const active = leasesArr.find((x: any) => ['ACTIVE','active','RENEWED','renewed'].includes(String(x.status))) || leasesArr[0]
+        if (active) {
+          setDetailTenant(prev => ({
+            ...(prev as any),
+            lease: active,
+            // copy building/unit from lease if tenant record doesn't include them
+            unit: (prev as any)?.unit || active.unit || active.unit_id || undefined,
+            building: (prev as any)?.building || active.building || active.building_id || undefined,
+          }))
+        }
+      } catch (err) { /* ignore lease fetch errors */ }
       setActiveDetailTab('info')
 
       // load related lists (best-effort)
@@ -410,6 +462,7 @@ export default function Tenants() {
   // compute lease value to display (try multiple possible fields)
   const leaseAmountRaw = (
     (detailTenant as any)?.lease?.monthly_amount ??
+    (detailTenant as any)?.lease?.rent_amount ??
     (detailTenant as any)?.lease?.rent ??
     (detailTenant as any)?.lease?.amount ??
     (detailTenant as any)?.unit?.rent_price ??
@@ -491,7 +544,7 @@ export default function Tenants() {
 
                       {/* Building */}
                       <div className="col-span-3">
-                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">{t.building?.name || t.building_name || t.building || '—'}</div>
+                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">{t.building?.name || t.building_name || t.building || (t.lease?.building?.name) || '—'}</div>
                       </div>
 
                       {/* Status */}
@@ -501,9 +554,7 @@ export default function Tenants() {
 
                       {/* Actions */}
                       <div className="col-span-2 flex items-center justify-end gap-3">
-                        <button className="p-3.5 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 rounded-2xl transition-all">
-                          <Phone size={20} />
-                        </button>
+                        {/* phone button removed as requested */}
                         <button className={`p-3.5 rounded-2xl transition-all ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}>
                           {isSelected ? <Plus size={20} className="rotate-45" /> : <MoreVertical size={20} />}
                         </button>

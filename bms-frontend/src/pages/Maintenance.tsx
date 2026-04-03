@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { 
   Wrench, 
   Clock, 
@@ -110,6 +110,8 @@ export default function Maintenance() {
 
   const [woPhotoReported, setWoPhotoReported] = useState<File | null>(null)
 
+  const requestFormRef = useRef<HTMLDivElement | null>(null)
+
   // ── Schedules ────────────────────────────────────────────
   const [schedules, setSchedules] = useState<any[]>([])
   const [schLoading, setSchLoading] = useState(false)
@@ -125,6 +127,8 @@ export default function Maintenance() {
   useEffect(() => {
     loadLookups()
     loadContractors()
+    // ensure work orders are loaded so Reports tab can compute metrics
+    loadWorkOrders()
   }, [])
 
   useEffect(() => {
@@ -179,6 +183,35 @@ export default function Maintenance() {
       toast.addToast('Failed to load work orders', 'error')
     } finally { setWoLoading(false) }
   }
+
+  // Computed report fallbacks when server report is missing or incomplete
+  const computedReport = useMemo(() => {
+    // Avg resolution time (in seconds)
+    const completedWos = workOrders.filter((wo: any) => ['COMPLETED', 'completed', 'CLOSED', 'closed'].includes(wo.status) && (wo.completed_at || wo.updated_at || wo.resolved_at || wo.request?.completed_at));
+    const durations: number[] = completedWos.map((wo: any) => {
+      const start = wo.created_at ? new Date(wo.created_at) : (wo.request?.created_at ? new Date(wo.request.created_at) : null)
+      const end = wo.completed_at ? new Date(wo.completed_at) : (wo.updated_at ? new Date(wo.updated_at) : (wo.resolved_at ? new Date(wo.resolved_at) : null))
+      if (!start || !end) return 0
+      return Math.max(0, (end.getTime() - start.getTime()) / 1000)
+    }).filter((s) => s > 0)
+    const avgResolutionTime = durations.length ? Math.round(durations.reduce((a,b) => a+b, 0) / durations.length) : 0
+
+    // Contractor stats: jobs completed and avg cost
+    const contractorMap = new Map<string, { name: string; completedOrders: number; totalCost: number }>()
+    workOrders.forEach((wo: any) => {
+      if (!wo.contractor) return
+      const id = wo.contractor.id || wo.contractor_id || wo.contractor.user_id || wo.contractor.name
+      const entry = contractorMap.get(id) || { name: wo.contractor.name || 'Unknown', completedOrders: 0, totalCost: 0 }
+      if (['COMPLETED', 'completed', 'CLOSED', 'closed'].includes(wo.status)) {
+        entry.completedOrders += 1
+        entry.totalCost += Number(wo.actual_cost || wo.cost_estimate || 0)
+      }
+      contractorMap.set(id, entry)
+    })
+    const contractorStats = Array.from(contractorMap.entries()).map(([id, v]) => ({ contractor_id: id, name: v.name, completedOrders: v.completedOrders, avgCost: v.completedOrders ? Math.round((v.totalCost / v.completedOrders) * 100) / 100 : undefined }))
+
+    return { avgResolutionTime, contractorStats }
+  }, [workOrders])
 
   async function loadContractors() {
     try {
@@ -458,7 +491,7 @@ export default function Maintenance() {
       subtitle="Operations / Maintenance Board"
       searchPlaceholder="Search requests, tickets..."
       actions={
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
           <select 
             value={filterBuilding} 
             onChange={e => setFilterBuilding(e.target.value)}
@@ -467,7 +500,7 @@ export default function Maintenance() {
             <option value="">All Buildings</option>
             {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code}</option>)}
           </select>
-          <button onClick={() => setTab('requests')} className="button">
+          <button onClick={() => { setTab('requests'); setViewMode('table'); requestFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="button">
             <Plus size={16} /> New Request
           </button>
         </div>
@@ -622,7 +655,7 @@ export default function Maintenance() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Submit Request */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+                <div ref={requestFormRef} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
                   <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 tracking-tight text-lg">Submit Request</h3>
               <form onSubmit={handleSubmitRequest} className="space-y-3">
                 <div>
@@ -1045,6 +1078,13 @@ export default function Maintenance() {
                             </div>
                           ) : '-'}
                         </td>
+                        <td className="px-6 py-4 text-center text-slate-600">
+                          {wo.photos && wo.photos.length > 0 ? (
+                            <span className="text-xs font-medium">{wo.photos.length} photo{wo.photos.length > 1 ? 's' : ''}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">-</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-slate-600 font-medium">{wo.cost_estimate ? `ETB ${Number(wo.cost_estimate).toLocaleString()}` : '-'}</td>
                         <td className="px-6 py-4 text-slate-900 dark:text-white font-bold">{wo.actual_cost ? `ETB ${Number(wo.actual_cost).toLocaleString()}` : '-'}</td>
                         <td className="px-6 py-4 text-right">
@@ -1444,13 +1484,18 @@ export default function Maintenance() {
                 <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
                   <div className="text-sm text-gray-500 mb-1">Total Contractors</div>
                   <div className="text-2xl font-bold text-indigo-700">
-                    {reportData.contractorStats?.length || 0}
-                  </div>
+                      {(reportData?.contractorStats?.length as number) || computedReport.contractorStats.length || 0}
+                    </div>
                 </div>
                 <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6 text-center">
                   <div className="text-sm text-gray-500 mb-1">Completed Orders</div>
                   <div className="text-2xl font-bold text-green-700">
-                    {reportData.contractorStats?.reduce((sum: number, c: any) => sum + (c.completedOrders || 0), 0) || 0}
+                    {(
+                      (reportData?.contractorStats?.reduce((sum: number, c: any) => sum + (c.completedOrders || 0), 0) as number) ||
+                      (computedReport.contractorStats.length ? computedReport.contractorStats.reduce((s: number, c: any) => s + (c.completedOrders || 0), 0) : 0) ||
+                      workOrders.filter((wo: any) => ['COMPLETED', 'completed', 'CLOSED', 'closed'].includes(wo.status)).length ||
+                      0
+                    )}
                   </div>
                 </div>
               </div>
@@ -1458,7 +1503,7 @@ export default function Maintenance() {
               {/* Contractor Performance */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Contractor Performance</h3>
-                {reportData.contractorStats?.length > 0 ? (
+                {(reportData?.contractorStats?.length || computedReport.contractorStats.length) > 0 ? (
                   <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
                     <table className="w-full text-sm text-left whitespace-nowrap">
                       <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
@@ -1469,11 +1514,11 @@ export default function Maintenance() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        {reportData.contractorStats.map((cs: any, i: number) => (
+                        {(reportData?.contractorStats?.length ? reportData.contractorStats : computedReport.contractorStats).map((cs: any, i: number) => (
                           <tr key={cs.contractor_id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                             <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{cs.name}</td>
                             <td className="px-6 py-4 text-emerald-600 font-semibold text-lg">{cs.completedOrders}</td>
-                            <td className="px-6 py-4 text-slate-700 font-mono">{cs.avgCost ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
+                            <td className="px-6 py-4 text-slate-700 font-mono">{(cs.avgCost || cs.avgCost === 0) ? `ETB ${Number(cs.avgCost).toLocaleString()}` : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
