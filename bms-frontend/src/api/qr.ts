@@ -27,8 +27,18 @@ export async function deactivateQr(id: string) {
 }
 
 export function getExportPdfUrl(ids?: string[]) {
-  const params = ids?.length ? `?ids=${ids.join(',')}` : ''
-  return `/qr/export/pdf${params}`
+  const q = ids ? `?ids=${ids.join(',')}` : ''
+  return `${api.defaults.baseURL}/qr/export/pdf${q}`
+}
+
+export async function getStats() {
+  const res = await api.get('/qr/analytics/stats')
+  return res.data
+}
+
+export async function getLogs(limit = 100) {
+  const res = await api.get(`/qr/analytics/logs?limit=${limit}`)
+  return res.data
 }
 
 export async function exportPdf(ids?: string[]) {

@@ -3,7 +3,8 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import * as qrApi from '../api/qr'
 import { listUnits } from '../api/units'
-import { QrCode, TrendingUp, Settings2, Download, Trash2, CheckCircle2, XCircle, Search, Home, Building2, ExternalLink, Activity, Info, BarChart3, Plus } from 'lucide-react'
+import { listBuildings } from '../api/buildings'
+import { QrCode, TrendingUp, Settings2, Download, Trash2, CheckCircle2, XCircle, Search, Home, Building2, ExternalLink, Activity, Info, BarChart3, Plus, Building } from 'lucide-react'
 
 type Tab = 'manage' | 'analytics'
 
@@ -13,9 +14,12 @@ export default function QR() {
 
   // Lookups
   const [units, setUnits] = useState<any[]>([])
+  const [buildings, setBuildings] = useState<any[]>([])
+  const [issueMode, setIssueMode] = useState<'unit' | 'building'>('unit')
 
   // Generate
   const [selectedUnitId, setSelectedUnitId] = useState('')
+  const [selectedBuildingId, setSelectedBuildingId] = useState('')
   const [generating, setGenerating] = useState(false)
   const [lastGenerated, setLastGenerated] = useState<any>(null)
 
@@ -23,12 +27,15 @@ export default function QR() {
   const [analyticsData, setAnalyticsData] = useState<any[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dynamicStats, setDynamicStats] = useState<any>(null)
+  const [logs, setLogs] = useState<any[]>([])
 
   // Selected for export
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadUnits()
+    loadBuildings()
     loadAnalytics()
   }, [])
 
@@ -40,11 +47,25 @@ export default function QR() {
     } catch (e: any) { console.error('load units', e) }
   }
 
+  async function loadBuildings() {
+    try {
+      const b: any = await listBuildings({ page: 1, per_page: 500 })
+      const bl = Array.isArray(b) ? b : (b?.data || [])
+      setBuildings(bl)
+    } catch (e: any) { console.error('load buildings', e) }
+  }
+
   async function loadAnalytics() {
     setAnalyticsLoading(true)
     try {
-      const data = await qrApi.getAnalytics(100)
+      const [data, s, l] = await Promise.all([
+        qrApi.getAnalytics(100),
+        qrApi.getStats(),
+        qrApi.getLogs(10)
+      ])
       setAnalyticsData(Array.isArray(data) ? data : [])
+      setDynamicStats(s)
+      setLogs(l)
     } catch (e: any) {
       console.error(e)
       toast.addToast('Failed to load QR deployment data', 'error')
@@ -53,12 +74,17 @@ export default function QR() {
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedUnitId) { toast.addToast('Please select a target unit', 'error'); return }
+    if (issueMode === 'unit' && !selectedUnitId) { toast.addToast('Please select a target unit', 'error'); return }
+    if (issueMode === 'building' && !selectedBuildingId) { toast.addToast('Please select a target building', 'error'); return }
+    
     setGenerating(true)
     try {
-      const data = await qrApi.generateQr(selectedUnitId)
+      const data = issueMode === 'unit' 
+        ? await qrApi.generateQr(selectedUnitId)
+        : await qrApi.generateBuildingQr(selectedBuildingId)
+      
       setLastGenerated(data)
-      toast.addToast('Digital twin QR generated', 'success')
+      toast.addToast(`${issueMode === 'unit' ? 'Unit' : 'Building'} QR generated`, 'success')
       loadAnalytics()
     } catch (e: any) {
       toast.addToast(e?.response?.data?.message || 'Generation failed', 'error')
@@ -98,7 +124,7 @@ export default function QR() {
     qr.building?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const stats = {
+  const summary = {
     total: analyticsData.length,
     active: analyticsData.filter(q => q.status === 'active').length,
     scans: analyticsData.reduce((s, q) => s + (q.scan_count || 0), 0)
@@ -135,7 +161,7 @@ export default function QR() {
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Issued Tokens</p>
-              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</h4>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{dynamicStats ? dynamicStats.totalScans : analyticsData.length}</h4>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
@@ -144,7 +170,7 @@ export default function QR() {
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Links</p>
-              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.active}</h4>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{summary.active}</h4>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
@@ -153,7 +179,7 @@ export default function QR() {
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Scanning Traffic</p>
-              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.scans}</h4>
+              <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{dynamicStats ? dynamicStats.totalScans : summary.scans}</h4>
             </div>
           </div>
         </div>
@@ -166,21 +192,49 @@ export default function QR() {
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
                   <Plus size={18} className="text-indigo-600" /> Token Issuance
                 </h3>
+                <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-xl mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setIssueMode('unit')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${issueMode === 'unit' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  >
+                    <Home size={12} /> Unit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueMode('building')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${issueMode === 'building' ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  >
+                    <Building size={12} /> Building
+                  </button>
+                </div>
                 <form onSubmit={handleGenerate} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Target Unit</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                      Target {issueMode === 'unit' ? 'Unit' : 'Building'}
+                    </label>
                     <div className="relative">
-                      <Home size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      {issueMode === 'unit' ? (
+                        <Home size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      ) : (
+                        <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      )}
                       <select
-                        value={selectedUnitId}
-                        onChange={e => setSelectedUnitId(e.target.value)}
+                        value={issueMode === 'unit' ? selectedUnitId : selectedBuildingId}
+                        onChange={e => issueMode === 'unit' ? setSelectedUnitId(e.target.value) : setSelectedBuildingId(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
                         required
                       >
-                        <option value="">Select a unit...</option>
-                        {units.map((u: any) => (
-                          <option key={u.id} value={String(u.id)}>Unit {u.unit_number || u.id}</option>
-                        ))}
+                        <option value="">Select a {issueMode === 'unit' ? 'unit' : 'building'}...</option>
+                        {issueMode === 'unit' ? (
+                          units.map((u: any) => (
+                            <option key={u.id} value={String(u.id)}>Unit {u.unit_number || u.id}</option>
+                          ))
+                        ) : (
+                          buildings.map((b: any) => (
+                            <option key={b.id} value={String(b.id)}>{b.name}</option>
+                          ))
+                        )}
                       </select>
                     </div>
                   </div>
@@ -283,6 +337,11 @@ export default function QR() {
                                }`}>
                                  {qr.status}
                                </span>
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                                 qr.unit_id ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                               }`}>
+                                 {qr.unit_id ? 'UNIT' : 'BLDG'}
+                               </span>
                              </div>
                              <div className="flex items-center gap-3 mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                <div className="flex items-center gap-1"><Home size={10} /> {qr.unit_number || '-'}</div>
@@ -307,6 +366,44 @@ export default function QR() {
                   </div>
                 )}
               </div>
+
+              {/* Audit Trail Section */}
+              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-8 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                  <Activity size={20} className="text-emerald-500" /> Recent Activity Audit
+                </h3>
+                <div className="space-y-4">
+                  {logs.length === 0 ? (
+                    <div className="py-10 text-center text-slate-400 italic text-sm">No recent scanning activity recorded.</div>
+                  ) : (
+                    logs.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between py-3 border-b border-slate-50 dark:border-slate-700 last:border-0">
+                        <div className="flex items-center gap-4">
+                           <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                             <CheckCircle2 size={16} />
+                           </div>
+                           <div>
+                             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                               Scan detected for <span className="text-indigo-600 font-mono">{log.qr?.token || 'Unknown'}</span>
+                             </p>
+                             <p className="text-[10px] text-slate-400 font-medium">
+                               {log.device_type} • {log.ip_address}
+                             </p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                             {new Date(log.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                           </p>
+                           <p className="text-[9px] text-slate-300">
+                             {new Date(log.scanned_at).toLocaleDateString()}
+                           </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -321,15 +418,23 @@ export default function QR() {
                     <div className="bg-slate-50 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 uppercase tracking-widest">LAST 30 DAYS</div>
                  </div>
                  <div className="h-64 flex items-end gap-1.5 pt-4">
-                    {[34, 45, 23, 56, 78, 45, 34, 23, 67, 89, 45, 34, 56, 23, 45, 67, 89, 34, 23, 56].map((h, i) => (
-                      <div 
-                        key={i} 
-                        className="flex-1 bg-indigo-500/10 rounded-t-sm relative group"
-                        style={{ height: `${h}%` }}
-                      >
-                        <div className="absolute inset-0 bg-indigo-500 opacity-20 group-hover:opacity-100 transition-all rounded-t-sm" />
-                      </div>
-                    ))}
+                    {(dynamicStats?.timeSeries || [34, 45, 23, 56, 78, 45, 34, 23, 67, 89, 45, 34, 56, 23, 45, 67, 89, 34, 23, 56]).map((day: any, i: number) => {
+                      const count = day.count ?? day
+                      const max = dynamicStats?.timeSeries ? Math.max(...dynamicStats.timeSeries.map((d: any) => d.count), 1) : 100
+                      const h = (count / max) * 100
+                      return (
+                        <div 
+                          key={i} 
+                          className="flex-1 bg-indigo-500/10 rounded-t-sm relative group"
+                          style={{ height: `${h}%` }}
+                        >
+                          <div className="absolute inset-0 bg-indigo-500 opacity-20 group-hover:opacity-100 transition-all rounded-t-sm" />
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {day.day || `Day ${i}`}: {count}
+                          </div>
+                        </div>
+                      )
+                    })}
                  </div>
                  <div className="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                    <span>30 Days Ago</span>
@@ -379,34 +484,27 @@ export default function QR() {
                    <p className="text-slate-400 text-sm leading-relaxed">Geographic heatmaps of scanning activity allow security teams to monitor physical presence across diverse sites in real-time.</p>
                  </div>
                  <div className="flex-1 w-full grid grid-cols-2 gap-4">
-                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
-                      <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Highest Density</h4>
-                      <p className="text-lg font-bold text-white">Central District</p>
-                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 w-[85%]" />
-                      </div>
-                   </div>
-                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
-                      <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Peak Hour</h4>
-                      <p className="text-lg font-bold text-white">14:00 - 16:00</p>
-                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-rose-500 w-[62%]" />
-                      </div>
-                   </div>
-                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
-                      <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Conversion Rate</h4>
-                      <p className="text-lg font-bold text-white">2.4 Scans / Day</p>
-                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 w-[45%]" />
-                      </div>
-                   </div>
-                   <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/5">
-                      <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Uptime</h4>
-                      <p className="text-lg font-bold text-white">99.98%</p>
-                      <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 w-[99%]" />
-                      </div>
-                   </div>
+                       <div className="backdrop-blur-md rounded-2xl p-6 border border-white/5 bg-indigo-500/10">
+                          <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Unique Scans</h4>
+                          <p className="text-lg font-bold text-white">{dynamicStats?.uniqueScans || 0}</p>
+                          <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500" style={{ width: `${(dynamicStats?.uniqueScans / (dynamicStats?.totalScans || 1)) * 100}%` }} />
+                          </div>
+                       </div>
+                       <div className="backdrop-blur-md rounded-2xl p-6 border border-white/5 bg-rose-500/10">
+                          <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Total Audit Trail</h4>
+                          <p className="text-lg font-bold text-white">{dynamicStats?.totalScans || 0} events</p>
+                       </div>
+                       <div className="backdrop-blur-md rounded-2xl p-6 border border-white/5 bg-emerald-500/10">
+                          <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Mobile Traffic</h4>
+                          <p className="text-lg font-bold text-white">
+                            {dynamicStats?.devices?.find((d: any) => d.label === 'Mobile')?.value || 0}
+                          </p>
+                       </div>
+                       <div className="backdrop-blur-md rounded-2xl p-6 border border-white/5 bg-amber-500/10">
+                          <h4 className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Conversion</h4>
+                          <p className="text-lg font-bold text-white">High</p>
+                       </div>
                  </div>
                </div>
             </div>

@@ -19,3 +19,8 @@ export async function disableJob(jobName: string) {
   const res = await api.patch(`/automations/${jobName}/disable`)
   return res.data
 }
+
+export async function getLogs() {
+  const res = await api.get('/automations/logs')
+  return res.data
+}

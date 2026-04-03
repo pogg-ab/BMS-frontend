@@ -14,6 +14,8 @@ interface UnitCard {
   bathrooms: number
   rent_price: number
   image_url?: string
+  amenities: { id: string; name: string }[]
+  assets: { id: string; name: string; category: string }[]
 }
 
 interface BuildingInfo {
@@ -130,11 +132,19 @@ export default function PublicBuildingView() {
                     {u.bedrooms != null && <span>🛏️ {u.bedrooms} bed</span>}
                     {u.bathrooms != null && <span>🚿 {u.bathrooms} bath</span>}
                   </div>
-                  {u.rent_price != null && (
                     <p style={styles.price}>
                       ETB {Number(u.rent_price).toLocaleString()}<span style={{ fontSize: 12, color: '#94a3b8' }}>/mo</span>
                     </p>
-                  )}
+
+                  {/* Highlights */}
+                  <div style={styles.highlights}>
+                    {u.amenities?.slice(0, 2).map(a => (
+                      <span key={a.id} style={styles.hBadge}>✨ {a.name}</span>
+                    ))}
+                    {u.assets?.slice(0, 2).map(a => (
+                      <span key={a.id} style={styles.hBadge}>📦 {a.name}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
@@ -260,7 +270,28 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#cbd5e1',
     marginBottom: 8,
   },
-  price: { margin: 0, fontSize: 17, fontWeight: 700, color: '#a5f3fc' },
+  price: {
+    margin: 0,
+    fontSize: 17,
+    fontWeight: 700,
+    color: '#a5f3fc',
+    marginBottom: 8,
+  },
+  highlights: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  hBadge: {
+    fontSize: 9,
+    fontWeight: 700,
+    background: 'rgba(255,255,255,0.05)',
+    padding: '2px 8px',
+    borderRadius: 6,
+    color: '#94a3b8',
+    textTransform: 'uppercase' as const,
+  },
   footer: {
     textAlign: 'center' as const,
     padding: '32px 0 16px',

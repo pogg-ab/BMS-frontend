@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { getDashboard } from '../api/reports'
+import { getDashboard, getFinancialTrend } from '../api/reports'
+import { getAuditLogs } from '../api/audit'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import { getRoles } from '../utils/jwt'
@@ -8,44 +9,70 @@ import {
 } from 'recharts'
 import { FileSignature, Wrench, UserCheck, ChevronRight, HelpCircle, Activity, ShieldAlert, ArrowUpRight, ArrowDownRight, Droplets } from 'lucide-react'
 
-// Mock activity feed based on design
-const mockActivities = [
-  { id: 1, type: 'lease', title: 'New Lease: Suite 402', time: '2 mins ago', subtitle: 'TechFlow Inc.', isCritical: false },
-  { id: 2, type: 'visitor', title: 'Visitor Checked In', time: '14 mins ago', subtitle: 'Lobby Reception', isCritical: false },
-  { id: 3, type: 'alert', title: 'HVAC Alert: Zone 3', time: '45 mins ago', subtitle: 'Critical Status', isCritical: true },
-  { id: 4, type: 'finance', title: 'Payment Received', time: '1 hour ago', subtitle: 'Unit 12B', isCritical: false },
-  { id: 5, type: 'system', title: 'System Backup Done', time: '3 hours ago', subtitle: 'Automated', isCritical: false },
-  { id: 6, type: 'lease', title: 'Contract Renewed', time: '5 hours ago', subtitle: 'Suite 101', isCritical: false },
-]
+
 
 export default function Dashboard() {
   const toast = useToast()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [revenueTrend, setRevenueTrend] = useState<any[]>([])
+  const [activities, setActivities] = useState<any[]>([])
 
   useEffect(() => {
-    setLoading(true)
-    getDashboard()
-      .then(d => setData(d))
-      .catch((e) => { console.error('dashboard', e); toast.addToast('Failed to load dashboard', 'error') })
-      .finally(() => setLoading(false))
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const [dashboardData, trendData, auditLogs] = await Promise.all([
+          getDashboard(),
+          getFinancialTrend(),
+          getAuditLogs()
+        ])
+        
+        setData(dashboardData)
+        setRevenueTrend(trendData || [])
+        
+        // Map audit logs to activity feed format
+        const mappedActivities = (auditLogs || []).slice(0, 10).map((log: any) => {
+          const isCritical = log.action === 'DELETE' || log.action?.includes('CRITICAL');
+          const timeLabel = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          
+          return {
+            id: log.id,
+            type: log.module?.toLowerCase() || 'system',
+            title: `${log.action} ${log.module || 'System'}`,
+            time: timeLabel,
+            subtitle: log.user?.name || 'Admin',
+            isCritical
+          }
+        })
+        setActivities(mappedActivities)
+
+      } catch (e) {
+        console.error('dashboard-fetch', e)
+        toast.addToast('Failed to load real-time intelligence', 'error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   // Data mapping for charts
-  const occupancyRate = loading ? 0 : (data?.occupancy_rate || 94.2)
+  const occupancyRate = loading ? 0 : Number(data?.occupancy_rate || 0).toFixed(1)
   const occupancyData = [
-    { name: 'Occupied Units', value: data?.occupied_leases || 94, color: '#4f46e5' },
-    { name: 'Vacant Units', value: (data?.total_units || 100) - (data?.occupied_leases || 94), color: '#e2e8f0' }
+    { name: 'Occupied Units', value: data?.occupied_leases || 0, color: '#4f46e5' },
+    { name: 'Vacant Units', value: Math.max(0, (data?.total_units || 0) - (data?.occupied_leases || 0)), color: '#e2e8f0' }
   ]
 
-  // Mock revenue chart data
-  const revenueData = [
-    { month: 'JAN', value: 400 },
-    { month: 'FEB', value: 300 },
-    { month: 'MAR', value: 550 },
-    { month: 'APR', value: 700 },
-    { month: 'MAY', value: 800 },
-    { month: 'JUN', value: 1200 }
+  // Dynamic revenue chart data from backend
+  const revenueData = loading ? [] : revenueTrend.map((t: any) => ({
+    month: t.month.split('-')[1] || t.month, // Convert YYYY-MM to MM or keep as is
+    value: t.total
+  }))
+
+  const finalRevenueData = revenueData.length > 0 ? revenueData : [
+    { month: 'N/A', value: 0 }
   ]
 
   const formatMoney = (val: number) => {
@@ -113,7 +140,13 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-baseline gap-1">
                   <h3 className="text-4xl font-extrabold tracking-tight leading-none">
-                    {loading ? '...' : (data?.total_revenue ? (data.total_revenue / 1000000).toFixed(2) : '1.84')}M
+                    {loading ? '...' : (
+                      data?.total_revenue >= 1000000 
+                        ? (data.total_revenue / 1000000).toFixed(2) + 'M' 
+                        : (data?.total_revenue >= 1000 
+                          ? (data.total_revenue / 1000).toFixed(1) + 'K' 
+                          : data?.total_revenue || 0)
+                    )}
                   </h3>
                   <span className="text-lg font-bold text-white/70 tracking-wider">ETB</span>
                 </div>
@@ -129,7 +162,7 @@ export default function Dashboard() {
                 <div>
                   <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase block mb-1">Active Leases</span>
                   <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none">
-                    {loading ? '-' : (data?.occupied_leases || 128)}
+                    {loading ? '-' : (data?.occupied_leases ?? 0)}
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -140,7 +173,7 @@ export default function Dashboard() {
                 <div>
                   <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase block mb-1">Pending Maint.</span>
                   <div className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none text-rose-600">
-                    {loading ? '-' : 14}
+                    {loading ? '-' : (data?.pending_maintenance_count || 0)}
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -164,7 +197,7 @@ export default function Dashboard() {
               </div>
               <div className="h-48 w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenueData} barSize={32}>
+                  <BarChart data={finalRevenueData} barSize={32}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="month" 
@@ -181,8 +214,8 @@ export default function Dashboard() {
                       dataKey="value" 
                       radius={[6, 6, 6, 6]}
                     >
-                      {revenueData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === revenueData.length -1 ? '#4f46e5' : '#e0e7ff'} />
+                      {finalRevenueData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === finalRevenueData.length -1 ? '#4f46e5' : '#e0e7ff'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -279,7 +312,12 @@ export default function Dashboard() {
         <div className="xl:col-span-1 bg-white dark:bg-slate-800 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm p-6 flex flex-col h-full overflow-hidden">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">Activity<br/>Pulse</h3>
-            <button className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800">View All</button>
+            <button 
+              onClick={() => window.location.href = '/login-history'}
+              className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800"
+            >
+              View All
+            </button>
           </div>
 
           <div className="flex-1 relative">
@@ -287,7 +325,7 @@ export default function Dashboard() {
             <div className="absolute left-2.5 top-2 bottom-0 w-px bg-slate-100 dark:bg-slate-700 line"></div>
 
             <div className="space-y-6 relative">
-              {mockActivities.map((act) => (
+              {activities.length > 0 ? activities.map((act) => (
                 <div key={act.id} className="relative flex gap-4 pr-2">
                   {/* Timeline Node */}
                   <div className={`w-5 h-5 rounded-full border-[3px] border-white dark:border-slate-800 flex-shrink-0 z-10 ${act.isCritical ? 'bg-rose-500' : 'bg-indigo-600'}`}></div>
@@ -300,7 +338,11 @@ export default function Dashboard() {
                     <p className="text-[11px] font-medium text-slate-500 mt-1 uppercase tracking-wider">{act.time} • {act.subtitle}</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-10">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No recent activity</p>
+                </div>
+              )}
             </div>
           </div>
 

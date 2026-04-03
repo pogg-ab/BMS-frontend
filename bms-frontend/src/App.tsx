@@ -27,6 +27,7 @@ import Utilities from './pages/Utilities'
 import Automations from './pages/Automations'
 import Notifications from './pages/Notifications'
 import PublicBuildingView from './pages/PublicBuildingView'
+import PublicUnitView from './pages/PublicUnitView'
 import { InspectionWorkflow } from './pages/InspectionWorkflow'
 import Assets from './pages/Assets'
 import { LayoutProvider, useLayout } from './contexts/LayoutContext'
@@ -65,6 +66,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/public/building/:token" element={<PublicBuildingView />} />
+      <Route path="/public/q/:token" element={<PublicUnitView />} />
       <Route element={<AuthLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/inspection/:id" element={<InspectionWorkflow />} />
