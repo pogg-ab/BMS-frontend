@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import {
   listTenants,
   registerTenant,
@@ -25,11 +25,11 @@ import { listSites } from '../api/sites'
 import { useToast } from '../components/ToastProvider'
 import PageLayout from '../components/PageLayout'
 import StatusBadge from '../components/StatusBadge'
-import { 
-  Plus, 
-  Search, 
-  Mail, 
-  Phone, 
+import {
+  Plus,
+  Search,
+  Mail,
+  Phone,
   MoreVertical,
   MoreHorizontal,
   Edit3,
@@ -46,13 +46,46 @@ import {
   Briefcase,
   Hash,
   Clock,
-  Eye
+  Eye,
+  X
 } from 'lucide-react'
 
 
-interface Tenant { id: string | number; name?: string; first_name?: string; last_name?: string; email?: string; phone?: string; status?: string; tin_number?: string; vat_reg_number?: string; created_at?: string; tenant_type?: string; profile_image?: string }
+interface Tenant {
+  id: string | number;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  tin_number?: string;
+  vat_reg_number?: string;
+  created_at?: string;
+  tenant_type?: string;
+  profile_image?: string;
+  profile_image_verified?: boolean;
+  license_image_verified?: boolean;
+  id_image_verified?: boolean;
+  id_image?: string;
+  license_image?: string;
+  detailed_address?: string;
+  building_name?: string;
+  unit_number?: string;
+  lease?: any;
+  unit?: any;
+  building?: any;
+  user?: { id: string; name: string; email: string };
+}
 // documents removed from UI — document interface omitted
-interface Message { id: number; subject?: string; body?: string }
+interface Message {
+  id: number | string;
+  sender?: { id: string | number; name: string; email: string };
+  receiver?: { id: string | number; name: string; email: string };
+  content: string;
+  sent_at?: string;
+  read_status?: boolean;
+}
 
 export default function Tenants() {
   const toast = useToast()
@@ -87,6 +120,9 @@ export default function Tenants() {
   const [sites, setSites] = useState<any[]>([])
   const [selectedTenantId, setSelectedTenantId] = useState<string | number>('')
   const [showFullModal, setShowFullModal] = useState(false)
+  const [showNoticeModal, setShowNoticeModal] = useState(false)
+  const [noticeContent, setNoticeContent] = useState('')
+  const [sendingNotice, setSendingNotice] = useState(false)
   const [applications, setApplications] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [docsList, setDocsList] = useState<any[]>([])
@@ -144,7 +180,20 @@ export default function Tenants() {
 
   useEffect(() => { load() }, [load])
 
-  // Refresh tenant detail when leases change elsewhere in the app
+  useEffect(() => {
+    async function fetchMessages() {
+      if (detailTenant?.id && activeDetailTab === 'messages') {
+        try {
+          const res = await getMessages(detailTenant.id)
+          setMessages(Array.isArray(res) ? res : (res?.data || []))
+        } catch (e) {
+          console.error('Failed to load messages', e)
+          setMessages([])
+        }
+      }
+    }
+    fetchMessages()
+  }, [detailTenant?.id, activeDetailTab])  // Refresh tenant detail when leases change elsewhere in the app
   useEffect(() => {
     function onLeaseUpdated(e: any) {
       try {
@@ -218,17 +267,32 @@ export default function Tenants() {
         const leaseList: any = await listLeases({ tenant_id: id, page: 1, per_page: 10 })
         const leasesArr = Array.isArray(leaseList) ? leaseList : (leaseList?.data || leaseList || [])
         // prefer ACTIVE or RENEWED lease
-        const active = leasesArr.find((x: any) => ['ACTIVE','active','RENEWED','renewed'].includes(String(x.status))) || leasesArr[0]
+        const active = leasesArr.find((x: any) => ['ACTIVE', 'active', 'RENEWED', 'renewed'].includes(String(x.status)))
         if (active) {
           setDetailTenant(prev => ({
             ...(prev as any),
             lease: active,
-            // copy building/unit from lease if tenant record doesn't include them
-            unit: (prev as any)?.unit || active.unit || active.unit_id || undefined,
-            building: (prev as any)?.building || active.building || active.building_id || undefined,
+            unit: active.unit || active.unit_id || undefined,
+            building: active.building || active.building_id || undefined,
+          }))
+        } else {
+          // Clear lease info if no active lease found
+          setDetailTenant(prev => ({
+            ...(prev as any),
+            lease: undefined,
+            unit: undefined,
+            building: undefined,
           }))
         }
-      } catch (err) { /* ignore lease fetch errors */ }
+      } catch (err) {
+        // Clear lease info on error
+        setDetailTenant(prev => ({
+          ...(prev as any),
+          lease: undefined,
+          unit: undefined,
+          building: undefined,
+        }))
+      }
       setActiveDetailTab('info')
 
       // load related lists (best-effort)
@@ -243,7 +307,22 @@ export default function Tenants() {
       console.error(e)
       // Fallback: if a lightweight object was passed, display it
       if (isObj) setDetailTenant(idOrTenant as Tenant)
-      toast.addToast('Failed to load tenant details (showing basic info)', 'warning')
+      toast.addToast('Failed to load tenant details (showing basic info)', 'info')
+    }
+  }
+
+  async function handleSendNotice() {
+    if (!noticeContent.trim() || !selectedTenantId) return
+    setSendingNotice(true)
+    try {
+      await sendMessage({ tenant_id: selectedTenantId, content: noticeContent })
+      toast.addToast('Notice sent successfully', 'success')
+      setShowNoticeModal(false)
+      setNoticeContent('')
+    } catch (err: any) {
+      toast.addToast(err?.response?.data?.message || 'Failed to send notice', 'error')
+    } finally {
+      setSendingNotice(false)
     }
   }
 
@@ -289,10 +368,10 @@ export default function Tenants() {
     }
   }
 
-  async function handleListDocs() {
+  async function handleListDocs(tenantIdOverride?: string | number) {
     try {
       // If tenantId overridden, use it; else use selectedTenantId
-      const tenantId = arguments[0] || selectedTenantId
+      const tenantId = tenantIdOverride || selectedTenantId
       if (tenantId) console.debug('Listing documents for tenant (tenant_id)', tenantId)
       else console.debug('Listing all documents (no tenant filter)')
       const params = tenantId ? { tenant_id: tenantId } : undefined
@@ -429,7 +508,7 @@ export default function Tenants() {
     loadUnits()
   }, [appBuildingId])
 
-  
+
 
   async function handleCreateAnnouncement(e: React.FormEvent) {
     e.preventDefault()
@@ -472,6 +551,25 @@ export default function Tenants() {
   )
   const formattedLease = leaseAmountRaw ? `${new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(Number(leaseAmountRaw))} / mo` : '—'
 
+  const leaseStats = useMemo(() => {
+    if (!detailTenant) return null;
+    const l = (detailTenant as any).lease || ((detailTenant as any).leases || []).find((x: any) => x.status?.toUpperCase() === 'ACTIVE' || x.status?.toUpperCase() === 'RENEWED') || ((detailTenant as any).leases || [])[0];
+    if (!l?.end_date) return null;
+
+    const end = new Date(l.end_date).getTime();
+    const diffDays = Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
+
+    let progress = 100;
+    if (l.start_date) {
+      const start = new Date(l.start_date).getTime();
+      const total = end - start;
+      const elapsed = Date.now() - start;
+      progress = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 100;
+    }
+
+    return { daysLeft: diffDays, progress };
+  }, [detailTenant]);
+
   return (
     <PageLayout
       title="Tenant Management"
@@ -490,7 +588,7 @@ export default function Tenants() {
           </div>
         ) : (
           <div className={`grid grid-cols-1 ${selectedTenantId ? 'xl:grid-cols-12' : ''} gap-10 transition-all duration-500 items-start`}>
-            
+
             {/* Tenant List Section */}
             <div className={`${selectedTenantId ? 'xl:col-span-8' : 'xl:col-span-12'}`}>
 
@@ -505,8 +603,8 @@ export default function Tenants() {
                 {tenants.map(t => {
                   const isSelected = String(t.id) === String(selectedTenantId)
                   return (
-                    <div 
-                      key={t.id} 
+                    <div
+                      key={t.id}
                       onClick={() => {
                         if (isSelected) {
                           setSelectedTenantId('')
@@ -515,11 +613,10 @@ export default function Tenants() {
                           openDetail(t)
                         }
                       }}
-                      className={`group grid grid-cols-12 items-center px-10 py-7 rounded-[32px] border transition-all duration-300 cursor-pointer relative overflow-hidden ${
-                        isSelected 
-                          ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-200 dark:shadow-none' 
-                          : 'bg-white/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 shadow-sm hover:shadow-xl'
-                      }`}
+                      className={`group grid grid-cols-12 items-center px-10 py-7 rounded-[32px] border transition-all duration-300 cursor-pointer relative overflow-hidden ${isSelected
+                        ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-200 dark:shadow-none'
+                        : 'bg-white/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 shadow-sm hover:shadow-xl'
+                        }`}
                     >
                       {/* Selection Indigo Bar */}
                       {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600"></div>}
@@ -527,9 +624,9 @@ export default function Tenants() {
                       {/* Identity */}
                       <div className="col-span-5 flex items-center gap-6">
                         <div className="w-16 h-16 rounded-[24px] overflow-hidden flex items-center justify-center shadow-sm">
-                          <img 
-                            src={`https://ui-avatars.com/api/?name=${t.first_name}+${t.last_name || ''}&background=f1f5f9&color=64748b&bold=true`} 
-                            className="w-full h-full object-cover" 
+                          <img
+                            src={`https://ui-avatars.com/api/?name=${t.first_name}+${t.last_name || ''}&background=f1f5f9&color=64748b&bold=true`}
+                            className="w-full h-full object-cover"
                           />
                         </div>
                         <div>
@@ -549,7 +646,7 @@ export default function Tenants() {
 
                       {/* Status */}
                       <div className="col-span-2 flex justify-center ml-[-40px]">
-                        <StatusBadge status={t.status || 'ACTIVE'} size="md" />
+                        <StatusBadge status={t.lease?.status || 'NO LEASE'} size="md" />
                       </div>
 
                       {/* Actions */}
@@ -569,17 +666,19 @@ export default function Tenants() {
             {selectedTenantId && detailTenant && (
               <div className="xl:col-span-4 animate-in slide-in-from-right duration-500">
                 <div className="sticky top-24 bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700/60 p-8 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)]">
-                  
+
                   {/* Sidebar Header Area */}
                   <div className="relative mb-8">
-                    <div className="absolute top-2 right-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-[0.2em] rounded-full border border-amber-100 dark:border-amber-900/50 z-10">
-                      Due in 14 Days
-                    </div>
+                    {leaseStats && (
+                      <div className={`absolute top-2 right-2 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-full border z-10 ${leaseStats.daysLeft < 0 ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/50' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50'}`}>
+                        {leaseStats.daysLeft < 0 ? `Expired ~${Math.abs(leaseStats.daysLeft)} Days` : `Due in ${leaseStats.daysLeft} Days`}
+                      </div>
+                    )}
                     <div className="w-36 h-36 mx-auto rounded-[35px] overflow-hidden border-4 border-slate-50 dark:border-slate-900 shadow-lg">
                       <img
                         src={
                           detailTenant.profile_image
-                            ? `http://localhost:3000${detailTenant.profile_image}`
+                            ? `http://localhost:2546${detailTenant.profile_image}`
                             : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=6366f1&color=fff&size=512&bold=true`
                         }
                         className="w-full h-full object-cover"
@@ -601,12 +700,12 @@ export default function Tenants() {
                   {/* Property Identity Grid */}
                   <div className="grid grid-cols-2 gap-3 mb-8">
                     <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
-                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Building</div>
-                           <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—'}</div>
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Building</div>
+                      <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—'}</div>
                     </div>
                     <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-[24px] border border-slate-100 dark:border-slate-800">
-                       <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Unit</div>
-                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name || '—'}</div>
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Unit</div>
+                      <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name || '—'}</div>
                     </div>
                   </div>
 
@@ -645,13 +744,16 @@ export default function Tenants() {
 
                   {/* Action Row */}
                   <div className="flex flex-col gap-3">
-                    <button 
+                    <button
                       onClick={() => setShowFullModal(true)}
                       className="w-full py-4 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-black uppercase tracking-[0.2em] text-[10px] rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-slate-100 transition-all"
                     >
                       View Full Profile
                     </button>
-                    <button className="w-full py-4 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all">
+                    <button
+                      onClick={() => setShowNoticeModal(true)}
+                      className="w-full py-4 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all"
+                    >
                       Send Notice
                     </button>
                   </div>
@@ -706,11 +808,11 @@ export default function Tenants() {
                   </div>
                 </div>
 
-                
+
 
                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
-                    <input required type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <input required type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                 </div>
 
                 {/* Conditional Fields based on Tenant Type */}
@@ -718,13 +820,13 @@ export default function Tenants() {
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Shield size={12} className="text-indigo-500" /> Professional Documentation
                   </h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
                       <div onClick={() => idImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
                         <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
-                        {idImage ? (<img src={`http://localhost:3000${idImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={18} className="text-slate-300" />)}
+                        {idImage ? (<img src={`http://localhost:2546${idImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={18} className="text-slate-300" />)}
                       </div>
                     </div>
 
@@ -732,7 +834,7 @@ export default function Tenants() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
                       <div onClick={() => licenseImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
                         <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
-                        {licenseImage ? (<img src={`http://localhost:3000${licenseImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
+                        {licenseImage ? (<img src={`http://localhost:2546${licenseImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
                       </div>
                     </div>
 
@@ -740,7 +842,7 @@ export default function Tenants() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
                       <div onClick={() => profileImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
                         <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
-                        {profileImage ? (<img src={`http://localhost:3000${profileImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
+                        {profileImage ? (<img src={`http://localhost:2546${profileImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
                       </div>
                     </div>
                   </div>
@@ -775,35 +877,43 @@ export default function Tenants() {
         {showFullModal && detailTenant && (
           <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 animate-in zoom-in duration-500">
             <div className="bg-white dark:bg-slate-800 rounded-[50px] w-full max-w-5xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.25)] border border-white/20 dark:border-slate-700/50 overflow-hidden flex flex-col max-h-[92vh]">
-              
+
               {/* Profile Header Block */}
               <div className="relative h-64 bg-indigo-600 dark:bg-indigo-950 overflow-hidden shrink-0">
                 <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(99,102,241,0.9),rgba(79,70,229,0.95))]"></div>
-                <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px'}}></div>
-                
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+
                 <div className="absolute bottom-0 left-0 right-0 p-10 flex items-end justify-between">
                   <div className="flex items-end gap-8">
-                    <div className="w-32 h-32 rounded-[40px] bg-white p-2 shadow-2xl border-4 border-white/20 -mb-20">
+                    <div
+                      className="w-32 h-32 rounded-[40px] bg-white p-2 shadow-2xl border-4 border-white/20 -mb-12 cursor-pointer transition-all hover:scale-105 active:scale-95"
+                      onClick={() => {
+                        const url = detailTenant.profile_image
+                          ? `http://localhost:2546${detailTenant.profile_image}`
+                          : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`
+                        window.open(url, '_blank')
+                      }}
+                    >
                       <img
                         src={
                           detailTenant.profile_image
-                            ? `http://localhost:3000${detailTenant.profile_image}`
+                            ? `http://localhost:2546${detailTenant.profile_image}`
                             : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`
                         }
                         className="w-full h-full object-cover rounded-[32px]"
                       />
                     </div>
                     <div className="pb-2">
-                       <h2 className="text-4xl font-black text-white tracking-tight">{detailTenant.first_name} {detailTenant.last_name}</h2>
-                       <div className="flex items-center gap-3 mt-1.5">
-                          <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black text-white uppercase tracking-widest border border-white/10">ID: {detailTenant.id}</span>
-                          <span className="px-3 py-1 bg-emerald-400/20 backdrop-blur-md rounded-lg text-[10px] font-black text-emerald-300 uppercase tracking-widest border border-emerald-400/20">Active Lease</span>
-                       </div>
+                      <h2 className="text-4xl font-black text-white tracking-tight">{detailTenant.first_name} {detailTenant.last_name}</h2>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-black text-white uppercase tracking-widest border border-white/10">ID: {detailTenant.id}</span>
+                        <span className="px-3 py-1 bg-emerald-400/20 backdrop-blur-md rounded-lg text-[10px] font-black text-emerald-300 uppercase tracking-widest border border-emerald-400/20">Active Lease</span>
+                      </div>
                     </div>
                   </div>
-                    <button onClick={() => setShowFullModal(false)} className="mb-2 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[24px] border border-white/10 transition-all">
-                      <Plus className="rotate-45" size={24} />
-                    </button>
+                  <button onClick={() => setShowFullModal(false)} className="mb-2 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-[24px] border border-white/10 transition-all">
+                    <Plus className="rotate-45" size={24} />
+                  </button>
                 </div>
               </div>
 
@@ -818,9 +928,8 @@ export default function Tenants() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveDetailTab(tab.id as any)}
-                    className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all relative ${
-                      activeDetailTab === tab.id ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
-                    }`}
+                    className={`pb-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeDetailTab === tab.id ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                      }`}
                   >
                     <tab.icon size={16} />
                     {tab.label}
@@ -839,19 +948,19 @@ export default function Tenants() {
                           <UserPlus size={14} className="text-indigo-500" /> Administrative Identity
                         </h3>
                         <div className="grid grid-cols-2 gap-x-12 gap-y-8">
-                           {[
-                             { label: 'Primary Contact', value: detailTenant.phone },
-                             { label: 'Official Email', value: detailTenant.email },
-                             { label: 'Tenant Classification', value: detailTenant.tenant_type === 'personal' ? 'Individual / Residential' : 'Corporate / Commercial' },
-                             { label: 'Tax Identification (TIN)', value: detailTenant.tin_number || 'Not Provided' },
-                             { label: 'Registration Date', value: detailTenant.created_at ? new Date(detailTenant.created_at).toLocaleDateString() : 'Legacy Entry' },
-                             { label: 'VAT Registration', value: detailTenant.vat_reg_number || 'N/A' }
-                           ].map((item, idx) => (
-                             <div key={idx} className="group">
-                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">{item.label}</div>
-                               <div className="text-sm font-black text-slate-700 dark:text-slate-200">{item.value || '—'}</div>
-                             </div>
-                           ))}
+                          {[
+                            { label: 'Primary Contact', value: detailTenant.phone },
+                            { label: 'Official Email', value: detailTenant.email },
+                            { label: 'Tenant Classification', value: detailTenant.tenant_type === 'personal' ? 'Individual / Residential' : 'Corporate / Commercial' },
+                            { label: 'Tax Identification (TIN)', value: detailTenant.tin_number || 'Not Provided' },
+                            { label: 'Registration Date', value: detailTenant.created_at ? new Date(detailTenant.created_at).toLocaleDateString() : 'Legacy Entry' },
+                            { label: 'VAT Registration', value: detailTenant.vat_reg_number || 'N/A' }
+                          ].map((item, idx) => (
+                            <div key={idx} className="group">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">{item.label}</div>
+                              <div className="text-sm font-black text-slate-700 dark:text-slate-200">{item.value || '—'}</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
 
@@ -860,129 +969,124 @@ export default function Tenants() {
                           <MapPin size={14} className="text-emerald-500" /> Assigned Location
                         </h3>
                         <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[35px] border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-indigo-100 transition-all">
-                           <div className="flex items-center gap-6">
-                              <div className="w-16 h-16 rounded-[24px] bg-white dark:bg-slate-800 shadow-xl flex items-center justify-center border border-slate-100 dark:border-slate-700">
-                                <Building2 size={24} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                              </div>
-                              <div>
-                                 <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Residence</div>
-                                <div className="text-lg font-black text-slate-800 dark:text-slate-200">{(detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—')}{(detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) ? ' • ' + (detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) : ''}</div>
-                                 <div className="text-xs font-medium text-slate-400 mt-0.5">Northern District • Commercial Zone A</div>
-                              </div>
-                           </div>
-                           <button className="p-4 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95">
-                              <ArrowRight size={20} />
-                           </button>
+                          <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 rounded-[24px] bg-white dark:bg-slate-800 shadow-xl flex items-center justify-center border border-slate-100 dark:border-slate-700">
+                              <Building2 size={24} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Residence</div>
+                              <div className="text-lg font-black text-slate-800 dark:text-slate-200">{(detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—')}{(detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) ? ' • ' + (detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) : ''}</div>
+                              <div className="text-xs font-medium text-slate-400 mt-0.5">Northern District • Commercial Zone A</div>
+                            </div>
+                          </div>
+                          <button className="p-4 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95">
+                            <ArrowRight size={20} />
+                          </button>
                         </div>
                       </div>
                     </div>
 
                     <div className="lg:col-span-1 space-y-8">
-                       <div className="p-8 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-[40px] border border-indigo-100 dark:border-indigo-900/30">
-                          <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center justify-between">
-                             <span>Operational Status</span>
-                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <div className="p-8 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-[40px] border border-indigo-100 dark:border-indigo-900/30">
+                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                          <span>Operational Status</span>
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        </div>
+                        <div className="space-y-6">
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Lease Renewal</div>
+                            <div className="text-lg font-black text-slate-800 dark:text-slate-200">
+                              {leaseStats ? (leaseStats.daysLeft < 0 ? `Expired ${Math.abs(leaseStats.daysLeft)} Days Ago` : `${leaseStats.daysLeft} Days Remaining`) : 'No Active Lease'}
+                            </div>
+                            <div className="mt-2 w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${leaseStats?.daysLeft && leaseStats.daysLeft < 0 ? 'bg-gradient-to-r from-rose-500 to-rose-600' : 'bg-gradient-to-r from-indigo-500 to-indigo-600'}`} style={{ width: `${leaseStats?.progress || 100}%` }}></div>
+                            </div>
                           </div>
-                          <div className="space-y-6">
-                             <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Lease Renewal</div>
-                                <div className="text-lg font-black text-slate-800 dark:text-slate-200">14 Days Remaining</div>
-                                <div className="mt-2 w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                   <div className="w-[85%] h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full"></div>
-                                </div>
-                             </div>
-                             <div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Portfolio Value</div>
-                                <div className="text-lg font-black text-indigo-600">{formattedLease}</div>
-                                <div className="text-[10px] font-medium text-slate-400">Total lifetime value assigned</div>
-                             </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[.15em] mb-1">Portfolio Value</div>
+                            <div className="text-lg font-black text-indigo-600">{formattedLease}</div>
+                            <div className="text-[10px] font-medium text-slate-400">Total lifetime value assigned</div>
                           </div>
-                       </div>
+                        </div>
+                      </div>
 
-                       <div className="space-y-3">
-                          <button className="w-full py-4 bg-slate-900 dark:bg-slate-200 text-white dark:text-slate-900 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] shadow-2xl transition-all hover:scale-[1.02] active:scale-95">
-                             Issue Site Notice
-                          </button>
-                          <button className="w-full py-4 bg-white dark:bg-slate-800 text-slate-400 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] border border-slate-100 dark:border-slate-700 hover:bg-slate-50 transition-all">
-                             Archive Tenant
-                          </button>
-                       </div>
+
                     </div>
                   </div>
                 )}
 
                 {activeDetailTab === 'ledger' && (
                   <div className="animate-in fade-in slide-in-from-bottom-5 duration-500 space-y-8">
-                     <div className="flex items-center justify-between p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[40px] border border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-6">
-                           <div className="w-16 h-16 rounded-[24px] bg-indigo-600 shadow-xl shadow-indigo-200 flex items-center justify-center text-white">
-                              <CreditCard size={28} />
-                           </div>
-                           <div>
-                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outstanding Balance</div>
-                              <div className={`text-4xl font-black ${(ledger[ledger.length - 1]?.balance || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                ETB {Number(ledger[ledger.length - 1]?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </div>
-                           </div>
+                    <div className="flex items-center justify-between p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[40px] border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 rounded-[24px] bg-indigo-600 shadow-xl shadow-indigo-200 flex items-center justify-center text-white">
+                          <CreditCard size={28} />
                         </div>
-                        <a
-                          href={financeApi.getTenantLedgerPdfUrl(String(detailTenant.id))}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] border border-slate-200 dark:border-slate-700 shadow-sm hover:bg-slate-50 transition-all flex items-center gap-3"
-                        >
-                          <FileText size={16} className="text-indigo-600" /> Download PDF Statement
-                        </a>
-                     </div>
+                        <div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Outstanding Balance</div>
+                          <div className={`text-4xl font-black ${(ledger[ledger.length - 1]?.balance || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            ETB {Number(ledger[ledger.length - 1]?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                      <a
+                        href={financeApi.getTenantLedgerPdfUrl(String(detailTenant.id))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-black uppercase tracking-[0.2em] text-[11px] rounded-[24px] border border-slate-200 dark:border-slate-700 shadow-sm hover:bg-slate-50 transition-all flex items-center gap-3"
+                      >
+                        <FileText size={16} className="text-indigo-600" /> Download PDF Statement
+                      </a>
+                    </div>
 
-                     {ledgerLoading ? (
-                       <div className="py-20 flex flex-col items-center justify-center text-slate-400 italic">
-                          <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-                          <span className="text-xs font-bold uppercase tracking-widest">Auditing Accounts...</span>
-                       </div>
-                     ) : ledger.length === 0 ? (
-                       <div className="py-20 text-center text-slate-400 italic font-medium">No financial history found for this profile.</div>
-                     ) : (
-                       <div className="rounded-[35px] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-                         <table className="w-full text-left">
-                           <thead className="bg-slate-50 dark:bg-slate-900/80 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
-                             <tr>
-                               <th className="px-8 py-5">Date</th>
-                               <th className="px-8 py-5">Descriptor</th>
-                               <th className="px-8 py-5 text-right">Debit</th>
-                               <th className="px-8 py-5 text-right">Credit</th>
-                               <th className="px-8 py-5 text-right bg-indigo-50/30 dark:bg-indigo-900/10">Running Balance</th>
-                             </tr>
-                           </thead>
-                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                             {ledger.map((entry, idx) => (
-                               <tr key={idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                                 <td className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">{entry.date}</td>
-                                 <td className="px-8 py-5">
-                                    <div className="text-sm font-black text-slate-800 dark:text-slate-200">{entry.description}</div>
-                                    <div className="text-[10px] font-bold text-slate-400 tracking-wider">REF: {entry.reference}</div>
-                                 </td>
-                                 <td className="px-8 py-5 text-right text-sm font-black text-rose-600">{entry.debit > 0 ? entry.debit.toFixed(2) : '—'}</td>
-                                 <td className="px-8 py-5 text-right text-sm font-black text-emerald-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '—'}</td>
-                                 <td className="px-8 py-5 text-right text-sm font-black text-slate-900 dark:text-white bg-indigo-50/10 dark:bg-indigo-900/5">{entry.balance.toFixed(2)}</td>
-                               </tr>
-                             ))}
-                           </tbody>
-                         </table>
-                       </div>
-                     )}
+                    {ledgerLoading ? (
+                      <div className="py-20 flex flex-col items-center justify-center text-slate-400 italic">
+                        <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                        <span className="text-xs font-bold uppercase tracking-widest">Auditing Accounts...</span>
+                      </div>
+                    ) : ledger.length === 0 ? (
+                      <div className="py-20 text-center text-slate-400 italic font-medium">No financial history found for this profile.</div>
+                    ) : (
+                      <div className="rounded-[35px] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 dark:bg-slate-900/80 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
+                            <tr>
+                              <th className="px-8 py-5">Date</th>
+                              <th className="px-8 py-5">Descriptor</th>
+                              <th className="px-8 py-5 text-right">Debit</th>
+                              <th className="px-8 py-5 text-right">Credit</th>
+                              <th className="px-8 py-5 text-right bg-indigo-50/30 dark:bg-indigo-900/10">Running Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {ledger.map((entry, idx) => (
+                              <tr key={idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                                <td className="px-8 py-5 text-xs font-bold text-slate-500 uppercase">{entry.date}</td>
+                                <td className="px-8 py-5">
+                                  <div className="text-sm font-black text-slate-800 dark:text-slate-200">{entry.description}</div>
+                                  <div className="text-[10px] font-bold text-slate-400 tracking-wider">REF: {entry.reference}</div>
+                                </td>
+                                <td className="px-8 py-5 text-right text-sm font-black text-rose-600">{entry.debit > 0 ? entry.debit.toFixed(2) : '—'}</td>
+                                <td className="px-8 py-5 text-right text-sm font-black text-emerald-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '—'}</td>
+                                <td className="px-8 py-5 text-right text-sm font-black text-slate-900 dark:text-white bg-indigo-50/10 dark:bg-indigo-900/5">{entry.balance.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeDetailTab === 'messages' && (
                   <div className="animate-in fade-in slide-in-from-bottom-5 duration-500 space-y-6">
                     <div className="flex items-center justify-between mb-4">
-                       <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                          <MessageCircle size={24} className="text-indigo-600" /> Communication Log
-                       </h3>
-                       <button className="px-6 py-2.5 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
-                          New Message
-                       </button>
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                        <MessageCircle size={24} className="text-indigo-600" /> Communication Log
+                      </h3>
+                      <button onClick={() => setShowNoticeModal(true)} className="px-6 py-2.5 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                        New Message
+                      </button>
                     </div>
 
                     {messages.length === 0 ? (
@@ -993,21 +1097,23 @@ export default function Tenants() {
                       <div className="space-y-4">
                         {messages.map(m => (
                           <div key={m.id} className="p-8 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[35px] hover:shadow-xl hover:shadow-indigo-500/5 transition-all group">
-                             <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-4">
-                                   <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-500">
-                                      <Mail size={18} />
-                                   </div>
-                                   <div>
-                                      <h5 className="font-black text-slate-900 dark:text-slate-200 text-sm tracking-tight">{m.subject}</h5>
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Outbound Announcement</p>
-                                   </div>
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-500">
+                                  <Mail size={18} />
                                 </div>
-                                <div className="text-[11px] font-bold text-slate-400">12:45 PM</div>
-                             </div>
-                             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-14">
-                                {m.body}
-                             </p>
+                                <div>
+                                  <h5 className="font-black text-slate-900 dark:text-slate-200 text-sm tracking-tight">{m.sender?.name || 'Manager'}</h5>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.sender?.id === detailTenant?.user?.id ? 'Inbound Message' : 'Outbound Notice'}</p>
+                                </div>
+                              </div>
+                              <div className="text-[11px] font-bold text-slate-400">
+                                {m.sent_at ? new Date(m.sent_at).toLocaleDateString() + ' ' + new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </div>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pl-14 whitespace-pre-wrap">
+                              {m.content}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -1060,7 +1166,7 @@ export default function Tenants() {
                               </div>
                               <div className="flex items-center gap-3">
                                 {doc.file_url && (
-                                  <a href={doc.file_url.startsWith('/') ? `http://localhost:3000${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl">View</a>
+                                  <a href={doc.file_url.startsWith('/') ? `http://localhost:2546${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer">View</a>
                                 )}
                                 {!doc.verified && (
                                   (typeof doc.id === 'string' && !String(doc.id).startsWith('tenant-')) ? (
@@ -1075,6 +1181,75 @@ export default function Tenants() {
                     })()}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Send Notice Modal */}
+        {showNoticeModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-[70] p-6 pointer-events-none animate-in fade-in duration-500">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border border-white/20 dark:border-slate-800 animate-in zoom-in-95 duration-500 pointer-events-auto">
+
+              {/* Header with Background Accent */}
+              <div className="relative p-10 bg-indigo-600 dark:bg-indigo-950 overflow-hidden">
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(99,102,241,0.9),rgba(79,70,229,0.95))]"></div>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '16px 16px' }}></div>
+
+                <div className="relative flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-black text-white tracking-tight">Issue Official Notice</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="px-2 py-0.5 bg-white/20 rounded-md text-[9px] font-black text-white uppercase tracking-widest border border-white/10">Recipient</span>
+                      <p className="text-xs font-bold text-indigo-100">{detailTenant?.first_name} {detailTenant?.last_name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowNoticeModal(false)}
+                    className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl border border-white/10 transition-all active:scale-90"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-10 space-y-8">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block">Message Payload</label>
+                  <textarea
+                    rows={6}
+                    value={noticeContent}
+                    onChange={(e) => setNoticeContent(e.target.value)}
+                    placeholder="Describe the nature of this notice..."
+                    className="w-full p-8 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-[32px] focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-500/50 transition-all text-sm font-bold text-slate-700 dark:text-slate-200 placeholder:text-slate-300 resize-none outline-none"
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowNoticeModal(false)}
+                    className="flex-1 py-5 bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-900 transition-all border border-slate-100 dark:border-slate-800"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={handleSendNotice}
+                    disabled={sendingNotice || !noticeContent.trim()}
+                    className="flex-[2] py-5 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl shadow-[0_20px_40px_-10px_rgba(79,70,229,0.3)] dark:shadow-none hover:bg-indigo-700 disabled:opacity-40 disabled:grayscale transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    {sendingNotice ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle size={18} className="text-indigo-200" />
+                        <span>Send Notice</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

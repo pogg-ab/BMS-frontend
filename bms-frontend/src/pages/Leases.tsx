@@ -13,7 +13,7 @@ import {
   downloadLease,
   deleteDraftLease,
 } from '../api/leases'
-import { listTenants } from '../api/tenants'
+import { listTenants, createAndVerifyFromTenant, listDocuments } from '../api/tenants'
 import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
 import { Filter, Plus, FileSignature, Building2, Pen, Archive, RefreshCw, Upload, Download, Eye, X, Trash2 } from 'lucide-react'
@@ -33,6 +33,9 @@ export default function Leases() {
   const [leaseToDelete, setLeaseToDelete] = useState<any>(null)
   const [showRenewModal, setShowRenewModal] = useState(false)
   const [showTerminateModal, setShowTerminateModal] = useState(false)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [selectedTenantForVerify, setSelectedTenantForVerify] = useState<any>(null)
+  const [verifying, setVerifying] = useState(false)
 
   // Create form
   const [unitId, setUnitId] = useState('')
@@ -112,7 +115,7 @@ export default function Leases() {
     const monthlyRevenue = activeLeases.reduce((sum, l) => sum + (Number(l.rent_amount || l.rent || l.rent_price || 0)), 0)
     const pendingCount = leases.filter(l => l.status === 'DRAFT' || l.status === 'draft').length
     const terminatedCount = leases.filter(l => l.status === 'TERMINATED' || l.status === 'terminated').length
-    
+
     // Upcoming renewals (within 90 days)
     const now = new Date()
     const renewalsNeeded = activeLeases.filter(l => {
@@ -121,7 +124,7 @@ export default function Leases() {
       const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       return diffDays > 0 && diffDays <= 90
     }).length
-    
+
     const totalUnits = units.length || 1
     const occupancyRate = totalUnits > 0 ? ((activeLeases.length / totalUnits) * 100).toFixed(1) : '0'
 
@@ -176,7 +179,7 @@ export default function Leases() {
       toast.addToast('Lease draft created', 'success')
       setShowCreateModal(false)
       loadLeases()
-      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || tenantId } })) } catch (err) {}
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || tenantId } })) } catch (err) { }
     } catch (e: any) {
       const server = e?.response?.data
       let msg = e?.message || 'Create lease failed'
@@ -185,12 +188,47 @@ export default function Leases() {
     }
   }
 
+  const handleOpenVerifyModal = (tenant: any) => {
+    setSelectedTenantForVerify(tenant)
+    setShowVerifyModal(true)
+  }
+
+  const handleVerifyAll = async (tenantId: string) => {
+    setVerifying(true)
+    try {
+      await createAndVerifyFromTenant(tenantId, { type: 'ALL' })
+      toast.addToast('All tenant documents verified successfully', 'success')
+      setShowVerifyModal(false)
+      loadLeases()
+    } catch (err: any) {
+      toast.addToast(err?.response?.data?.message || 'Failed to verify documents', 'error')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   async function handleActivateOnly(id: string | number) {
+    const lease = leases.find(l => String(l.id) === String(id));
+    const tId = lease?.tenant?.id || lease?.tenant_id;
+
+    // Check if documents are verified
+    try {
+      const docs = await listDocuments({ tenant_id: tId });
+      const unverified = docs.filter((d: any) => !d.verified);
+      if (unverified.length > 0) {
+        if (!window.confirm(`Warning: This tenant has ${unverified.length} unverified documents. Are you sure you want to activate the lease anyway?`)) {
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check document verification status', err);
+    }
+
     try {
       const res = await activateLease(id, {})
       toast.addToast('Lease activated', 'success')
       loadLeases()
-      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) {}
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) { }
     } catch (e: any) {
       console.error('Activate error', e)
       const server = e?.response?.data
@@ -217,7 +255,7 @@ export default function Leases() {
       toast.addToast('Lease terminated', 'success')
       setTerminateOnlyLeaseId(''); setTerminateOnlyDate(''); setTerminateOnlyReason(''); setTerminateOnlyDepositDeduction('')
       loadLeases()
-      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) {}
+      try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: res?.tenant?.id || res?.tenant_id } })) } catch (err) { }
     } catch { toast.addToast('Terminate failed', 'error') }
   }
 
@@ -244,12 +282,12 @@ export default function Leases() {
         try {
           if (lease?.id) setClientReferencedPreviousIds(prev => Array.from(new Set([...prev, lease.id])))
           setLeases(prev => [newLease, ...prev])
-          try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || lease?.tenant?.id || lease?.tenant_id } })) } catch (err) {}
+          try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: newLease?.tenant?.id || newLease?.tenant_id || lease?.tenant?.id || lease?.tenant_id } })) } catch (err) { }
         } catch (err) { /* ignore */ }
       } else {
         const renewed = await renewLease(renewOnlyLeaseId, { start_date: renewOnlyStart || undefined, end_date: renewOnlyEnd || undefined, rent_amount: renewOnlyRent ? Number(renewOnlyRent) : undefined, billing_cycle: renewOnlyBillingCycle || undefined })
         toast.addToast('Renewal created', 'success')
-        try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: renewed?.tenant?.id || renewed?.tenant_id } })) } catch (err) {}
+        try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: renewed?.tenant?.id || renewed?.tenant_id } })) } catch (err) { }
       }
       setRenewOnlyLeaseId(''); setRenewOnlyStart(''); setRenewOnlyEnd(''); setRenewOnlyRent(''); setRenewOnlyBillingCycle('MONTHLY')
       loadLeases()
@@ -318,7 +356,7 @@ export default function Leases() {
           {new Date(l.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()}
         </span>
         <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-          <div 
+          <div
             className={`h-full rounded-full transition-all duration-500 ${isExpired ? 'bg-rose-500' : 'bg-indigo-500'}`}
             style={{ width: `${pct}%` }}
           />
@@ -402,11 +440,10 @@ export default function Leases() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${
-                activeTab === tab.key
-                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-              }`}
+              className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${activeTab === tab.key
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
             >
               {tab.label}
             </button>
@@ -465,6 +502,14 @@ export default function Leases() {
                           Activate
                         </button>
                       )}
+                      {(l.status === 'DRAFT' || l.status === 'draft') && (
+                        <button
+                          onClick={() => handleOpenVerifyModal(l.tenant || { id: l.tenant_id, name: l.tenant_name })}
+                          className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                        >
+                          View Documents
+                        </button>
+                      )}
                       <button onClick={() => {
                         // prefill renew form from this lease and open renew modal
                         setRenewOnlyLeaseId(l.id)
@@ -497,7 +542,7 @@ export default function Leases() {
                       <button onClick={() => handleDownload(l.id, 'download')} className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors" title="Download">
                         <Download size={16} />
                       </button>
-                      {(['DRAFT','draft','TERMINATED','terminated'].includes(String(l.status))) && (
+                      {(['DRAFT', 'draft', 'TERMINATED', 'terminated'].includes(String(l.status))) && (
                         <button onClick={(e) => { e.stopPropagation(); setLeaseToDelete(l); setShowDeleteConfirm(true) }} className="p-1.5 text-rose-500 hover:text-rose-700 transition-colors" title="Delete Lease">
                           <Trash2 size={16} />
                         </button>
@@ -516,7 +561,7 @@ export default function Leases() {
         )}
 
         {/* Quick Actions Panel (collapsible) */}
-          {showQuickActions && (
+        {showQuickActions && (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/60 p-6 space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-800 dark:text-slate-200">Quick Actions</h3>
@@ -526,55 +571,55 @@ export default function Leases() {
               {/* Quick Terminate */}
               {(quickActionMode === 'all' || quickActionMode === 'terminate') && (
                 <form onSubmit={handleTerminateOnly}>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quick Terminate</label>
-                <div className="space-y-2">
-                  <select value={String(terminateOnlyLeaseId)} onChange={e => setTerminateOnlyLeaseId(e.target.value)} className="form-select w-full">
-                    <option value="">Select lease</option>
-                    {leases.filter(l => ['ACTIVE', 'RENEWED'].includes(l.status)).map(l => (
-                      <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="form-input" placeholder="Date" />
-                    <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input" placeholder="Reason" />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quick Terminate</label>
+                  <div className="space-y-2">
+                    <select value={String(terminateOnlyLeaseId)} onChange={e => setTerminateOnlyLeaseId(e.target.value)} className="form-select w-full">
+                      <option value="">Select lease</option>
+                      {leases.filter(l => ['ACTIVE', 'RENEWED'].includes(l.status)).map(l => (
+                        <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="form-input" placeholder="Date" />
+                      <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input" placeholder="Reason" />
+                    </div>
+                    <button type="submit" className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">Terminate</button>
                   </div>
-                  <button type="submit" className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">Terminate</button>
-                </div>
                 </form>
               )}
 
               {/* Quick Renew */}
               {(quickActionMode === 'all' || quickActionMode === 'renew') && (
                 <form onSubmit={handleRenewOnly}>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quick Renew</label>
-                <div className="space-y-2">
-                  <select value={String(renewOnlyLeaseId)} onChange={e => setRenewOnlyLeaseId(e.target.value)} className="form-select w-full">
-                    <option value="">Select lease</option>
-                    {leases.map(l => (
-                      <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="form-input" placeholder="Start" />
-                    <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="form-input" placeholder="End" />
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quick Renew</label>
+                  <div className="space-y-2">
+                    <select value={String(renewOnlyLeaseId)} onChange={e => setRenewOnlyLeaseId(e.target.value)} className="form-select w-full">
+                      <option value="">Select lease</option>
+                      {leases.map(l => (
+                        <option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="date" value={renewOnlyStart} onChange={e => setRenewOnlyStart(e.target.value)} className="form-input" placeholder="Start" />
+                      <input type="date" value={renewOnlyEnd} onChange={e => setRenewOnlyEnd(e.target.value)} className="form-input" placeholder="End" />
+                    </div>
+                    <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Renew</button>
                   </div>
-                  <button type="submit" className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Renew</button>
-                </div>
                 </form>
               )}
 
               {/* Quick Upload */}
               {(quickActionMode === 'all' || quickActionMode === 'attach') && (
                 <form onSubmit={handleUploadOnly}>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Attach Document</label>
-                <div className="space-y-2">
-                  <select value={String(uploadOnlyLeaseId)} onChange={e => setUploadOnlyLeaseId(e.target.value)} className="form-select w-full">
-                    <option value="">Select lease</option>
-                    {leases.map(l => (<option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
-                  </select>
-                  <input type="file" onChange={e => setUploadOnlyFile(e.target.files?.[0] || null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                  <button type="submit" className="px-4 py-2 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors">Attach</button>
-                </div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Attach Document</label>
+                  <div className="space-y-2">
+                    <select value={String(uploadOnlyLeaseId)} onChange={e => setUploadOnlyLeaseId(e.target.value)} className="form-select w-full">
+                      <option value="">Select lease</option>
+                      {leases.map(l => (<option key={l.id} value={String(l.id)}>{`${l.lease_number || 'L-Draft'} — ${l.unit?.unit_number || l.unit_id} — ${leaseTenantLabel(l)}`}</option>))}
+                    </select>
+                    <input type="file" onChange={e => setUploadOnlyFile(e.target.files?.[0] || null)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                    <button type="submit" className="px-4 py-2 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors">Attach</button>
+                  </div>
                 </form>
               )}
             </div>
@@ -677,8 +722,8 @@ export default function Leases() {
                   setShowDeleteConfirm(false)
                   setLeaseToDelete(null)
                   loadLeases()
-                  try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: leaseToDelete?.tenant?.id || leaseToDelete?.tenant_id } })) } catch (err) {}
-                } catch (e:any) { console.error('Delete failed', e); toast.addToast('Delete failed', 'error') }
+                  try { window.dispatchEvent(new CustomEvent('lease:updated', { detail: { tenantId: leaseToDelete?.tenant?.id || leaseToDelete?.tenant_id } })) } catch (err) { }
+                } catch (e: any) { console.error('Delete failed', e); toast.addToast('Delete failed', 'error') }
               }} className="flex-1 px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-lg">Delete</button>
             </div>
           </div>
@@ -733,6 +778,82 @@ export default function Leases() {
                 <button type="submit" className="px-4 py-2 bg-rose-600 text-white rounded-lg">Terminate</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* DOCUMENT VERIFICATION MODAL */}
+      {showVerifyModal && selectedTenantForVerify && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50">
+            <div className="p-8 pb-0 flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600">
+                  <FileSignature size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Verify Documents</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Review tenant identification & licenses</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowVerifyModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Tenant</span>
+                  <StatusBadge status="PENDING" size="sm" />
+                </div>
+                <h4 className="font-bold text-lg text-slate-900 dark:text-white">{selectedTenantForVerify.name || tenantLabel(selectedTenantForVerify)}</h4>
+                <p className="text-xs text-slate-500 mt-1">Tenant ID: {selectedTenantForVerify.id}</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                      <Eye size={16} />
+                    </div>
+                    <span className="text-sm font-medium dark:text-slate-200">ID / Passport Image</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md uppercase">Pending</span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                      <Eye size={16} />
+                    </div>
+                    <span className="text-sm font-medium dark:text-slate-200">Contract / License</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md uppercase">Pending</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button
+                  onClick={() => setShowVerifyModal(false)}
+                  className="flex-1 px-6 py-4 font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl transition-all"
+                >
+                  Later
+                </button>
+                <button
+                  onClick={() => handleVerifyAll(selectedTenantForVerify.id)}
+                  disabled={verifying}
+                  className="flex-1 px-6 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all flex items-center justify-center gap-2"
+                >
+                  {verifying ? <RefreshCw size={18} className="animate-spin" /> : <FileSignature size={18} />}
+                  Verify All
+                </button>
+              </div>
+              <p className="text-[10px] text-center text-slate-400 px-4">
+                By clicking verify all, you confirm that you have reviewed the uploaded documents and they are valid for this lease.
+              </p>
+            </div>
           </div>
         </div>
       )}
