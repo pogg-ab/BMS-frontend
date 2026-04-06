@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as notifApi from '../api/notifications';
 
 interface NotificationContextType {
@@ -11,7 +11,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const refreshUnreadCount = async () => {
+  const refreshUnreadCount = useCallback(async () => {
     try {
       const data = await notifApi.getNotifications();
       if (Array.isArray(data)) {
@@ -19,16 +19,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setUnreadCount(unread);
       }
     } catch (e) {
-      console.error('Failed to fetch unread count', e);
+      // Silent - user may not be logged in yet
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshUnreadCount();
-    // Poll every 30 seconds for new notifications
-    const interval = setInterval(refreshUnreadCount, 30000);
+    // Fast polling for near real-time sync (every 15 seconds)
+    const interval = setInterval(refreshUnreadCount, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshUnreadCount]);
 
   return (
     <NotificationContext.Provider value={{ unreadCount, refreshUnreadCount }}>

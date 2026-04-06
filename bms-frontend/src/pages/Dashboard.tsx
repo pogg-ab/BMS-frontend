@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getDashboard, getFinancialTrend } from '../api/reports'
 import { getAuditLogs } from '../api/audit'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { getRoles } from '../utils/jwt'
+import { getRoles, getUser } from '../utils/jwt'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
@@ -13,10 +14,18 @@ import { FileSignature, Wrench, UserCheck, ChevronRight, HelpCircle, Activity, S
 
 export default function Dashboard() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [revenueTrend, setRevenueTrend] = useState<any[]>([])
   const [activities, setActivities] = useState<any[]>([])
+
+  const currentUser = getUser();
+  const userName = currentUser?.name || currentUser?.email?.split('@')[0] || 'System Admin';
+  const primaryRole = (currentUser?.roles && currentUser.roles[0]) 
+    ? currentUser.roles[0].replace(/_/g, ' ') 
+    : 'Property Admin';
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,13 +96,13 @@ export default function Dashboard() {
       subtitle="Real-time telemetry for the North-East Commercial District."
       actions={
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <button onClick={() => navigate('/leases')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
             <FileSignature size={16} className="text-indigo-600" /> Lease
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <button onClick={() => navigate('/maintenance')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
             <Wrench size={16} className="text-amber-600" /> Request
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <button onClick={() => navigate('/visitors')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
             <UserCheck size={16} className="text-emerald-600" /> Check-in
           </button>
         </div>
@@ -347,14 +356,14 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Settings Card at bottom of sidebar */}
-          <div className="mt-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 cursor-pointer hover:border-slate-200 transition-colors">
+          <div onClick={() => navigate('/settings')} className="mt-8 bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 cursor-pointer hover:border-slate-200 transition-colors">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
-                <img src={`https://ui-avatars.com/api/?name=Admin+Manager&background=random`} alt="Admin" className="w-full h-full object-cover" />
+                <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Admin Manager</h4>
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Property Admin</p>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[150px]">{userName}</h4>
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest mt-0.5 truncate max-w-[150px]">{primaryRole}</p>
               </div>
             </div>
             <div className="mt-4 flex items-center text-xs font-bold text-slate-500 gap-2">

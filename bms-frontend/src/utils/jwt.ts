@@ -26,3 +26,8 @@ export function getUserId(): string | null {
   const p = decodeToken(t);
   return p?.sub || p?.id || null;
 }
+
+export function getUser(): any {
+  const t = localStorage.getItem('token');
+  return decodeToken(t) || null;
+}
