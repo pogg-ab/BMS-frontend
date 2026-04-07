@@ -1,13 +1,28 @@
 import api from './axios'
 
 // --- Bank Accounts ---
-export async function createBankAccount(dto: { bank_name: string; account_number: string; branch: string }) {
+export async function createBankAccount(dto: { 
+  bank_name: string; 
+  account_number: string; 
+  branch: string;
+  opening_balance: number;
+}) {
   const res = await api.post('/finance/bank-accounts', dto)
   return res.data
 }
 
 export async function getBankAccounts() {
   const res = await api.get('/finance/bank-accounts')
+  return res.data
+}
+
+export async function updateBankAccount(id: string, dto: { bank_name?: string; account_number?: string; branch?: string }) {
+  const res = await api.patch(`/finance/bank-accounts/${id}`, dto)
+  return res.data
+}
+
+export async function deleteBankAccount(id: string) {
+  const res = await api.delete(`/finance/bank-accounts/${id}`)
   return res.data
 }
 
@@ -49,14 +64,25 @@ export async function createPayment(dto: {
   amount: number
   reference_no: string
   proof_url?: string
+  bank_account_id?: string
 }) {
   const res = await api.post('/finance/payments', dto)
   return res.data
 }
 
-// Backend now extracts verified_by from req.user (JWT), only status is needed in body
-export async function verifyPayment(id: string, dto: { status: 'confirmed' | 'rejected' }) {
+// Backend now extracts verified_by from req.user (JWT), status and optional reason are needed in body
+export async function verifyPayment(id: string, dto: { status: 'confirmed' | 'rejected'; reason?: string }) {
   const res = await api.patch(`/finance/payments/${id}/verify`, dto)
+  return res.data
+}
+
+export async function getAnalytics() {
+  const res = await api.get('/finance/analytics')
+  return res.data
+}
+
+export async function resendInvoice(id: string) {
+  const res = await api.post(`/finance/invoices/${id}/resend`)
   return res.data
 }
 
@@ -75,9 +101,31 @@ export function getTenantLedgerPdfUrl(tenantId: string) {
   return `${baseUrl}/finance/ledger/tenant/${tenantId}/pdf`
 }
 
+export async function downloadTenantLedgerPdf(tenantId: string) {
+  const res = await api.get(`/finance/ledger/tenant/${tenantId}/pdf`, { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([res.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `ledger-${tenantId}.pdf`)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 export function getPaymentReceiptPdfUrl(paymentId: string) {
   const baseUrl = (api.defaults.baseURL || '').replace(/\/$/, '')
   return `${baseUrl}/finance/payments/${paymentId}/receipt`
+}
+
+export async function downloadPaymentReceiptPdf(paymentId: string) {
+  const res = await api.get(`/finance/payments/${paymentId}/receipt`, { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([res.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `receipt-${paymentId}.pdf`)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
 }
 
 // --- Deposit Advice ---
@@ -86,8 +134,19 @@ export async function createDepositAdvice(dto: {
   amount: number
   deposit_date: string
   reference_no: string
+  proof_url?: string
 }) {
   const res = await api.post('/finance/deposit-advice', dto)
+  return res.data
+}
+
+export async function verifyDepositAdvice(id: string, dto: { status: 'confirmed' | 'rejected' }) {
+  const res = await api.patch(`/finance/deposit-advice/${id}/verify`, dto)
+  return res.data
+}
+
+export async function getDepositAdvices() {
+  const res = await api.get('/finance/deposit-advice')
   return res.data
 }
 
@@ -130,6 +189,8 @@ export async function createExpense(dto: {
   category: string
   description?: string
   building_id?: string
+  bank_account_id?: string
+  receipt_url?: string
 }) {
   const res = await api.post('/finance/expenses', dto)
   return res.data
@@ -143,4 +204,15 @@ export async function getPandLReport(params?: {
 }) {
   const res = await api.get('/finance/reports/p-and-l', { params })
   return res.data
+}
+
+// --- Upload ---
+export async function uploadTransactionProof(file: File, type: 'documents' | 'misc' | 'finance' = 'finance') {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await api.post(`/upload/${file.type.startsWith('image/') ? 'image' : 'document'}`, formData, {
+    params: { type },
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return res.data // Expected { path: string }
 }

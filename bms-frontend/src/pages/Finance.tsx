@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { Search, Plus, Filter, Download, TrendingUp, DollarSign, BarChart3, X } from 'lucide-react'
+import { Search, Plus, Filter, Download, TrendingUp, DollarSign, BarChart3, X, Calendar, FileText } from 'lucide-react'
 import PageLayout from '../components/PageLayout'
 import KPICard from '../components/KPICard'
 import StatusBadge from '../components/StatusBadge'
@@ -10,14 +10,13 @@ import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
 
-type Tab = 'invoices' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'tax-rules' | 'reports' | 'expenses' | 'p-and-l'
+type Tab = 'invoices' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses' | 'p-and-l'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'invoices', label: 'Invoices' },
   { key: 'payments', label: 'Payments' },
   { key: 'bank-accounts', label: 'Bank Accounts' },
   { key: 'deposit-advice', label: 'Deposit Advice' },
-  { key: 'tax-rules', label: 'Tax Rules' },
   { key: 'reports', label: 'Reports' },
   { key: 'expenses', label: 'Expenses' },
   { key: 'p-and-l', label: 'Profit & Loss' },
@@ -27,6 +26,14 @@ const ITEM_TYPES = ['RENT', 'UTILITY', 'MAINTENANCE', 'PENALTY']
 
 export default function Finance() {
   const toast = useToast()
+  const getUploadUrl = (path: string) => {
+    if (!path) return ''
+    if (path.startsWith('http')) return path
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:2546'
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+    const normalizedPath = path.startsWith('/') ? path : '/' + path
+    return `${normalizedBase}${normalizedPath}`
+  }
   const [tab, setTab] = useState<Tab>('invoices')
 
   const categoryOptions = ['Security', 'Cleaning', 'Elevator Maintenance', 'Utilities', 'Repairs', 'Salaries', 'Taxes', 'Other']
@@ -40,7 +47,7 @@ export default function Finance() {
   const visibleTabs = TABS.filter(t => {
     if (isSuperAdmin) return true
     if (isTenant && ['invoices', 'payments'].includes(t.key)) return true
-    if (['bank-accounts', 'tax-rules', 'reports'].includes(t.key)) {
+    if (['bank-accounts', 'reports'].includes(t.key)) {
       return !isTenant && (isSuperAdmin || userPermissions.includes('finance:manage') || userPermissions.includes('reports:view'))
     }
     return true
@@ -69,11 +76,28 @@ export default function Finance() {
   const [genSiteId, setGenSiteId] = useState('')
   const [genBuildingId, setGenBuildingId] = useState('')
 
+  // ── Helper: File Upload ──────────────────────────────────
+  const [isUploading, setIsUploading] = useState(false)
+  async function handleFileUpload(file: File, setter: (url: string) => void) {
+    if (!file) return
+    setIsUploading(true)
+    try {
+      const res = await financeApi.uploadTransactionProof(file)
+      setter(res.path)
+      toast.addToast('File uploaded successfully', 'success')
+    } catch (err: any) {
+      toast.addToast(err?.response?.data?.message || 'File upload failed', 'error')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   // ── Payments ─────────────────────────────────────────────
   const [payInvoiceId, setPayInvoiceId] = useState('')
   const [payAmount, setPayAmount] = useState('')
   const [payRefNo, setPayRefNo] = useState('')
   const [payProofUrl, setPayProofUrl] = useState('')
+  const [payBankId, setPayBankId] = useState('')
 
   // verify
   const [verifyPaymentId, setVerifyPaymentId] = useState('')
@@ -84,16 +108,22 @@ export default function Finance() {
   const [baBankName, setBaBankName] = useState('')
   const [baAcctNo, setBaAcctNo] = useState('')
   const [baBranch, setBaBranch] = useState('')
+  const [baOpeningBal, setBaOpeningBal] = useState('')
+  const [editBankAccount, setEditBankAccount] = useState<any>(null)
+  const [editBaName, setEditBaName] = useState('')
+  const [editBaAcctNo, setEditBaAcctNo] = useState('')
+  const [editBaBranch, setEditBaBranch] = useState('')
 
   // ── Deposit Advice ───────────────────────────────────────
+  const [depositAdvices, setDepositAdvices] = useState<any[]>([])
   const [daBankAccountId, setDaBankAccountId] = useState('')
   const [daAmount, setDaAmount] = useState('')
   const [daDate, setDaDate] = useState('')
   const [daRefNo, setDaRefNo] = useState('')
+  const [daProofUrl, setDaProofUrl] = useState('')
+  const [daLoading, setDaLoading] = useState(false)
 
-  // ── Tax Rules ────────────────────────────────────────────
-  const [vatRate, setVatRate] = useState('0.15')
-  const [withholdingRate, setWithholdingRate] = useState('0.02')
+  // -- Tax Rules (Now managed in Settings) --
 
   // ── Reports ──────────────────────────────────────────────
   const [revBuildingId, setRevBuildingId] = useState('')
@@ -110,6 +140,8 @@ export default function Finance() {
   const [expCustomCategory, setExpCustomCategory] = useState('')
   const [expDescription, setExpDescription] = useState('')
   const [expBuildingId, setExpBuildingId] = useState('')
+  const [expBankId, setExpBankId] = useState('')
+  const [expReceiptUrl, setExpReceiptUrl] = useState('')
   const [expLoading, setExpLoading] = useState(false)
 
   // -- P&L --
@@ -119,16 +151,47 @@ export default function Finance() {
   const [plData, setPlData] = useState<any>(null)
   const [plLoading, setPlLoading] = useState(false)
 
+  // -- Tenant Summary --
+  const [tenantSummary, setTenantSummary] = useState<any>(null)
+
+  // -- Analytics --
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [paymentToReject, setPaymentToReject] = useState<any>(null)
+  const [viewPayment, setViewPayment] = useState<any>(null)
+
   // ── Load helpers ─────────────────────────────────────────
   useEffect(() => {
     loadLookups()
     loadBankAccounts()
+    loadAnalytics()
+    loadDepositAdvices()
+    if (isTenant) loadTenantSummary()
   }, [])
+
+  async function loadAnalytics() {
+    setAnalyticsLoading(true)
+    try {
+      const data = await financeApi.getAnalytics()
+      setAnalytics(data)
+    } catch { console.error('Failed to load analytics') }
+    finally { setAnalyticsLoading(false) }
+  }
+
+  async function loadTenantSummary() {
+    try {
+      const data = await financeApi.getMySummary()
+      setTenantSummary(data)
+    } catch { console.error('Failed to load tenant summary') }
+  }
 
   useEffect(() => {
     if (tab === 'invoices' || tab === 'payments') loadInvoices()
     if (tab === 'expenses') loadExpenses()
     if (tab === 'p-and-l') loadPandL()
+    if (tab === 'deposit-advice') loadDepositAdvices()
   }, [tab, invFilterBuilding, invFilterStatus])
 
   async function loadLookups() {
@@ -189,6 +252,16 @@ export default function Finance() {
       setPlData(data)
     } catch { toast.addToast('Failed to load P&L report', 'error') }
     finally { setPlLoading(false) }
+  }
+
+  async function loadDepositAdvices() {
+    if (isTenant) return
+    setDaLoading(true)
+    try {
+      const data = await financeApi.getDepositAdvices()
+      setDepositAdvices(Array.isArray(data) ? data : [])
+    } catch { console.error('load deposit advices') }
+    finally { setDaLoading(false) }
   }
 
   // ── Selected lease derived data ──────────────────────────
@@ -302,6 +375,7 @@ export default function Finance() {
         amount: Number(payAmount),
         reference_no: payRefNo,
         proof_url: payProofUrl || undefined,
+        bank_account_id: payBankId || undefined,
       })
       toast.addToast('Payment recorded', 'success')
       setPayInvoiceId(''); setPayAmount(''); setPayRefNo(''); setPayProofUrl('')
@@ -311,20 +385,32 @@ export default function Finance() {
     }
   }
 
-  async function handleVerifyPayment(e: React.FormEvent) {
-    e.preventDefault()
-    if (!verifyPaymentId) { toast.addToast('Enter payment ID', 'error'); return }
+  async function handleVerifyPayment(pId: string, status: 'confirmed' | 'rejected', reason?: string) {
     try {
-      // Backend extracts verified_by from JWT automatically — only status is needed
-      await financeApi.verifyPayment(verifyPaymentId, {
-        status: verifyStatus,
-      })
-      toast.addToast(`Payment ${verifyStatus}`, 'success')
+      await financeApi.verifyPayment(pId, { status, reason })
+      toast.addToast(`Payment ${status}`, 'success')
       setVerifyPaymentId('')
+      setRejectionReason('')
+      setShowRejectModal(false)
       loadInvoices()
-    } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Verify failed', 'error')
-    }
+      loadAnalytics() // Refresh trends
+      loadBankAccounts() // Refresh bank balances
+    } catch { toast.addToast('Verification failed', 'error') }
+  }
+
+  async function handleVerifyDeposit(id: string, status: 'confirmed' | 'rejected') {
+    try {
+      await financeApi.verifyDepositAdvice(id, { status })
+      toast.addToast(`Deposit ${status}`, 'success')
+      loadBankAccounts() // Refresh balances
+    } catch { toast.addToast('Failed to verify deposit', 'error') }
+  }
+
+  async function handleResendInvoice(id: string) {
+    try {
+      await financeApi.resendInvoice(id)
+      toast.addToast('Invoice reminder sent to tenant', 'success')
+    } catch { toast.addToast('Failed to resend invoice', 'error') }
   }
 
   // ── Bank Account CRUD ────────────────────────────────────
@@ -335,12 +421,41 @@ export default function Finance() {
         bank_name: baBankName,
         account_number: baAcctNo,
         branch: baBranch,
+        opening_balance: Number(baOpeningBal || 0),
       })
       toast.addToast('Bank account created', 'success')
-      setBaBankName(''); setBaAcctNo(''); setBaBranch('')
+      setBaBankName(''); setBaAcctNo(''); setBaBranch(''); setBaOpeningBal('')
       loadBankAccounts()
     } catch (e: any) {
       toast.addToast(e?.response?.data?.message || 'Create bank account failed', 'error')
+    }
+  }
+
+  async function handleUpdateBankAccount(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editBankAccount) return
+    try {
+      await financeApi.updateBankAccount(editBankAccount.id, {
+        bank_name: editBaName,
+        account_number: editBaAcctNo,
+        branch: editBaBranch,
+      })
+      toast.addToast('Bank account updated', 'success')
+      setEditBankAccount(null)
+      loadBankAccounts()
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Update bank account failed', 'error')
+    }
+  }
+
+  async function handleDeleteBankAccount(id: string) {
+    if (!confirm('Delete this bank account? This cannot be undone.')) return
+    try {
+      await financeApi.deleteBankAccount(id)
+      toast.addToast('Bank account deleted', 'success')
+      loadBankAccounts()
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Delete bank account failed', 'error')
     }
   }
 
@@ -354,27 +469,16 @@ export default function Finance() {
         amount: Number(daAmount),
         deposit_date: daDate,
         reference_no: daRefNo,
+        proof_url: daProofUrl || undefined,
       })
       toast.addToast('Deposit advice created', 'success')
-      setDaBankAccountId(''); setDaAmount(''); setDaDate(''); setDaRefNo('')
+      setDaBankAccountId(''); setDaAmount(''); setDaDate(''); setDaRefNo(''); setDaProofUrl('')
     } catch (e: any) {
       toast.addToast(e?.response?.data?.message || 'Create deposit advice failed', 'error')
     }
   }
 
-  // ── Tax Rules ────────────────────────────────────────────
-  async function handlePatchTaxRules(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await financeApi.patchTaxRules({
-        vat_rate: Number(vatRate),
-        withholding_rate: Number(withholdingRate),
-      })
-      toast.addToast('Tax rules updated', 'success')
-    } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Update tax rules failed', 'error')
-    }
-  }
+  // -- Tax Rules (Managed in Settings) --
 
   // ── Reports ──────────────────────────────────────────────
   async function handleRevenueReport(e: React.FormEvent) {
@@ -412,10 +516,13 @@ export default function Finance() {
         category: finalCategory,
         description: expDescription || undefined,
         building_id: expBuildingId || undefined,
+        bank_account_id: expBankId || undefined,
+        receipt_url: expReceiptUrl || undefined,
       })
       toast.addToast('Expense recorded', 'success')
-      setExpAmount(''); setExpDescription(''); setExpCustomCategory('')
+      setExpAmount(''); setExpDescription(''); setExpCustomCategory(''); setExpReceiptUrl('')
       loadExpenses()
+      loadBankAccounts() // Refresh balances
     } catch { toast.addToast('Failed to record expense', 'error') }
   }
 
@@ -447,24 +554,61 @@ export default function Finance() {
       searchPlaceholder="Search invoices, tenants..."
       actions={
         <div className="flex items-center gap-3">
-          <button onClick={() => { setGenSiteId(''); setGenBuildingId(''); handleGenerateInvoices({ preventDefault: () => {} } as any) }} className="button-secondary">
-            <BarChart3 size={16} /> Bulk Generate
-          </button>
-          <button onClick={() => setTab('invoices')} className="button">
-            <Plus size={16} /> Create Invoice
-          </button>
+          {isTenant && (
+            <button 
+              onClick={() => financeApi.downloadTenantLedgerPdf(tenantSummary?.id || '')} 
+              className="button-secondary"
+            >
+              <Download size={16} /> My Statement
+            </button>
+          )}
+          {!isTenant && (
+            <button onClick={() => { setGenSiteId(''); setGenBuildingId(''); handleGenerateInvoices({ preventDefault: () => {} } as any) }} className="button-secondary">
+              <BarChart3 size={16} /> Bulk Generate
+            </button>
+          )}
+          {!isTenant && (
+            <button onClick={() => setTab('invoices')} className="button">
+              <Plus size={16} /> Create Invoice
+            </button>
+          )}
         </div>
       }
     >
       <div className="space-y-6">
 
       {/* KPI Cards */}
-      {!isTenant && (
+      {isTenant ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <KPICard
+            title="Balance Due"
+            value={fmtMoney(tenantSummary?.totalBalanceDue || 0)}
+            subtitle="Including any late fees"
+            variant="purple"
+            icon={<DollarSign size={18} />}
+          />
+          <KPICard
+            title="Next Due Date"
+            value={tenantSummary?.nextDueDate ? new Date(tenantSummary.nextDueDate).toLocaleDateString() : 'No pending payments'}
+            variant="white"
+            icon={<Calendar size={18} />}
+          />
+          <KPICard
+            title="Pending Invoices"
+            value={String(tenantSummary?.invoiceCount || 0)}
+            variant="white"
+            icon={<FileText size={18} />}
+          />
+        </div>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KPICard
             title="Total Revenue"
             value={fmtMoney(financeKpis.totalRevenue)}
-            trend={{ value: '+12.5%', direction: 'up' }}
+            trend={analytics?.revenueTrend ? { 
+              value: `${analytics.revenueTrend.percentage.toFixed(1)}%`, 
+              direction: analytics.revenueTrend.direction 
+            } : undefined}
             variant="white"
             icon={<TrendingUp size={18} />}
           />
@@ -482,6 +626,42 @@ export default function Finance() {
             variant="white"
             icon={<BarChart3 size={18} />}
           />
+        </div>
+      )}
+
+      {/* Analytics Chart Section (New) */}
+      {!isTenant && analytics?.chartData && (
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Revenue Performance</h3>
+              <p className="text-sm text-slate-500">Actual cash collected over the past 6 months.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900 px-3 py-1 rounded-lg">
+              <Calendar size={14} /> Last 6 Months
+            </div>
+          </div>
+          <div className="h-48 flex items-end gap-3 pt-4">
+            {analytics.chartData.map((d: any, i: number) => {
+              const max = Math.max(...analytics.chartData.map((x: any) => x.total), 1)
+              const height = (d.total / max) * 100
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+                  <div className="w-full relative flex flex-col justify-end h-32">
+                    <div 
+                      className="w-full bg-indigo-500/10 group-hover:bg-indigo-500/20 rounded-t-xl transition-all duration-500 relative"
+                      style={{ height: `${height}%` }}
+                    >
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        {fmtMoney(d.total)}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{d.month}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -586,30 +766,38 @@ export default function Finance() {
                   </div>
                   {invItems.map((item, i) => (
                     <div key={i} className="flex gap-2 mb-2 items-center">
-                      <select
-                        value={item.type}
-                        onChange={e => updateItem(i, 'type', e.target.value)}
-                        className="form-select text-sm"
-                      >
-                        {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <input
-                        placeholder="Amount"
-                        value={item.amount}
-                        onChange={e => updateItem(i, 'amount', e.target.value)}
-                        className="form-input flex-1 text-sm"
-                        type="number"
-                        step="0.01"
-                        required
-                      />
-                      <input
-                        placeholder="Description"
-                        value={item.description}
-                        onChange={e => updateItem(i, 'description', e.target.value)}
-                        className="form-input flex-1 text-sm"
-                      />
+                      <div className="w-32 shrink-0">
+                        <select
+                          value={item.type}
+                          onChange={e => updateItem(i, 'type', e.target.value)}
+                          className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm transition-all"
+                        >
+                          {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div className="w-32 shrink-0">
+                        <input
+                          placeholder="Amount"
+                          value={item.amount}
+                          onChange={e => updateItem(i, 'amount', e.target.value)}
+                          className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm transition-all"
+                          type="number"
+                          step="0.01"
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          placeholder="Item description"
+                          value={item.description}
+                          onChange={e => updateItem(i, 'description', e.target.value)}
+                          className="block w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm transition-all"
+                        />
+                      </div>
                       {invItems.length > 1 && (
-                        <button type="button" onClick={() => removeItem(i)} className="text-red-500 text-sm px-1">✕</button>
+                        <button type="button" onClick={() => removeItem(i)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                          <X size={16} />
+                        </button>
                       )}
                     </div>
                   ))}
@@ -681,6 +869,7 @@ export default function Finance() {
                       <th className="px-6 py-4 font-medium tracking-wider">Due Date</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Subtotal</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Tax</th>
+                      <th className="px-6 py-4 font-medium tracking-wider">Late Fee</th>
                       <th className="px-6 py-4 font-medium tracking-wider">Total</th>
                       <th className="px-6 py-4 font-medium tracking-wider text-center">Status</th>
                       <th className="px-6 py-4 font-medium tracking-wider text-right">Actions</th>
@@ -695,7 +884,12 @@ export default function Finance() {
                         <td className="px-6 py-4 text-slate-600 text-xs">{new Date(inv.due_date).toLocaleDateString()}</td>
                         <td className="px-6 py-4 text-slate-600">{fmtMoney(inv.subtotal)}</td>
                         <td className="px-6 py-4 text-slate-600">{fmtMoney(inv.tax_amount)}</td>
-                        <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(inv.total_amount)}</td>
+                        <td className="px-6 py-4 text-amber-600 font-medium">
+                          {Number(inv.late_fee_amount || 0) > 0 ? fmtMoney(inv.late_fee_amount) : '-'}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                          {fmtMoney(Number(inv.total_amount) + Number(inv.late_fee_amount || 0))}
+                        </td>
                         <td className="px-6 py-4 text-center">
                           <StatusBadge status={inv.status || 'pending'} />
                           {inv.amount_paid > 0 && inv.status !== 'paid' && (
@@ -705,16 +899,34 @@ export default function Finance() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-3 items-center">
                             {inv.status === 'paid' && inv.payments?.length > 0 && (
-                               <a 
-                                 href={financeApi.getPaymentReceiptPdfUrl(inv.payments[0].id)}
-                                 target="_blank"
-                                 rel="noreferrer"
-                                 className="text-emerald-600 hover:text-emerald-900 text-xs font-bold"
+                               <button 
+                                 onClick={() => financeApi.downloadPaymentReceiptPdf(inv.payments[0].id)}
+                                 className="text-emerald-600 hover:text-emerald-900 text-xs font-bold flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                                 title="Download Receipt"
                                >
-                                 Receipt
-                               </a>
+                                 <Download size={14} /> Receipt
+                               </button>
+                            )}
+                            {!isTenant && (
+                              <button 
+                                onClick={() => financeApi.downloadTenantLedgerPdf(inv.tenant?.id || inv.tenant_id)}
+                                className="text-indigo-600 hover:text-indigo-900 text-xs font-bold flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                                title="Download Statement"
+                              >
+                                <Download size={14} /> Statement
+                              </button>
+                            )}
+                            {!isTenant && inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
+                              <button onClick={() => financeApi.downloadTenantLedgerPdf(inv.tenant?.id || inv.tenant_id)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors" title="Download Statement">
+                                <Download size={16} />
+                              </button>
+                            )}
+                            {!isTenant && inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
+                              <button onClick={() => handleResendInvoice(inv.id)} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors" title="Resend Notification">
+                                <Plus size={16} className="rotate-45" />
+                              </button>
                             )}
                             {!isTenant && inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'voided' && (
                               <button onClick={() => handleVoidInvoice(inv.id)} className="text-rose-600 hover:text-rose-900 text-xs font-medium">
@@ -748,7 +960,7 @@ export default function Finance() {
                   required
                 >
                   <option value="">Select invoice</option>
-                  {(isTenant ? invoices : invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled')).map((inv: any) => (
+                  {(isTenant ? invoices.filter(i => i.status !== 'processing') : invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.status !== 'processing')).map((inv: any) => (
                     <option key={inv.id} value={String(inv.id)}>{invoiceLabel(inv)}</option>
                   ))}
                 </select>
@@ -783,14 +995,39 @@ export default function Finance() {
                 />
               </div>
 
-              <div>
-                <label className="form-label">Proof URL (optional)</label>
-                <input
-                  placeholder="https://..."
-                  value={payProofUrl}
-                  onChange={e => setPayProofUrl(e.target.value)}
-                  className="form-input"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label text-slate-700 dark:text-slate-300">Recipient Bank Account</label>
+                  <select
+                    value={payBankId}
+                    onChange={e => setPayBankId(e.target.value)}
+                    className="form-select"
+                    required
+                  >
+                    <option value="">-- Choose Account --</option>
+                    {bankAccounts.map((ba: any) => (
+                      <option key={ba.id} value={ba.id}>{ba.bank_name} ({ba.account_number})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-slate-700 dark:text-slate-300">Proof of Payment</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setPayProofUrl)}
+                      className="hidden"
+                      id="pay-proof-upload"
+                      accept="image/*,application/pdf"
+                    />
+                    <label 
+                      htmlFor="pay-proof-upload" 
+                      className={`flex-1 p-2 border-2 border-dashed rounded-xl text-center cursor-pointer text-xs transition-all ${payProofUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
+                    >
+                      {isUploading ? 'Uploading...' : payProofUrl ? '✓ Receipt Attached' : 'Upload Screenshot/PDF'}
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end">
@@ -801,49 +1038,80 @@ export default function Finance() {
             </form>
           </div>
 
+          {/* Payments Awaiting Verification */}
           {!isTenant && (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-              <h3 className="font-semibold mb-4 text-lg">Verify Payment</h3>
-              <form onSubmit={handleVerifyPayment} className="space-y-3">
-                <div>
-                  <label className="form-label">Payment</label>
-                  <select
-                    value={verifyPaymentId}
-                    onChange={e => setVerifyPaymentId(e.target.value)}
-                    className="form-select"
-                    required
-                  >
-                    <option value="">Select payment to verify</option>
-                    {pendingPayments.length > 0 ? (
-                      pendingPayments.map((p: any) => (
-                        <option key={p.id} value={String(p.id)}>
-                          {p.reference_no || p.id} — {fmtMoney(p.amount)} — Inv #{p._invoice?.invoice_no || p._invoice?.id || p.invoice_id}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No pending payments found (record a payment first)</option>
-                    )}
-                  </select>
+            <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Payments Awaiting Verification</h3>
+              {pendingPayments.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 rounded-xl">
+                  <DollarSign size={40} className="opacity-20" />
+                  <p>No pending payments to verify.</p>
                 </div>
-
-                <div>
-                  <label className="form-label">Decision</label>
-                  <select
-                    value={verifyStatus}
-                    onChange={e => setVerifyStatus(e.target.value as any)}
-                    className="form-select"
-                  >
-                    <option value="confirmed">Confirm</option>
-                    <option value="rejected">Reject</option>
-                  </select>
+              ) : (
+                <div className="table-container border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+                      <tr>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Tenant / Invoice</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Reference</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Proof</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {pendingPayments.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900 dark:text-white">
+                              {p._invoice?.tenant?.first_name || p._invoice?.tenant?.name || '-'}{p._invoice?.tenant?.last_name ? ` ${p._invoice.tenant.last_name}` : ''}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Invoice #{p._invoice?.invoice_no || p._invoice?.id}</div>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(p.amount)}</td>
+                          <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{p.reference_no || '-'}</td>
+                          <td className="px-6 py-4">
+                            {p.proof_url ? (
+                              <a
+                                href={getUploadUrl(p.proof_url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
+                              >
+                                <FileText size={12} /> View Proof
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">No proof uploaded</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => setViewPayment(p)}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleVerifyPayment(p.id, 'confirmed')}
+                                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => { setPaymentToReject(p); setShowRejectModal(true) }}
+                                className="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg transition-all"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-
-                <div className="flex justify-end">
-                  <button type="submit" className="button">
-                    Verify
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
           )}
         </div>
@@ -885,6 +1153,18 @@ export default function Finance() {
                   required
                 />
               </div>
+              <div className="mb-4">
+                <label className="form-label text-slate-700 dark:text-slate-300">Initial Opening Balance</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={baOpeningBal}
+                  onChange={e => setBaOpeningBal(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
               <div className="flex justify-end">
                 <button type="submit" className="button">
                   Create Account
@@ -900,9 +1180,34 @@ export default function Finance() {
             ) : (
               <div className="space-y-3">
                 {bankAccounts.map((ba: any, i: number) => (
-                  <div key={ba.id || i} className="p-4 border border-slate-200 dark:border-slate-700/80 rounded-xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 transition-colors">
-                    <div className="font-semibold text-slate-900 dark:text-white">{ba.bank_name}</div>
-                    <div className="text-sm text-slate-500 mt-1 font-mono">Acct: <span className="text-slate-700">{ba.account_number}</span> · Branch: <span className="text-slate-700">{ba.branch}</span></div>
+                  <div key={ba.id || i} className="p-4 border border-slate-200 dark:border-slate-700/80 rounded-xl bg-slate-50 dark:bg-slate-900/50 hover:border-indigo-200 dark:hover:border-indigo-900/40 transition-all group">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          {ba.bank_name}
+                          {ba.is_default && <span className="text-[10px] bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Default</span>}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 font-mono">Acct: <span className="text-slate-700 dark:text-slate-300">{ba.account_number}</span> · Branch: <span className="text-slate-700 dark:text-slate-300">{ba.branch}</span></div>
+                      </div>
+                      <div className="text-right">
+                         <div className="text-sm font-bold text-slate-900 dark:text-white">{fmtMoney(ba.current_balance)}</div>
+                         <div className="text-[10px] text-slate-400 font-medium uppercase tracking-widest mt-1">Available Balance</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => { setEditBankAccount(ba); setEditBaName(ba.bank_name); setEditBaAcctNo(ba.account_number); setEditBaBranch(ba.branch) }}
+                        className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBankAccount(ba.id)}
+                        className="text-[10px] font-bold text-rose-600 uppercase tracking-widest bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -963,6 +1268,24 @@ export default function Finance() {
                   required
                 />
               </div>
+              <div>
+                <label className="form-label">Proof of Deposit (Screenshot/PDF)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setDaProofUrl)}
+                    className="hidden"
+                    id="da-proof-upload"
+                    accept="image/*,application/pdf"
+                  />
+                  <label 
+                    htmlFor="da-proof-upload" 
+                    className={`flex-1 p-2 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${daProofUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
+                  >
+                    {isUploading ? 'Uploading...' : daProofUrl ? '✓ Proof Uploaded' : 'Click to upload proof'}
+                  </label>
+                </div>
+              </div>
               <div className="flex justify-end">
                 <button type="submit" className="button">
                   Create Deposit Advice
@@ -971,59 +1294,73 @@ export default function Finance() {
             </form>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Info</h3>
-            <p className="text-sm text-gray-500">
-              Deposit advice records are linked to bank accounts. Create a bank account first in the Bank Accounts tab,
-              then return here to create deposit advice entries.
-            </p>
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+            <h3 className="font-semibold mb-4 text-lg">Historical Deposite Records</h3>
+            {daLoading ? (
+              <div className="py-8 text-center text-slate-500 italic">Fetching deposit records...</div>
+            ) : depositAdvices.length === 0 ? (
+              <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 rounded-xl">
+                <BarChart3 size={40} className="opacity-20" />
+                <p>No deposit advice records found.</p>
+              </div>
+            ) : (
+              <div className="table-container border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+                    <tr>
+                      <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Bank / Ref</th>
+                      <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Date</th>
+                      <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
+                      <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-center">Status</th>
+                      {!isTenant && <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {depositAdvices.map((da: any) => (
+                      <tr key={da.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-slate-900 dark:text-white">{da.bank_account?.bank_name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">{da.reference_no}</div>
+                          {da.proof_url && (
+                             <a href={getUploadUrl(da.proof_url)} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-500 hover:underline mt-1 block">View Proof</a>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{da.deposit_date}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(da.amount)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <StatusBadge status={da.status} />
+                        </td>
+                        {!isTenant && (
+                          <td className="px-6 py-4 text-right">
+                            {da.status === 'pending' && (
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => handleVerifyDeposit(da.id, 'confirmed')}
+                                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded"
+                                >
+                                  Verify
+                                </button>
+                                <button
+                                  onClick={() => handleVerifyDeposit(da.id, 'rejected')}
+                                  className="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest bg-rose-500/10 px-2 py-1 rounded"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ────── TAX RULES TAB ────── */}
-      {tab === 'tax-rules' && (
-        <div className="max-w-lg">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Tax Rules Configuration</h3>
-            <form onSubmit={handlePatchTaxRules} className="space-y-4">
-              <div>
-                <label className="form-label">VAT Rate</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={vatRate}
-                    onChange={e => setVatRate(e.target.value)}
-                    className="form-input flex-1"
-                  />
-                  <span className="text-sm text-slate-500">({(Number(vatRate) * 100).toFixed(0)}%)</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label">Withholding Rate</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={withholdingRate}
-                    onChange={e => setWithholdingRate(e.target.value)}
-                    className="form-input flex-1"
-                  />
-                  <span className="text-sm text-slate-500">({(Number(withholdingRate) * 100).toFixed(0)}%)</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button type="submit" className="button">
-                  Update Tax Rules
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* --- Tax Rules removed (Managed in Settings) --- */}
 
       {/* ────── REPORTS TAB ────── */}
       {tab === 'reports' && (
@@ -1149,6 +1486,37 @@ export default function Finance() {
                   </select>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Source Account</label>
+                  <select
+                    value={expBankId}
+                    onChange={e => setExpBankId(e.target.value)}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
+                  >
+                    <option value="">Select Account</option>
+                    {bankAccounts.map((ba: any) => (
+                      <option key={ba.id} value={ba.id}>{ba.bank_name} ({ba.account_number})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Receipt (Screenshot/PDF)</label>
+                  <input
+                    type="file"
+                    onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setExpReceiptUrl)}
+                    className="hidden"
+                    id="exp-receipt-upload"
+                    accept="image/*,application/pdf"
+                  />
+                  <label 
+                    htmlFor="exp-receipt-upload" 
+                    className={`w-full block p-2 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${expReceiptUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
+                  >
+                    {isUploading ? 'Uploading...' : expReceiptUrl ? '✓ Receipt Uploaded' : 'Upload Receipt'}
+                  </label>
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
                 <select
@@ -1206,7 +1574,12 @@ export default function Finance() {
                         <td className="px-6 py-4">{e.date}</td>
                         <td className="px-6 py-4"><span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-medium">{e.category}</span></td>
                         <td className="px-6 py-4">{e.building?.name || 'Global'}</td>
-                        <td className="px-6 py-4 text-slate-500 truncate max-w-[200px]">{e.description || '-'}</td>
+                        <td className="px-6 py-4">
+                          <div className="text-slate-700 dark:text-slate-300 truncate max-w-[200px]">{e.description || '-'}</div>
+                          {e.receipt_url && (
+                            <a href={getUploadUrl(e.receipt_url)} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-500 hover:underline block mt-1">View Receipt</a>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-right font-semibold text-rose-600">{fmtMoney(e.amount)}</td>
                       </tr>
                     ))}
@@ -1284,6 +1657,202 @@ export default function Finance() {
               </div>
             </>
           )}
+        </div>
+      )}
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-8 border border-white/20">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Reject Payment</h3>
+            <p className="text-slate-500 text-sm mb-6">Please provide a reason for the tenant. They will receive a notification.</p>
+            <textarea 
+              value={rejectionReason}
+              onChange={e => setRejectionReason(e.target.value)}
+              placeholder="e.g. Reference number mismatch, illegible receipt..."
+              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm h-32 mb-6 focus:ring-2 focus:ring-rose-500"
+            />
+            <div className="flex gap-4">
+              <button onClick={() => setShowRejectModal(false)} className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-all">Cancel</button>
+              <button 
+                onClick={() => handleVerifyPayment(paymentToReject.id, 'rejected', rejectionReason)} 
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-lg transition-all"
+              >
+                Reject Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Detail Modal */}
+      {viewPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setViewPayment(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl border border-white/20" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Payment Details</h3>
+                  <p className="text-indigo-200 text-sm mt-1">Invoice #{viewPayment._invoice?.invoice_no || viewPayment._invoice?.id}</p>
+                </div>
+                <button onClick={() => setViewPayment(null)} className="text-white/60 hover:text-white text-2xl leading-none transition-colors">&times;</button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-8 py-6 space-y-5">
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Tenant</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">
+                    {viewPayment._invoice?.tenant?.first_name || viewPayment._invoice?.tenant?.name || '-'}{viewPayment._invoice?.tenant?.last_name ? ` ${viewPayment._invoice.tenant.last_name}` : ''}
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Unit</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">{viewPayment._invoice?.unit?.unit_number || '-'}</div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Amount Paid</div>
+                  <div className="text-sm font-bold text-emerald-600">{fmtMoney(viewPayment.amount)}</div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Invoice Total</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white">{fmtMoney(Number(viewPayment._invoice?.total_amount || 0) + Number(viewPayment._invoice?.late_fee_amount || 0))}</div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Reference No</div>
+                  <div className="text-sm font-mono text-slate-700 dark:text-slate-300">{viewPayment.reference_no || '-'}</div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Date</div>
+                  <div className="text-sm text-slate-700 dark:text-slate-300">{viewPayment.created_at ? new Date(viewPayment.created_at).toLocaleString() : '-'}</div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Bank Account</div>
+                  <div className="text-sm text-slate-700 dark:text-slate-300">
+                    {viewPayment.bank_account 
+                      ? `${viewPayment.bank_account.bank_name} (${viewPayment.bank_account.account_number})` 
+                      : viewPayment.bank_account_id || 'Default'}
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3">
+                  <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Status</div>
+                  <StatusBadge status={viewPayment.status || 'pending'} />
+                </div>
+              </div>
+
+              {/* Proof Section */}
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                <div className="bg-slate-50 dark:bg-slate-900 px-4 py-2 border-b border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Proof of Payment</span>
+                </div>
+                <div className="p-4">
+                  {viewPayment.proof_url ? (
+                    <div className="space-y-3">
+                      {/* If image, show preview */}
+                      {/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(viewPayment.proof_url) ? (
+                        <img
+                          src={getUploadUrl(viewPayment.proof_url)}
+                          alt="Payment proof"
+                          className="w-full max-h-[300px] object-contain rounded-lg border border-slate-200 bg-white"
+                        />
+                      ) : (
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-6 text-center">
+                          <FileText size={40} className="mx-auto text-indigo-400 mb-2" />
+                          <p className="text-sm text-indigo-600 font-medium">PDF / Document Attached</p>
+                        </div>
+                      )}
+                      <a
+                        href={getUploadUrl(viewPayment.proof_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl transition-all w-full justify-center"
+                      >
+                        <Download size={14} /> Open Full Document
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-slate-400">
+                      <FileText size={40} className="mx-auto opacity-20 mb-2" />
+                      <p className="text-sm">No proof document was uploaded for this payment.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="px-8 py-5 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex gap-3">
+              <button onClick={() => setViewPayment(null)} className="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-200 rounded-2xl transition-all">Close</button>
+              {(viewPayment.status === 'pending' || !viewPayment.status) && (
+                <>
+                  <button
+                    onClick={() => { handleVerifyPayment(viewPayment.id, 'confirmed'); setViewPayment(null) }}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-lg transition-all"
+                  >
+                    Confirm Payment
+                  </button>
+                  <button
+                    onClick={() => { setPaymentToReject(viewPayment); setShowRejectModal(true); setViewPayment(null) }}
+                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-lg transition-all"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Bank Account Modal */}
+      {editBankAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setEditBankAccount(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl p-8 border border-white/20" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Edit Bank Account</h3>
+            <p className="text-slate-500 text-sm mb-6">Update the account details below. Note that the opening balance cannot be changed.</p>
+            
+            <form onSubmit={handleUpdateBankAccount} className="space-y-4">
+              <div>
+                <label className="form-label">Bank Name</label>
+                <input
+                  value={editBaName}
+                  onChange={e => setEditBaName(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Account Number</label>
+                <input
+                  value={editBaAcctNo}
+                  onChange={e => setEditBaAcctNo(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Branch</label>
+                <input
+                  value={editBaBranch}
+                  onChange={e => setEditBaBranch(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setEditBankAccount(null)} className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-all">Cancel</button>
+                <button 
+                  type="submit"
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

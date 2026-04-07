@@ -32,6 +32,7 @@ export default function QR() {
 
   // Selected for export
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     loadUnits()
@@ -111,10 +112,24 @@ export default function QR() {
     })
   }
 
-  function handleExportPdf() {
-    const ids = selectedIds.size > 0 ? Array.from(selectedIds) : undefined
-    const url = qrApi.getExportPdfUrl(ids)
-    window.open(url, '_blank')
+  async function handleExportPdf() {
+    setExporting(true)
+    try {
+      const ids = selectedIds.size > 0 ? Array.from(selectedIds) : undefined
+      const blob = await qrApi.exportPdf(ids)
+      const url = window.URL.createObjectURL(new Blob([blob]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `QR_Export_${new Date().toISOString().split('T')[0]}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      toast.addToast('PDF exported successfully', 'success')
+    } catch (e: any) {
+      toast.addToast('Failed to export PDF', 'error')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const filteredData = analyticsData.filter(qr => 
@@ -304,9 +319,11 @@ export default function QR() {
                     </div>
                     <button
                       onClick={handleExportPdf}
+                      disabled={exporting}
                       className="button-secondary text-xs font-bold gap-2 py-2"
                     >
-                      <Download size={14} /> Export {selectedIds.size > 0 ? `(${selectedIds.size})` : 'All'}
+                      <Download size={14} className={exporting ? 'animate-bounce' : ''} /> 
+                      {exporting ? 'Exporting...' : `Export ${selectedIds.size > 0 ? `(${selectedIds.size})` : 'All'}`}
                     </button>
                   </div>
                 </div>

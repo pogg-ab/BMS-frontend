@@ -509,6 +509,30 @@ export default function Leases() {
                   {daysInfo && (
                     <div className={`mt-2 ml-16 text-xs font-semibold ${daysInfo.color}`}>{daysInfo.text}</div>
                   )}
+
+                  {/* Termination Info */}
+                  {String(l.status).toUpperCase() === 'TERMINATED' && (Number(l.penalty_amount) > 0 || Number(l.deposit_refund_amount) > 0) && (
+                    <div className="mt-3 ml-16 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-wrap gap-4 items-center">
+                      {Number(l.penalty_amount) > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Penalty:</span>
+                          <span className="text-xs font-bold text-rose-600">{(Number(l.penalty_amount)).toLocaleString()} ETB</span>
+                        </div>
+                      )}
+                      {Number(l.deposit_refund_amount) >= 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Refunded:</span>
+                          <span className="text-xs font-bold text-emerald-600">{(Number(l.deposit_refund_amount)).toLocaleString()} ETB</span>
+                        </div>
+                      )}
+                      {l.deposit_refund_date && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date:</span>
+                          <span className="text-xs font-medium text-slate-500">{new Date(l.deposit_refund_date).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -538,7 +562,17 @@ export default function Leases() {
                     <input type="date" value={terminateOnlyDate} onChange={e => setTerminateOnlyDate(e.target.value)} className="form-input" placeholder="Date" />
                     <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input" placeholder="Reason" />
                   </div>
-                  <button type="submit" className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">Terminate</button>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">ETB</span>
+                    <input 
+                      type="number" 
+                      value={terminateOnlyDepositDeduction} 
+                      onChange={e => setTerminateOnlyDepositDeduction(e.target.value)} 
+                      className="form-input w-full pl-12" 
+                      placeholder="Deposit Deduction (Repairs/Cleaning)" 
+                    />
+                  </div>
+                  <button type="submit" className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">Terminate & Invoice Penalty</button>
                 </div>
                 </form>
               )}
@@ -726,11 +760,25 @@ export default function Leases() {
               </div>
               <div>
                 <label className="text-sm font-bold text-slate-600">Reason</label>
-                <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input w-full" />
+                <input value={terminateOnlyReason} onChange={e => setTerminateOnlyReason(e.target.value)} className="form-input w-full" placeholder="e.g. Early termination by tenant" />
               </div>
-              <div className="flex gap-3 justify-end">
-                <button type="button" onClick={() => setShowTerminateModal(false)} className="px-4 py-2 rounded-lg">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-rose-600 text-white rounded-lg">Terminate</button>
+              <div>
+                <label className="text-sm font-bold text-slate-600">Deposit Deduction (Repairs/Cleaning)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">ETB</span>
+                  <input 
+                    type="number" 
+                    value={terminateOnlyDepositDeduction} 
+                    onChange={e => setTerminateOnlyDepositDeduction(e.target.value)} 
+                    className="form-input w-full pl-12" 
+                    placeholder="0.00" 
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 italic">This will be deducted from the held deposit before refund. Penalties are calculated separately.</p>
+              </div>
+              <div className="flex gap-3 justify-end pt-4">
+                <button type="button" onClick={() => setShowTerminateModal(false)} className="px-4 py-2 rounded-lg font-bold text-slate-500">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold shadow-lg hover:bg-rose-700">Terminate & Invoice Penalty</button>
               </div>
             </form>
           </div>
