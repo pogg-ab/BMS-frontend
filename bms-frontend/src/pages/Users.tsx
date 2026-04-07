@@ -21,6 +21,8 @@ export default function Users() {
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
+  const [userToDelete, setUserToDelete] = useState<UserRow | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [roles, setRoles] = useState<any[]>([])
   const [tab, setTab] = useState<'active' | 'deactivated'>('active')
   const [searchQuery, setSearchQuery] = useState('')
@@ -44,7 +46,18 @@ export default function Users() {
       const normalized = list.map((u: any) => ({
         ...u,
         is_active: typeof u.is_active === 'boolean' ? u.is_active : (u.status ? String(u.status).toLowerCase() === 'active' : false),
-        roles: Array.isArray(u.roles) ? u.roles.map(r => r.name || r) : (u.role ? [u.role.name || u.role] : (u.role_id ? [u.role_id] : [])),
+        // Normalize role shapes from different API responses:
+        // - u.roles: array of strings or objects { name }
+        // - u.user_roles or u.userRoles: array of assignments containing role or role.name
+        // - u.role: single role object
+        // - u.role_id: fallback id
+        roles: Array.isArray(u.roles)
+          ? u.roles.map((r: any) => (typeof r === 'string' ? r : (r.name || r)))
+          : Array.isArray(u.user_roles)
+          ? u.user_roles.map((ur: any) => ur.role?.name || ur.name || ur)
+          : Array.isArray(u.userRoles)
+          ? u.userRoles.map((ur: any) => ur.role?.name || ur.name || ur)
+          : (u.role ? [u.role.name || u.role] : (u.role_id ? [u.role_id] : [])),
       }))
 
       setUsers(normalized)
@@ -73,7 +86,16 @@ export default function Users() {
   }
 
   function openEdit(u: UserRow) {
-    setEditing(u); setName(u.name || ''); setEmail(u.email || ''); setPassword(''); setRoleId(undefined); setShowForm(true)
+    // Prefill form and attempt to select the primary role if available
+    let preRoleId: string | undefined = undefined
+    try {
+      const firstRole = Array.isArray(u.roles) && u.roles.length ? u.roles[0] : undefined
+      if (firstRole && roles && roles.length) {
+        const match = roles.find((r: any) => String(r.name).toLowerCase() === String(firstRole).toLowerCase() || String(r.id) === String(firstRole))
+        if (match) preRoleId = String(match.id)
+      }
+    } catch (_) { /* ignore */ }
+    setEditing(u); setName(u.name || ''); setEmail(u.email || ''); setPassword(''); setRoleId(preRoleId); setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -81,10 +103,18 @@ export default function Users() {
     try {
       if (editing) {
         await updateUser(editing.id, { name, email })
-        if (roleId) await assignRole({ user_id: editing.id, role_id: Number(roleId) })
+        if (roleId) await assignRole({ user_id: editing.id, role_id: String(roleId) })
         toast.addToast('User updated successfully', 'success')
       } else {
-        await createUser({ name, email, password, role_id: roleId ? Number(roleId) : undefined, status: 'ACTIVE' })
+        const created = await createUser({ name, email, password, status: 'ACTIVE' })
+        // Some APIs don't assign role on create; call assignRole explicitly when role selected
+        if (roleId) {
+          try {
+            await assignRole({ user_id: created.id || created.user?.id || created.user_id || created, role_id: String(roleId) })
+          } catch (_) {
+            // ignore assign failure here; UI will refresh and show current roles
+          }
+        }
         toast.addToast('User created successfully', 'success')
       }
       setShowForm(false)
@@ -112,6 +142,20 @@ export default function Users() {
       load()
     } catch (e: any) {
       toast.addToast(e?.response?.data?.message || 'Failed to activate', 'error')
+    }
+  }
+
+  async function handleDeleteUser(id: string | number) {
+    try {
+      setDeleteLoading(true)
+      await deleteUser(id)
+      toast.addToast('User deleted', 'success')
+      setUserToDelete(null)
+      await load()
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Failed to delete', 'error')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -201,23 +245,23 @@ export default function Users() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all" title="Edit User">
-                    <Edit2 size={16} />
-                  </button>
-                  {u.is_active ? (
-                    <button onClick={() => handleDeactivate(u.id)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all" title="Deactivate">
-                      <XCircle size={16} />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all" title="Edit User">
+                      <Edit2 size={16} />
                     </button>
-                  ) : (
-                    <button onClick={() => handleActivate(u.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all" title="Activate">
-                      <CheckCircle size={16} />
+                    {u.is_active ? (
+                      <button onClick={() => handleDeactivate(u.id)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all" title="Deactivate">
+                        <XCircle size={16} />
+                      </button>
+                    ) : (
+                      <button onClick={() => handleActivate(u.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all" title="Activate">
+                        <CheckCircle size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => setUserToDelete(u)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all" title="Delete User">
+                      <Trash2 size={16} />
                     </button>
-                  )}
-                  <button className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                  </div>
               </div>
             ))}
           </div>
@@ -275,6 +319,27 @@ export default function Users() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Delete</h2>
+              <button className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm" onClick={() => setUserToDelete(null)}>✕</button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700 dark:text-slate-300 mb-4">Are you sure you want to permanently delete <strong>{userToDelete.name || userToDelete.email}</strong>? This action cannot be undone.</p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setUserToDelete(null)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button disabled={deleteLoading} onClick={() => handleDeleteUser(userToDelete.id)} className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-lg shadow-rose-600/20 transition-all">
+                  {deleteLoading ? 'Deleting...' : 'Delete User'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

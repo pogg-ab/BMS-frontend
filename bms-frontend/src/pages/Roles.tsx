@@ -5,6 +5,7 @@ import {
 } from '../api/roles'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
+import ConfirmModal from '../components/ConfirmModal'
 import { ShieldCheck, UserCheck, KeySquare, Plus, Trash2, Edit2, Shield, Lock, Check, X, Info } from 'lucide-react'
 
 type Role = {
@@ -28,6 +29,9 @@ export default function Roles() {
   const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [manageRoleId, setManageRoleId] = useState<string | null>(null)
   const [selectedPermIds, setSelectedPermIds] = useState<string[]>([])
+  const [toDeleteRole, setToDeleteRole] = useState<Role | null>(null)
+  const [toDeletePerm, setToDeletePerm] = useState<any | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Role Form State
   const [roleName, setRoleName] = useState('')
@@ -93,15 +97,9 @@ export default function Roles() {
   }
 
   async function handleDeleteRole(id: string, name: string) {
+    // open modal instead
     if (name === 'super_admin') return
-    if (!confirm(`Delete role "${name}"?`)) return
-    try {
-      await deleteRole(id)
-      toast.addToast('Role deleted', 'success')
-      loadData()
-    } catch (e: any) {
-      toast.addToast(e?.response?.data?.message || 'Failed to delete role', 'error')
-    }
+    setToDeleteRole({ id, name } as Role)
   }
 
   // --- Assign Permissions Logic ---
@@ -145,12 +143,33 @@ export default function Roles() {
   }
 
   async function handleDeletePermission(id: string) {
-    if (!confirm('Delete permission?')) return
+    setToDeletePerm({ id })
+  }
+
+  async function confirmDeleteRole() {
+    if (!toDeleteRole) return
+    setDeleting(true)
     try {
-      await deletePermission(id); toast.addToast('Permission deleted', 'success'); loadData()
+      await deleteRole(toDeleteRole.id)
+      toast.addToast('Role deleted', 'success')
+      setToDeleteRole(null)
+      loadData()
+    } catch (e:any) {
+      toast.addToast(e?.response?.data?.message || 'Failed to delete role', 'error')
+    } finally { setDeleting(false) }
+  }
+
+  async function confirmDeletePermission() {
+    if (!toDeletePerm) return
+    setDeleting(true)
+    try {
+      await deletePermission(toDeletePerm.id)
+      toast.addToast('Permission deleted', 'success')
+      setToDeletePerm(null)
+      loadData()
     } catch (e:any) {
       toast.addToast(e?.response?.data?.message || 'Failed to delete permission', 'error')
-    }
+    } finally { setDeleting(false) }
   }
 
   return (
@@ -204,7 +223,7 @@ export default function Roles() {
                           <UserCheck size={20} />
                         </div>
                         <div className="flex items-center gap-1">
-                          {!isSudo && (
+                              {!isSudo && (
                             <>
                               <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
                               <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
@@ -320,6 +339,28 @@ export default function Roles() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!toDeleteRole}
+        title="Delete Role"
+        message={toDeleteRole ? `Delete role "${toDeleteRole.name}"? This cannot be undone.` : 'Delete role?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleting}
+        onConfirm={confirmDeleteRole}
+        onCancel={() => setToDeleteRole(null)}
+      />
+
+      <ConfirmModal
+        open={!!toDeletePerm}
+        title="Delete Permission"
+        message={toDeletePerm ? 'Delete permission? This will remove it from all roles.' : 'Delete permission?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleting}
+        onConfirm={confirmDeletePermission}
+        onCancel={() => setToDeletePerm(null)}
+      />
 
       {/* MANAGE PERMISSIONS MODAL */}
       {manageRoleId && (
