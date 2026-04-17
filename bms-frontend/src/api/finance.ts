@@ -43,13 +43,32 @@ export async function createInvoice(dto: {
   unit_id: string
   due_date: string
   items: { type: string; amount: number; description?: string }[]
+  status?: string
 }) {
   const res = await api.post('/finance/invoices', dto)
   return res.data
 }
 
+export async function updateDraftInvoice(id: string, dto: {
+  due_date: string
+  items: { type: string; amount: number; description?: string }[]
+}) {
+  const res = await api.patch(`/finance/invoices/${id}/draft`, dto)
+  return res.data
+}
+
 export async function voidInvoice(id: string) {
   const res = await api.delete(`/finance/invoices/${id}`)
+  return res.data
+}
+
+export async function confirmInvoice(id: string) {
+  const res = await api.patch(`/finance/invoices/${id}/confirm`)
+  return res.data
+}
+
+export async function bulkConfirmInvoices(ids: string[]) {
+  const res = await api.post('/finance/invoices/bulk-confirm', { ids })
   return res.data
 }
 

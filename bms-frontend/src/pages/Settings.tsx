@@ -16,6 +16,9 @@ export default function Settings() {
   const [vatRate, setVatRate] = useState(0.15)
   const [withholdingRate, setWithholdingRate] = useState(0.02)
   const [lateFee, setLateFee] = useState(2.0)
+  const [lateFeeType, setLateFeeType] = useState<'PERCENTAGE' | 'FLAT'>('PERCENTAGE')
+  const [lateFeeFlat, setLateFeeFlat] = useState(0.0)
+  const [lateFeeGrace, setLateFeeGrace] = useState(0)
   const [penaltyPct, setPenaltyPct] = useState(0.0)
   const [escalationPct, setEscalationPct] = useState(0.0)
   const [defaultDuration, setDefaultDuration] = useState(12)
@@ -36,6 +39,9 @@ export default function Settings() {
         setVatRate(Number(data.vat_rate) || 0.15)
         setWithholdingRate(Number(data.withholding_rate) || 0.02)
         setLateFee(Number(data.late_fee_percentage) || 2.0)
+        setLateFeeType(data.late_fee_type || 'PERCENTAGE')
+        setLateFeeFlat(Number(data.late_fee_flat_amount) || 0)
+        setLateFeeGrace(Number(data.late_fee_grace_period_days) || 0)
         setPenaltyPct(Number(data.early_termination_penalty_pct) || 0)
         setEscalationPct(Number(data.rent_escalation_pct) || 0)
         setDefaultDuration(Number(data.default_lease_duration_months) || 12)
@@ -63,6 +69,7 @@ export default function Settings() {
       await settingsApi.updateSettings({
         company_name: companyName, tin_number: tinNumber, vat_number: vatNumber,
         vat_rate: vatRate, withholding_rate: withholdingRate, late_fee_percentage: lateFee,
+        late_fee_type: lateFeeType, late_fee_flat_amount: lateFeeFlat, late_fee_grace_period_days: lateFeeGrace,
         early_termination_penalty_pct: penaltyPct, rent_escalation_pct: escalationPct,
         default_lease_duration_months: defaultDuration, logo: logoFile || undefined,
       })
@@ -219,9 +226,27 @@ export default function Settings() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Daily Late Fee (%)</label>
-                    <input type="number" step="0.1" min="0" value={lateFee} onChange={e => setLateFee(parseFloat(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500" />
-                    <p className="text-[10px] text-slate-400 mt-2">Applied to outstanding balance after grace period.</p>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Late Fee Type</label>
+                    <select value={lateFeeType} onChange={e => setLateFeeType(e.target.value as 'PERCENTAGE' | 'FLAT')} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all">
+                      <option value="PERCENTAGE">Percentage (%)</option>
+                      <option value="FLAT">Flat Amount</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                       {lateFeeType === 'PERCENTAGE' ? 'Daily Late Fee (%)' : 'Daily Late Fee (Flat)'}
+                    </label>
+                    {lateFeeType === 'PERCENTAGE' ? (
+                      <input type="number" step="0.1" min="0" value={lateFee} onChange={e => setLateFee(parseFloat(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all" />
+                    ) : (
+                      <input type="number" step="0.01" min="0" value={lateFeeFlat} onChange={e => setLateFeeFlat(parseFloat(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all" />
+                    )}
+                    <p className="text-[10px] text-slate-400 mt-2">Applied to outstanding balance per day after grace period.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Grace Period (Days)</label>
+                    <input type="number" min="0" step="1" value={lateFeeGrace} onChange={e => setLateFeeGrace(parseInt(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all" />
+                    <p className="text-[10px] text-slate-400 mt-2">Days after due date before penalties start.</p>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Default Duration (Months)</label>

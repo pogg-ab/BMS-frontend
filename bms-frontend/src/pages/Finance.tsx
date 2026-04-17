@@ -10,10 +10,11 @@ import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
 
-type Tab = 'invoices' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses' | 'p-and-l'
+type Tab = 'invoices' | 'drafts' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses' | 'p-and-l'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'invoices', label: 'Invoices' },
+  { key: 'drafts', label: 'Drafts' },
   { key: 'payments', label: 'Payments' },
   { key: 'bank-accounts', label: 'Bank Accounts' },
   { key: 'deposit-advice', label: 'Deposit Advice' },
@@ -47,6 +48,7 @@ export default function Finance() {
   const visibleTabs = TABS.filter(t => {
     if (isSuperAdmin) return true
     if (isTenant && ['invoices', 'payments'].includes(t.key)) return true
+    if (t.key === 'drafts') return !isTenant && (isSuperAdmin || userPermissions.includes('finance:manage'))
     if (['bank-accounts', 'reports'].includes(t.key)) {
       return !isTenant && (isSuperAdmin || userPermissions.includes('finance:manage') || userPermissions.includes('reports:view'))
     }
@@ -71,6 +73,11 @@ export default function Finance() {
     { type: 'RENT', amount: '', description: '' },
   ])
   const [invLeaseSearch, setInvLeaseSearch] = useState('')
+
+  // edit draft
+  const [editingDraft, setEditingDraft] = useState<any>(null)
+  const [editDraftDueDate, setEditDraftDueDate] = useState('')
+  const [editDraftItems, setEditDraftItems] = useState<{ type: string; amount: string; description: string }[]>([])
 
   // generate invoices
   const [genSiteId, setGenSiteId] = useState('')
@@ -188,11 +195,14 @@ export default function Finance() {
   }
 
   useEffect(() => {
-    if (tab === 'invoices' || tab === 'payments') loadInvoices()
+    if (tab === 'invoices' || tab === 'payments' || tab === 'drafts') loadInvoices()
     if (tab === 'expenses') loadExpenses()
     if (tab === 'p-and-l') loadPandL()
     if (tab === 'deposit-advice') loadDepositAdvices()
   }, [tab, invFilterBuilding, invFilterStatus])
+
+  const draftInvoices = useMemo(() => invoices.filter(i => i.status === 'draft'), [invoices])
+  const confirmedInvoices = useMemo(() => invoices.filter(i => i.status !== 'draft'), [invoices])
 
   async function loadLookups() {
     try {
@@ -223,7 +233,7 @@ export default function Finance() {
     try {
       const params: any = {}
       if (invFilterBuilding) params.building_id = invFilterBuilding
-      if (invFilterStatus) params.status = invFilterStatus
+      if (tab !== 'drafts' && invFilterStatus) params.status = invFilterStatus
       const data = await financeApi.getInvoices(params)
       setInvoices(Array.isArray(data) ? data : [])
     } catch (e: any) {
@@ -328,9 +338,10 @@ export default function Finance() {
         tenant_id: selectedLease.tenant?.id || selectedLease.tenant_id,
         unit_id: selectedLease.unit?.id || selectedLease.unit_id,
         due_date: invDueDate,
+        status: 'pending', // Manual creation is approved immediately
         items: items as any,
       })
-      toast.addToast('Invoice created', 'success')
+      toast.addToast('Invoice created and approved', 'success')
       setInvLeaseId(''); setInvDueDate('')
       setInvItems([{ type: 'RENT', amount: '', description: '' }])
       loadInvoices()
@@ -338,6 +349,56 @@ export default function Finance() {
       const msg = e?.response?.data?.message
       toast.addToast(Array.isArray(msg) ? msg.join('; ') : (msg || 'Create invoice failed'), 'error')
     }
+  }
+
+  async function handleConfirmInvoice(id: string) {
+    try {
+      await financeApi.confirmInvoice(id)
+      toast.addToast('Invoice approved and issued', 'success')
+      loadInvoices()
+    } catch { toast.addToast('Approval failed', 'error') }
+  }
+
+  function openEditDraft(inv: any) {
+    setEditingDraft(inv)
+    setEditDraftDueDate(inv.due_date || '')
+    setEditDraftItems(inv.items?.map((i: any) => ({
+      type: i.type,
+      amount: String(i.amount),
+      description: i.description || ''
+    })) || [])
+  }
+
+  async function handleEditDraftSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingDraft) return
+    const items = editDraftItems
+      .filter(i => Number(i.amount) > 0)
+      .map(i => ({ type: i.type, amount: Number(i.amount), description: i.description || undefined }))
+    if (items.length === 0) {
+      toast.addToast('Add at least one line item', 'error'); return
+    }
+    try {
+      await financeApi.updateDraftInvoice(editingDraft.id, {
+        due_date: editDraftDueDate,
+        items: items as any
+      })
+      toast.addToast('Draft updated', 'success')
+      setEditingDraft(null)
+      loadInvoices()
+    } catch (e: any) {
+      toast.addToast(e?.response?.data?.message || 'Update failed', 'error')
+    }
+  }
+
+  async function handleBulkApproveDrafts() {
+    if (!draftInvoices.length) return
+    try {
+      const ids = draftInvoices.map(d => d.id)
+      await financeApi.bulkConfirmInvoices(ids)
+      toast.addToast(`Batch approval started for ${ids.length} invoices`, 'success')
+      loadInvoices()
+    } catch { toast.addToast('Bulk approval failed', 'error') }
   }
 
   async function handleVoidInvoice(id: string) {
@@ -539,12 +600,12 @@ export default function Finance() {
 
   // ── KPI Calculations ─────────────────────────────────────
   const financeKpis = useMemo(() => {
-    const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount || 0), 0)
-    const totalOutstanding = invoices.filter(i => ['pending', 'overdue', 'partial'].includes(i.status)).reduce((s, i) => s + (Number(i.total_amount || 0) - Number(i.amount_paid || 0)), 0)
-    const paidCount = invoices.filter(i => i.status === 'paid').length
-    const collectionRate = invoices.length > 0 ? ((paidCount / invoices.length) * 100).toFixed(1) : '0'
-    return { totalRevenue, totalOutstanding, collectionRate, paidCount, totalInvoices: invoices.length }
-  }, [invoices])
+    const totalRevenue = confirmedInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total_amount || 0), 0)
+    const totalOutstanding = confirmedInvoices.filter(i => ['pending', 'overdue', 'partial'].includes(i.status)).reduce((s, i) => s + (Number(i.total_amount || 0) - Number(i.amount_paid || 0)), 0)
+    const paidCount = confirmedInvoices.filter(i => i.status === 'paid').length
+    const collectionRate = confirmedInvoices.length > 0 ? ((paidCount / confirmedInvoices.length) * 100).toFixed(1) : '0'
+    return { totalRevenue, totalOutstanding, collectionRate, paidCount, totalInvoices: confirmedInvoices.length }
+  }, [confirmedInvoices])
 
   // ── Render ───────────────────────────────────────────────
   return (
@@ -815,7 +876,7 @@ export default function Finance() {
             <div className="space-y-4">
               {/* Generate Invoices */}
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-                <h3 className="font-semibold mb-3">Generate Invoices (Bulk)</h3>
+                <h3 className="font-semibold mb-3">Generate Invoices (Monthly Bulk Billing)</h3>
                 <form onSubmit={handleGenerateInvoices} className="space-y-3">
                   <select value={genSiteId} onChange={e => setGenSiteId(e.target.value)} className="form-select">
                     <option value="">All Sites</option>
@@ -830,18 +891,36 @@ export default function Finance() {
                   </button>
                 </form>
               </div>
+            </div>
+            </div>
+          )}
 
-              {/* Filters */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-                <h3 className="font-semibold mb-3">Filter Invoices</h3>
-                <div className="space-y-2">
-                  <select value={invFilterBuilding} onChange={e => setInvFilterBuilding(e.target.value)} className="form-select">
+          {/* Invoices Table */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg tracking-tight">Invoices</h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <select 
+                    value={invFilterBuilding} 
+                    onChange={e => setInvFilterBuilding(e.target.value)} 
+                    className="form-select pl-9 py-2 min-w-[160px] text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
                     <option value="">All Buildings</option>
                     {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>)}
                   </select>
-                  <select value={invFilterStatus} onChange={e => setInvFilterStatus(e.target.value)} className="form-select">
+                </div>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <select 
+                    value={invFilterStatus} 
+                    onChange={e => setInvFilterStatus(e.target.value)} 
+                    className="form-select pl-9 py-2 min-w-[160px] text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
                     <option value="">All Statuses</option>
                     <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
                     <option value="paid">Paid</option>
                     <option value="partial">Partial</option>
                     <option value="overdue">Overdue</option>
@@ -849,13 +928,7 @@ export default function Finance() {
                   </select>
                 </div>
               </div>
-              </div>
             </div>
-          )}
-
-          {/* Invoices Table */}
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">Invoices</h3>
             {invLoading ? <div className="py-12 flex justify-center text-slate-500">Loading invoices...</div> : invoices.length === 0 ? (
               <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No invoices found</div>
             ) : (
@@ -876,7 +949,7 @@ export default function Finance() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {invoices.map((inv: any) => (
+                    {confirmedInvoices.map((inv: any) => (
                       <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                         <td className="px-6 py-4 font-medium text-slate-500">#{inv.invoice_no || inv.id}</td>
                         <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{inv.tenant?.first_name || inv.tenant?.name || '-'}{inv.tenant?.last_name ? ` ${inv.tenant.last_name}` : ''}</td>
@@ -945,6 +1018,97 @@ export default function Finance() {
         </div>
       )}
 
+      {/* ────── DRAFTS TAB ────── */}
+      {tab === 'drafts' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+              <div className="flex items-center gap-4">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg tracking-tight">Draft Invoices</h3>
+                {draftInvoices.length > 0 && (
+                  <button 
+                    onClick={handleBulkApproveDrafts} 
+                    className="button bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm py-1.5 px-4 text-sm"
+                  >
+                    Approve All ({draftInvoices.length})
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <select 
+                    value={invFilterBuilding} 
+                    onChange={e => setInvFilterBuilding(e.target.value)} 
+                    className="form-select pl-9 py-2 min-w-[160px] text-sm bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-300 shadow-sm transition-all focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  >
+                    <option value="">All Buildings</option>
+                    {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {invLoading ? (
+              <div className="py-12 flex justify-center text-slate-500">Loading drafts...</div>
+            ) : draftInvoices.length === 0 ? (
+              <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">
+                No draft invoices found. Start by clicking "Bulk Generate" to create monthly billing drafts.
+              </div>
+            ) : (
+              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-6 py-4">Draft #</th>
+                      <th className="px-6 py-4">Tenant</th>
+                      <th className="px-6 py-4">Unit</th>
+                      <th className="px-6 py-4">Due Date</th>
+                      <th className="px-6 py-4">Total</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {draftInvoices.map((inv: any) => (
+                      <tr key={inv.id} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
+                        <td className="px-6 py-4 font-medium text-slate-500">#{inv.invoice_no || inv.id}</td>
+                        <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">
+                          {inv.tenant?.first_name || inv.tenant?.name || '-'} {inv.tenant?.last_name || ''}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 font-mono text-xs">{inv.unit?.unit_number || '-'}</td>
+                        <td className="px-6 py-4 text-slate-600 text-xs">{new Date(inv.due_date).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(inv.total_amount)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => openEditDraft(inv)}
+                              className="px-3 py-1.5 bg-slate-50 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleConfirmInvoice(inv.id)}
+                              className="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-xs font-bold transition-all border border-indigo-100 dark:border-indigo-900/50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-600 dark:hover:text-white"
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              onClick={() => handleVoidInvoice(inv.id)}
+                              className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg text-xs transition-all"
+                            >
+                              Discard
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ────── PAYMENTS TAB ────── */}
       {tab === 'payments' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -960,7 +1124,7 @@ export default function Finance() {
                   required
                 >
                   <option value="">Select invoice</option>
-                  {(isTenant ? invoices.filter(i => i.status !== 'processing') : invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.status !== 'processing')).map((inv: any) => (
+                  {(isTenant ? confirmedInvoices.filter(i => i.status !== 'processing') : confirmedInvoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.status !== 'processing')).map((inv: any) => (
                     <option key={inv.id} value={String(inv.id)}>{invoiceLabel(inv)}</option>
                   ))}
                 </select>
@@ -970,7 +1134,7 @@ export default function Finance() {
                 <label className="form-label">Amount</label>
                 {payInvoiceId && (
                   <div className="text-xs text-slate-500 mb-1">
-                    Outstanding: {fmtMoney(Number(invoices.find(i => String(i.id) === payInvoiceId)?.total_amount || 0) + Number(invoices.find(i => String(i.id) === payInvoiceId)?.late_fee_amount || 0) - Number(invoices.find(i => String(i.id) === payInvoiceId)?.amount_paid || 0))}
+                    Outstanding: {fmtMoney(Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.total_amount || 0) + Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.late_fee_amount || 0) - Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.amount_paid || 0))}
                   </div>
                 )}
                 <input
@@ -1847,6 +2011,95 @@ export default function Finance() {
                 <button 
                   type="submit"
                   className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Draft Modal */}
+      {editingDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setEditingDraft(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-8 border border-white/20" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Draft #{editingDraft.invoice_no || editingDraft.id}</h3>
+              <button onClick={() => setEditingDraft(null)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"><X size={20}/></button>
+            </div>
+            
+            <form onSubmit={handleEditDraftSave} className="space-y-6">
+              <div>
+                <label className="form-label">Due Date</label>
+                <input
+                  type="date"
+                  value={editDraftDueDate}
+                  onChange={e => setEditDraftDueDate(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Line Items</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setEditDraftItems(prev => [...prev, { type: 'RENT', amount: '', description: '' }])}
+                    className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {editDraftItems.map((item, i) => (
+                    <div key={i} className="flex gap-3 items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <div className="w-32 shrink-0">
+                        <select
+                          value={item.type}
+                          onChange={e => setEditDraftItems(prev => prev.map((it, idx) => idx === i ? { ...it, type: e.target.value } : it))}
+                          className="form-select border-transparent"
+                        >
+                          {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div className="w-32 shrink-0">
+                        <input
+                          placeholder="Amount"
+                          value={item.amount}
+                          onChange={e => setEditDraftItems(prev => prev.map((it, idx) => idx === i ? { ...it, amount: e.target.value } : it))}
+                          className="form-input border-transparent"
+                          type="number"
+                          step="0.01"
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          placeholder="Item description (optional)"
+                          value={item.description}
+                          onChange={e => setEditDraftItems(prev => prev.map((it, idx) => idx === i ? { ...it, description: e.target.value } : it))}
+                          className="form-input border-transparent"
+                        />
+                      </div>
+                      {editDraftItems.length > 1 && (
+                        <button type="button" onClick={() => setEditDraftItems(prev => prev.filter((_, idx) => idx !== i))} className="p-2 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg transition-colors">
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-right text-xs text-slate-500 mt-2 font-mono">Note: VAT and Total Amount will be recalculated automatically on save.</div>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button type="button" onClick={() => setEditingDraft(null)} className="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all">Cancel</button>
+                <button 
+                  type="submit"
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all"
                 >
                   Save Changes
                 </button>
