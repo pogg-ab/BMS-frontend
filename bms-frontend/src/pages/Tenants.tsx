@@ -47,8 +47,10 @@ import {
   Hash,
   Clock,
   Eye,
-  X
+  X,
+  Download
 } from 'lucide-react'
+import { downloadReport } from '../utils/export'
 
 
 interface Tenant {
@@ -575,9 +577,14 @@ export default function Tenants() {
       title="Tenant Management"
       subtitle={`Curating ${tenants.length.toLocaleString()} active lease agreements across 14 properties.`}
       actions={
-        <button onClick={() => setShowRegister(true)} className="button flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
-          <Plus size={18} /> Register Tenant
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => downloadReport('tenants')} className="button-secondary flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-sm transition-all active:scale-95">
+            <Download size={18} /> Export CSV
+          </button>
+          <button onClick={() => setShowRegister(true)} className="button flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+            <Plus size={18} /> Register Tenant
+          </button>
+        </div>
       }
     >
       <div className="space-y-6">

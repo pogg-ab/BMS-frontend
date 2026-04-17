@@ -5,7 +5,8 @@ import { listUnits, createUnit, bulkUploadUnits, getUnit, updateUnit, deleteUnit
 import { listAmenities as listAmenitiesApi, linkAmenityToUnitByIds, removeAmenityFromUnitByIds } from '../api/amenities'
 import { listBuildings, getBuilding } from '../api/buildings'
 import api from '../api/axios'
-import { Search, LayoutGrid, List as ListIcon, Star, Maximize, Bed, MapPin, Building2, Edit2, Info, Plus, Upload, Trash2, X } from 'lucide-react'
+import { Search, LayoutGrid, List as ListIcon, Star, Maximize, Bed, MapPin, Building2, Edit2, Info, Plus, Upload, Trash2, X, Download } from 'lucide-react'
+import { downloadReport } from '../utils/export'
 
 // Constants
 const UNIT_TYPES = [
@@ -301,6 +302,13 @@ export default function Units() {
             onClick={() => fileRef.current?.click()}
           >
             <Upload size={16} /> Bulk Upload
+          </button>
+          <button 
+            type="button"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200"
+            onClick={() => downloadReport('units')}
+          >
+            <Download size={16} /> Export CSV
           </button>
           <button 
             type="button"

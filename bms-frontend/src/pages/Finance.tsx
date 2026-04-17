@@ -9,6 +9,7 @@ import { listLeases } from '../api/leases'
 import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
+import { downloadReport } from '../utils/export'
 
 type Tab = 'invoices' | 'drafts' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses' | 'p-and-l'
 
@@ -621,6 +622,18 @@ export default function Finance() {
               className="button-secondary"
             >
               <Download size={16} /> My Statement
+            </button>
+          )}
+          {!isTenant && (
+            <button 
+              onClick={() => {
+                const type = tab === 'payments' ? 'payments' : 'invoices';
+                downloadReport(type);
+                toast.addToast(`${type} exported successfully`, 'success');
+              }} 
+              className="button-secondary"
+            >
+              <Download size={16} /> Export CSV
             </button>
           )}
           {!isTenant && (

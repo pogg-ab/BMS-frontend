@@ -23,8 +23,23 @@ export const getTurnover = () => axios.get('/reports/turnover').then(res => res.
 export const getUtilities = () => axios.get('/reports/utilities').then(res => res.data);
 export const exportReport = (type: string) => `${axios.defaults.baseURL}/reports/export?type=${type}`;
 
+export const getPeopleReport = async () => (await axios.get('/reports/people')).data;
+export const getLeaseReport = async () => (await axios.get('/reports/leases')).data;
+export const getPropertyReport = async () => (await axios.get('/reports/properties')).data;
+export const getOverdueDetails = async () => (await axios.get('/reports/overdue-details')).data;
+export const getDetailedFinancials = async () => (await axios.get('/reports/detailed-financials')).data;
+export const getFinanceAnalytics = async () => (await axios.get('/reports/finance-analytics')).data;
+export const getPropertyAnalytics = async () => (await axios.get('/reports/property-analytics')).data;
+export const getLeaseAnalytics = async () => (await axios.get('/reports/lease-analytics')).data;
+export const getPeopleAnalytics = async () => (await axios.get('/reports/people-analytics')).data;
+
 export default {
   getDashboard,
   getFinancial,
   getOccupancy,
+  getPeopleReport,
+  getLeaseReport,
+  getPropertyReport,
+  getOverdueDetails,
+  getDetailedFinancials,
 }

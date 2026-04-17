@@ -17,6 +17,7 @@ import { listTenants, createAndVerifyFromTenant, listDocuments } from '../api/te
 import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
 import { Filter, Plus, FileSignature, Building2, Pen, Archive, RefreshCw, Upload, Download, Eye, X, Trash2 } from 'lucide-react'
+import { downloadReport } from '../utils/export'
 
 export default function Leases() {
   const toast = useToast()
@@ -393,6 +394,9 @@ export default function Leases() {
       searchPlaceholder="Search leases, tenants, or units..."
       actions={
         <div className="flex items-center gap-3">
+          <button onClick={() => downloadReport('leases')} className="button-secondary">
+            <Download size={16} /> Export CSV
+          </button>
           <button onClick={() => { const open = !showQuickActions; setShowQuickActions(open); if (open) setQuickActionMode('all') }} className="button-secondary">
             <Filter size={16} /> Filter View
           </button>

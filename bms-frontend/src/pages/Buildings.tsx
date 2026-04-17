@@ -5,7 +5,8 @@ import KPICard from '../components/KPICard'
 import StatusBadge from '../components/StatusBadge'
 import { listBuildings, createBuilding, getBuilding, updateBuilding, deleteBuilding, listAmenities, assignAdmin, listAdmins, revokeAdmin } from '../api/buildings'
 import api from '../api/axios'
-import { Building2, MapPin, Plus, Search, Pen, Trash2, Eye, X, Users, Layers, Home, TrendingUp, AlertCircle, DollarSign } from 'lucide-react'
+import { Building2, MapPin, Plus, Search, Pen, Trash2, Eye, X, Users, Layers, Home, TrendingUp, AlertCircle, DollarSign, Download } from 'lucide-react'
+import { downloadReport } from '../utils/export'
 
 type Building = {
   id: number | string
@@ -231,6 +232,9 @@ export default function Buildings() {
             <option value="">All Owners</option>
             {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
+          <button onClick={() => downloadReport('buildings')} className="button-secondary shadow-sm">
+            <Download size={16} /> Export CSV
+          </button>
           <button onClick={openCreate} className="button shadow-md">
             <Plus size={16} /> Add Property
           </button>
