@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { Search, Plus, Filter, Download, TrendingUp, DollarSign, BarChart3, X, Calendar, FileText } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts'
 import PageLayout from '../components/PageLayout'
 import KPICard from '../components/KPICard'
 import StatusBadge from '../components/StatusBadge'
@@ -11,7 +12,7 @@ import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
 import { downloadReport } from '../utils/export'
 
-type Tab = 'invoices' | 'drafts' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses' | 'p-and-l'
+type Tab = 'invoices' | 'drafts' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'invoices', label: 'Invoices' },
@@ -19,9 +20,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'payments', label: 'Payments' },
   { key: 'bank-accounts', label: 'Bank Accounts' },
   { key: 'deposit-advice', label: 'Deposit Advice' },
-  { key: 'reports', label: 'Reports' },
+  { key: 'reports', label: 'Reports Hub' },
   { key: 'expenses', label: 'Expenses' },
-  { key: 'p-and-l', label: 'Profit & Loss' },
 ]
 
 const ITEM_TYPES = ['RENT', 'UTILITY', 'MAINTENANCE', 'PENALTY']
@@ -133,12 +133,12 @@ export default function Finance() {
 
   // -- Tax Rules (Now managed in Settings) --
 
-  // ── Reports ──────────────────────────────────────────────
-  const [revBuildingId, setRevBuildingId] = useState('')
-  const [revMonth, setRevMonth] = useState('')
-  const [revenueData, setRevenueData] = useState<any[]>([])
-  const [taxMonth, setTaxMonth] = useState('')
-  const [taxData, setTaxData] = useState<any>(null)
+  // ── Reports Hub ──────────────────────────────────────────────
+  const [hubBuildingId, setHubBuildingId] = useState('')
+  const [hubYear, setHubYear] = useState(new Date().getFullYear().toString())
+  const [hubMonth, setHubMonth] = useState((new Date().getMonth() + 1).toString())
+  const [hubData, setHubData] = useState<any>(null)
+  const [hubLoading, setHubLoading] = useState(false)
 
   // -- Expenses --
   const [expenses, setExpenses] = useState<any[]>([])
@@ -151,13 +151,6 @@ export default function Finance() {
   const [expBankId, setExpBankId] = useState('')
   const [expReceiptUrl, setExpReceiptUrl] = useState('')
   const [expLoading, setExpLoading] = useState(false)
-
-  // -- P&L --
-  const [plBuildingId, setPlBuildingId] = useState('')
-  const [plYear, setPlYear] = useState(new Date().getFullYear().toString())
-  const [plMonth, setPlMonth] = useState((new Date().getMonth() + 1).toString())
-  const [plData, setPlData] = useState<any>(null)
-  const [plLoading, setPlLoading] = useState(false)
 
   // -- Tenant Summary --
   const [tenantSummary, setTenantSummary] = useState<any>(null)
@@ -198,7 +191,7 @@ export default function Finance() {
   useEffect(() => {
     if (tab === 'invoices' || tab === 'payments' || tab === 'drafts') loadInvoices()
     if (tab === 'expenses') loadExpenses()
-    if (tab === 'p-and-l') loadPandL()
+    if (tab === 'reports') { loadHubData(); loadAnalytics(); }
     if (tab === 'deposit-advice') loadDepositAdvices()
   }, [tab, invFilterBuilding, invFilterStatus])
 
@@ -252,17 +245,27 @@ export default function Finance() {
     finally { setExpLoading(false) }
   }
 
-  async function loadPandL() {
-    setPlLoading(true)
+  async function loadHubData() {
+    setHubLoading(true)
     try {
-      const data = await financeApi.getPandLReport({
-        building_id: plBuildingId || undefined,
-        year: Number(plYear),
-        month: Number(plMonth),
-      })
-      setPlData(data)
-    } catch { toast.addToast('Failed to load P&L report', 'error') }
-    finally { setPlLoading(false) }
+      const [pl, taxes, rev] = await Promise.all([
+        financeApi.getPandLReport({
+          building_id: hubBuildingId || undefined,
+          year: Number(hubYear),
+          month: Number(hubMonth) || undefined,
+        }),
+        financeApi.getTaxReport({ month: hubMonth || undefined }),
+        financeApi.getRevenueReport({
+          building_id: hubBuildingId || undefined,
+          month: hubMonth || undefined,
+        })
+      ]);
+      setHubData({ pl, taxes, rev })
+    } catch {
+      toast.addToast('Failed to load report data', 'error')
+    } finally {
+      setHubLoading(false)
+    }
   }
 
   async function loadDepositAdvices() {
@@ -543,28 +546,7 @@ export default function Finance() {
   // -- Tax Rules (Managed in Settings) --
 
   // ── Reports ──────────────────────────────────────────────
-  async function handleRevenueReport(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const data = await financeApi.getRevenueReport({
-        building_id: revBuildingId || undefined,
-        month: revMonth || undefined,
-      })
-      setRevenueData(Array.isArray(data) ? data : [])
-    } catch (e: any) {
-      toast.addToast('Failed to load revenue report', 'error')
-    }
-  }
-
-  async function handleTaxReport(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const data = await financeApi.getTaxReport({ month: taxMonth || undefined })
-      setTaxData(data)
-    } catch (e: any) {
-      toast.addToast('Failed to load tax report', 'error')
-    }
-  }
+  // Reports integrated into loadHubData
 
   // -- Expense Handlers --
   async function handleCreateExpense(e: React.FormEvent) {
@@ -1539,303 +1521,152 @@ export default function Finance() {
 
       {/* --- Tax Rules removed (Managed in Settings) --- */}
 
-      {/* ────── REPORTS TAB ────── */}
+      {/* ────── REPORTS HUB ────── */}
       {tab === 'reports' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Revenue Report */}
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Revenue Report</h3>
-            <form onSubmit={handleRevenueReport} className="space-y-3 mb-4">
-              <select value={revBuildingId} onChange={e => setRevBuildingId(e.target.value)} className="form-select">
-                <option value="">All Buildings</option>
-                {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>)}
-              </select>
-              <input
-                type="number"
-                placeholder="Month (1-12)"
-                value={revMonth}
-                onChange={e => setRevMonth(e.target.value)}
-                className="form-input"
-                min="1"
-                max="12"
-              />
-              <button type="submit" className="button w-full">
-                Load Revenue
-              </button>
-            </form>
-
-            {revenueData.length > 0 ? (
-              <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
-                <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="px-6 py-4 font-medium tracking-wider">Building ID</th>
-                      <th className="px-6 py-4 font-medium tracking-wider">Total Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {revenueData.map((r: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
-                        <td className="px-6 py-4 text-slate-700 font-medium">{r.building_id || '-'}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-semibold">{fmtMoney(r.total_revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="py-8 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No revenue data. Click "Load Revenue" to query.</div>
-            )}
-          </div>
-
-          {/* Tax Report */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Tax Compliance Report</h3>
-            <form onSubmit={handleTaxReport} className="space-y-3 mb-4">
-              <input
-                type="number"
-                placeholder="Month (1-12)"
-                value={taxMonth}
-                onChange={e => setTaxMonth(e.target.value)}
-                className="form-input"
-                min="1"
-                max="12"
-              />
-              <button type="submit" className="button w-full justify-center">
-                Load Tax Report
-              </button>
-            </form>
-
-            {taxData ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 border rounded bg-gray-50 dark:bg-slate-900 text-center">
-                  <div className="text-sm text-gray-500 mb-1">Total VAT</div>
-                  <div className="text-xl font-bold">{fmtMoney(taxData.total_vat)}</div>
-                </div>
-                <div className="p-4 border rounded bg-gray-50 dark:bg-slate-900 text-center">
-                  <div className="text-sm text-gray-500 mb-1">Total Withholding</div>
-                  <div className="text-xl font-bold">{fmtMoney(taxData.total_withholding)}</div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-400 text-sm">No tax data. Click "Load Tax Report" to query.</div>
-            )}
-          </div>
-        </div>
-      )}
-      {/* ────── EXPENSES TAB ────── */}
-      {tab === 'expenses' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 tracking-tight text-lg">Record Expense</h3>
-            <form onSubmit={handleCreateExpense} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={expAmount}
-                  onChange={e => setExpAmount(e.target.value)}
-                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={expDate}
-                    onChange={e => setExpDate(e.target.value)}
-                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Building</label>
-                  <select
-                    value={expBuildingId}
-                    onChange={e => setExpBuildingId(e.target.value)}
-                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                  >
-                    <option value="">All Buildings</option>
-                    {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Source Account</label>
-                  <select
-                    value={expBankId}
-                    onChange={e => setExpBankId(e.target.value)}
-                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                  >
-                    <option value="">Select Account</option>
-                    {bankAccounts.map((ba: any) => (
-                      <option key={ba.id} value={ba.id}>{ba.bank_name} ({ba.account_number})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Receipt (Screenshot/PDF)</label>
-                  <input
-                    type="file"
-                    onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setExpReceiptUrl)}
-                    className="hidden"
-                    id="exp-receipt-upload"
-                    accept="image/*,application/pdf"
-                  />
-                  <label 
-                    htmlFor="exp-receipt-upload" 
-                    className={`w-full block p-2 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${expReceiptUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
-                  >
-                    {isUploading ? 'Uploading...' : expReceiptUrl ? '✓ Receipt Uploaded' : 'Upload Receipt'}
-                  </label>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                <select
-                  value={expCategory}
-                  onChange={e => setExpCategory(e.target.value)}
-                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                  required
-                >
-                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              {expCategory === 'Other' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Custom Category Name</label>
-                  <input
-                    placeholder="Enter category name"
-                    value={expCustomCategory}
-                    onChange={e => setExpCustomCategory(e.target.value)}
-                    className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900"
-                    required
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-                <textarea
-                  value={expDescription}
-                  onChange={e => setExpDescription(e.target.value)}
-                  className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 h-24"
-                />
-              </div>
-              <button type="submit" className="button w-full justify-center">Record Expense</button>
-            </form>
-          </div>
-
-          <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Expense History</h3>
-            {expLoading ? <div className="py-8 text-center text-slate-500">Loading expenses...</div> : (
-              <div className="table-container border border-slate-200 dark:border-slate-700 rounded-xl">
-                <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Category</th>
-                      <th className="px-6 py-4">Building</th>
-                      <th className="px-6 py-4">Description</th>
-                      <th className="px-6 py-4 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {expenses.length === 0 ? (
-                      <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No expenses recorded yet.</td></tr>
-                    ) : expenses.map((e: any) => (
-                      <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="px-6 py-4">{e.date}</td>
-                        <td className="px-6 py-4"><span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-medium">{e.category}</span></td>
-                        <td className="px-6 py-4">{e.building?.name || 'Global'}</td>
-                        <td className="px-6 py-4">
-                          <div className="text-slate-700 dark:text-slate-300 truncate max-w-[200px]">{e.description || '-'}</div>
-                          {e.receipt_url && (
-                            <a href={getUploadUrl(e.receipt_url)} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-500 hover:underline block mt-1">View Receipt</a>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-rose-600">{fmtMoney(e.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ────── P&L TAB ────── */}
-      {tab === 'p-and-l' && (
         <div className="space-y-6">
+          {/* Filters */}
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Building</label>
-              <select value={plBuildingId} onChange={e => setPlBuildingId(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 min-w-[200px]">
+              <select value={hubBuildingId} onChange={e => setHubBuildingId(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 min-w-[200px]">
                 <option value="">All Buildings</option>
                 {buildings.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Year</label>
-              <input type="number" value={plYear} onChange={e => setPlYear(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" />
+              <input type="number" value={hubYear} onChange={e => setHubYear(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Month (Optional)</label>
-              <input type="number" value={plMonth} onChange={e => setPlMonth(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" placeholder="All" />
+              <input type="number" value={hubMonth} onChange={e => setHubMonth(e.target.value)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 w-24" placeholder="All" />
             </div>
-            <button onClick={loadPandL} className="button h-[42px]">Generate Report</button>
+            <button onClick={loadHubData} className="button h-[42px] px-6">Generate Reports</button>
           </div>
 
-          {plLoading ? <div className="py-12 text-center text-slate-500">Calculating...</div> : plData && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {hubLoading ? <div className="py-12 text-center text-slate-500">Loading comprehensive reports...</div> : hubData && (
+            <div className="space-y-6">
+              {/* Top Level KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-emerald-100 dark:border-emerald-900/30">
                   <div className="text-emerald-500 text-sm font-medium mb-1">Total Revenue</div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(plData.revenue)}</div>
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(hubData.pl?.revenue)}</div>
                 </div>
                 <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-rose-100 dark:border-rose-900/30">
                   <div className="text-rose-500 text-sm font-medium mb-1">Total Expenses</div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(plData.expenses)}</div>
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(hubData.pl?.expenses)}</div>
                 </div>
-                <div className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border ${plData.net_profit >= 0 ? 'border-blue-100 dark:border-blue-900/30' : 'border-rose-100 dark:border-rose-900/30'}`}>
-                  <div className={`${plData.net_profit >= 0 ? 'text-blue-500' : 'text-rose-500'} text-sm font-medium mb-1`}>Net Profit</div>
-                  <div className={`text-3xl font-bold ${plData.net_profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>{fmtMoney(plData.net_profit)}</div>
+                <div className={`bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border ${hubData.pl?.net_profit >= 0 ? 'border-blue-100 dark:border-blue-900/30' : 'border-rose-100 dark:border-rose-900/30'}`}>
+                  <div className={`${hubData.pl?.net_profit >= 0 ? 'text-blue-500' : 'text-rose-500'} text-sm font-medium mb-1`}>Net Profit</div>
+                  <div className={`text-3xl font-bold ${hubData.pl?.net_profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>{fmtMoney(hubData.pl?.net_profit)}</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                  <div className="text-slate-500 text-sm font-medium mb-1">Total Withholding Tax</div>
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">{fmtMoney(hubData.taxes?.total_withholding)}</div>
+                  <div className="text-xs text-slate-400 mt-2">VAT: {fmtMoney(hubData.taxes?.total_vat)}</div>
                 </div>
               </div>
 
+              {/* Data Visualizations */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Embedded Analytics: Revenue Trends */}
+                {analytics?.chartData && (
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Revenue 6-Month Trend</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analytics.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(value) => `${(value/1000)}k`} />
+                          <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => [`ETB ${Number(value).toLocaleString()}`, 'Total']} />
+                          <Bar dataKey="total" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expense Breakdown Pie Chart */}
+                {hubData.pl?.categories && hubData.pl.categories.length > 0 && (
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Expense Distribution</h3>
+                    <div className="h-64 flex items-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={hubData.pl.categories}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="amount"
+                            nameKey="name"
+                          >
+                            {hubData.pl.categories.map((_, index) => {
+                              const colors = ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9'];
+                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                            })}
+                          </Pie>
+                          <RechartsTooltip formatter={(value) => `ETB ${Number(value).toLocaleString()}`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                          <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Outstanding Arrears by Building */}
+              {analytics?.buildingStats && analytics.buildingStats.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Outstanding Arrears by Building</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.buildingStats} layout="vertical" margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(value) => `${(value/1000)}k`} />
+                        <YAxis type="category" dataKey="buildingId" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} width={120} />
+                        <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => [`ETB ${Number(value).toLocaleString()}`, 'Outstanding']} />
+                        <Bar dataKey="outstanding" fill="#f43f5e" radius={[0, 6, 6, 0]} barSize={24} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Revenue Detail Table */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Expense Breakdown</h3>
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 text-lg">Detailed Revenue by Building</h3>
                 <div className="table-container border border-slate-200 dark:border-slate-700 rounded-xl">
                   <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80">
                       <tr>
-                        <th className="px-6 py-4">Category</th>
-                        <th className="px-6 py-4">Total Amount</th>
-                        <th className="px-6 py-4">% of Total</th>
+                        <th className="px-6 py-4">Building ID</th>
+                        <th className="px-6 py-4 text-right">Total Revenue Generated</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {plData.categories.map((c: any) => (
-                        <tr key={c.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <td className="px-6 py-4 font-medium">{c.name}</td>
-                          <td className="px-6 py-4 text-rose-600 font-semibold">{fmtMoney(c.amount)}</td>
-                          <td className="px-6 py-4 text-slate-500">
-                            {plData.expenses > 0 ? ((c.amount / plData.expenses) * 100).toFixed(1) : 0}%
-                          </td>
+                      {hubData.rev && hubData.rev.length > 0 ? hubData.rev.map((r: any, i: number) => (
+                        <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="px-6 py-4 font-medium">{r.building_id || 'Unknown'}</td>
+                          <td className="px-6 py-4 text-emerald-600 font-semibold text-right">{fmtMoney(r.total_revenue)}</td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr><td colSpan={2} className="px-6 py-8 text-center text-slate-500">No revenue data for this period.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </>
+
+            </div>
           )}
         </div>
       )}
+
       {/* Rejection Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

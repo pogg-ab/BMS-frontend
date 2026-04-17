@@ -223,8 +223,8 @@ function OverviewTab({ dashboard, financial, occupancy }: any) {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: 'Occupied', value: dashboard?.occupied_leases || 0 },
-                          { name: 'Vacant', value: (dashboard?.total_units || 0) - (dashboard?.occupied_leases || 0) }
+                          { name: 'Occupied', value: dashboard?.occupied_units || 0 },
+                          { name: 'Vacant', value: (dashboard?.total_units || 0) - (dashboard?.occupied_units || 0) }
                         ]}
                         innerRadius={60}
                         outerRadius={80}

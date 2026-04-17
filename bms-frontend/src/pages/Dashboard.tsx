@@ -42,15 +42,41 @@ export default function Dashboard() {
         
         // Map audit logs to activity feed format
         const mappedActivities = (auditLogs || []).slice(0, 10).map((log: any) => {
-          const isCritical = log.action === 'DELETE' || log.action?.includes('CRITICAL');
+          const actionStr = (log.action || '').toUpperCase();
+          const isCritical = actionStr.includes('DELETE') || actionStr.includes('CRITICAL');
           const timeLabel = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           
+          let displayAction = 'Modified';
+          if (actionStr.includes('POST') || actionStr.includes('CREATE')) displayAction = 'Created';
+          else if (actionStr.includes('DELETE') || actionStr.includes('REMOVE')) displayAction = 'Deleted';
+          else if (actionStr.includes('GET') || actionStr.includes('READ')) displayAction = 'Accessed';
+          else if (actionStr.includes('PUT') || actionStr.includes('PATCH') || actionStr.includes('UPDATE')) displayAction = 'Updated';
+
+          let extractedModule = log.module || '';
+          if (!extractedModule && log.entity_type) {
+             const parts = String(log.entity_type).split('/').filter(Boolean);
+             extractedModule = parts[0] || ''; 
+          }
+          if (!extractedModule && log.action) {
+             const parts = String(log.action).split(' ');
+             if (parts.length > 1) {
+                const urlParts = parts[1].split('/').filter(Boolean);
+                extractedModule = urlParts.find((p: string) => !['api', 'v1'].includes(p)) || '';
+             }
+          }
+          if (!extractedModule) extractedModule = 'System';
+          
+          let moduleName = extractedModule.charAt(0).toUpperCase() + extractedModule.slice(1).toLowerCase();
+          moduleName = moduleName.split('?')[0].replace(/-/g, ' '); // Clean query params or dashes
+          
+          let userDisplay = log.user?.name || log.user?.email || 'System Admin';
+
           return {
             id: log.id,
-            type: log.module?.toLowerCase() || 'system',
-            title: `${log.action} ${log.module || 'System'}`,
+            type: extractedModule.toLowerCase(),
+            title: `${displayAction} ${moduleName} Record`,
             time: timeLabel,
-            subtitle: log.user?.name || 'Admin',
+            subtitle: userDisplay,
             isCritical
           }
         })
@@ -70,8 +96,8 @@ export default function Dashboard() {
   // Data mapping for charts
   const occupancyRate = loading ? 0 : Number(data?.occupancy_rate || 0).toFixed(1)
   const occupancyData = [
-    { name: 'Occupied Units', value: data?.occupied_leases || 0, color: '#4f46e5' },
-    { name: 'Vacant Units', value: Math.max(0, (data?.total_units || 0) - (data?.occupied_leases || 0)), color: '#e2e8f0' }
+    { name: 'Occupied Units', value: data?.occupied_units || 0, color: '#4f46e5' },
+    { name: 'Vacant Units', value: Math.max(0, (data?.total_units || 0) - (data?.occupied_units || 0)), color: '#e2e8f0' }
   ]
 
   // Dynamic revenue chart data from backend
