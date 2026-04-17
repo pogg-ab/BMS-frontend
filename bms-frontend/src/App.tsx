@@ -30,6 +30,9 @@ import PublicBuildingView from './pages/PublicBuildingView'
 import PublicUnitView from './pages/PublicUnitView'
 import { InspectionWorkflow } from './pages/InspectionWorkflow'
 import Assets from './pages/Assets'
+import Management from './pages/Management'
+import Commissions from './pages/Commissions'
+import Tenders from './pages/Tenders'
 import { LayoutProvider, useLayout } from './contexts/LayoutContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 
@@ -92,6 +95,9 @@ export default function App() {
         <Route path="/login-history" element={<LoginHistory />} />
         <Route path="/automations" element={<Automations />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/management" element={<Management />} />
+        <Route path="/commissions" element={<Commissions />} />
+        <Route path="/tenders" element={<Tenders />} />
       </Route>
       <Route path="*" element={<div style={{padding:20}}>Not found — <Link to="/">Home</Link></div>} />
     </Routes>
