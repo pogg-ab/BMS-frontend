@@ -26,7 +26,7 @@ const NAV_GROUPS = [
         icon: LayoutDashboard, 
         exact: true, 
         permission: 'reports:dashboard',
-        roles: ['super_admin', 'admin']
+        roles: ['super_admin', 'admin', 'finance']
       },
     ],
   },
@@ -58,8 +58,8 @@ const NAV_GROUPS = [
       { to: '/leases', label: 'Leases', icon: FileSignature, permissions: ['leases:read', 'documents:history'], roles: ['super_admin', 'admin'] },
       { to: '/tenders', label: 'Tenders', icon: FileSignature, permissions: ['leases:read'], roles: ['super_admin', 'admin'] },
       { to: '/maintenance', label: 'Maintenance', icon: Wrench, permissions: ['maintenance:reports:read', 'maintenance:requests:read', 'maintenance:work_orders:update'], roles: ['super_admin', 'admin', 'contractor', 'tenant'] },
-      { to: '/finance', label: 'Finance', icon: Wallet, permissions: ['finance:invoices:all', 'finance:invoices:read'], roles: ['super_admin', 'admin', 'tenant'] },
-      { to: '/commissions', label: 'Commissions', icon: Wallet, permissions: ['finance:invoices:all'], roles: ['super_admin', 'admin'] },
+      { to: '/finance', label: 'Finance', icon: Wallet, permissions: ['finance:invoices:all', 'finance:invoices:read'], roles: ['super_admin', 'admin', 'tenant', 'finance'] },
+      { to: '/commissions', label: 'Commissions', icon: Wallet, permissions: ['finance:invoices:all'], roles: ['super_admin', 'admin', 'finance'] },
       { to: '/utilities', label: 'Utilities', icon: Zap, permissions: ['utilities:meters:read', 'utilities:readings:read'], roles: ['super_admin', 'admin', 'tenant'] },
       { to: '/documents', label: 'Documents', icon: FileText, permissions: ['documents:search', 'documents:upload', 'documents:history'], roles: ['super_admin', 'admin', 'tenant'] },
     ],
@@ -72,7 +72,7 @@ const NAV_GROUPS = [
       { to: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles:read', roles: ['super_admin', 'admin'] },
       { to: '/qr', label: 'QR Codes', icon: QrCode, permission: 'qr:analytics', roles: ['super_admin', 'admin'] },
       { to: '/automations', label: 'Automations', icon: Bot, permission: 'settings:manage', roles: ['super_admin', 'admin'] },
-      { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports:view', roles: ['super_admin', 'admin', 'site_admin'] },
+      { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports:view', roles: ['super_admin', 'admin', 'site_admin', 'finance'] },
       { to: '/notifications', label: 'Notifications', icon: Bell }, // Accessible by all roles
       { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:read', roles: ['super_admin', 'admin'] },
     ],
