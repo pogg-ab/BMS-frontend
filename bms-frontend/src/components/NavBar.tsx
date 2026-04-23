@@ -14,59 +14,67 @@ import {
 } from 'lucide-react'
 
 // Grouped navigation structure matching Stitch design
+// Grouped navigation structure with role and permission requirements
 const NAV_GROUPS = [
   {
     label: 'Overview',
     icon: CircleDot,
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true, permission: 'reports:dashboard' },
+      { 
+        to: '/', 
+        label: 'Dashboard', 
+        icon: LayoutDashboard, 
+        exact: true, 
+        permission: 'reports:dashboard',
+        roles: ['super_admin', 'admin']
+      },
     ],
   },
   {
     label: 'Property',
     icon: Building2,
     items: [
-      { to: '/sites', label: 'Sites', icon: Map, permission: 'sites:read' },
-      { to: '/buildings', label: 'Buildings', icon: Building2, permission: 'buildings:read' },
-      { to: '/units', label: 'Units', icon: DoorOpen, permission: 'units:read' },
-      { to: '/assets', label: 'Assets', icon: Package, permission: 'assets:read' },
-      { to: '/facilities', label: 'Facilities', icon: LayoutGrid, permissions: ['amenities:read', 'reports:view'] },
-      { to: '/owners', label: 'Owners', icon: UserSquare2, permission: 'owners:read' },
-      { to: '/management', label: 'Management', icon: ShieldCheck, permission: 'settings:manage' },
+      { to: '/sites', label: 'Sites', icon: Map, permission: 'sites:read', roles: ['super_admin', 'admin', 'site_admin'] },
+      { to: '/buildings', label: 'Buildings', icon: Building2, permission: 'buildings:read', roles: ['super_admin', 'admin', 'site_admin'] },
+      { to: '/units', label: 'Units', icon: DoorOpen, permission: 'units:read', roles: ['super_admin', 'admin'] },
+      { to: '/assets', label: 'Assets', icon: Package, permission: 'assets:read', roles: ['super_admin', 'admin'] },
+      { to: '/facilities', label: 'Facilities', icon: LayoutGrid, permissions: ['amenities:read', 'reports:view'], roles: ['super_admin', 'admin'] },
+      { to: '/owners', label: 'Owners', icon: UserSquare2, permission: 'owners:read', roles: ['super_admin', 'admin', 'site_admin'] },
+      { to: '/management', label: 'Management', icon: ShieldCheck, permission: 'settings:manage', roles: ['super_admin', 'admin'] },
     ],
   },
   {
     label: 'People',
     icon: Users,
     items: [
-      { to: '/tenants', label: 'Tenants', icon: Users, permission: 'users:read' },
-      { to: '/visitors', label: 'Visitors', icon: UserCheck, permission: 'visitors:read' },
+      { to: '/tenants', label: 'Tenants', icon: Users, permission: 'users:read', roles: ['super_admin', 'admin'] },
+      { to: '/visitors', label: 'Visitors', icon: UserCheck, permission: 'visitors:read', roles: ['super_admin', 'admin', 'site_admin', 'tenant'] },
     ],
   },
   {
     label: 'Operations',
     icon: Wrench,
     items: [
-      { to: '/leases', label: 'Leases', icon: FileSignature, permissions: ['leases:read', 'documents:history'] },
-      { to: '/tenders', label: 'Tenders', icon: FileSignature, permissions: ['leases:read'] },
-      { to: '/maintenance', label: 'Maintenance', icon: Wrench, permissions: ['maintenance:reports:read', 'maintenance:requests:read', 'maintenance:work_orders:update'] },
-      { to: '/finance', label: 'Finance', icon: Wallet, permissions: ['finance:invoices:all', 'finance:invoices:read'], roles: ['tenant'] },
-      { to: '/commissions', label: 'Commissions', icon: Wallet, permissions: ['finance:invoices:all'] },
-      { to: '/utilities', label: 'Utilities', icon: Zap, permissions: ['utilities:meters:read', 'utilities:readings:read'] },
-      { to: '/documents', label: 'Documents', icon: FileText, permissions: ['documents:search', 'documents:upload', 'documents:history'] },
+      { to: '/leases', label: 'Leases', icon: FileSignature, permissions: ['leases:read', 'documents:history'], roles: ['super_admin', 'admin'] },
+      { to: '/tenders', label: 'Tenders', icon: FileSignature, permissions: ['leases:read'], roles: ['super_admin', 'admin'] },
+      { to: '/maintenance', label: 'Maintenance', icon: Wrench, permissions: ['maintenance:reports:read', 'maintenance:requests:read', 'maintenance:work_orders:update'], roles: ['super_admin', 'admin', 'contractor', 'tenant'] },
+      { to: '/finance', label: 'Finance', icon: Wallet, permissions: ['finance:invoices:all', 'finance:invoices:read'], roles: ['super_admin', 'admin', 'tenant'] },
+      { to: '/commissions', label: 'Commissions', icon: Wallet, permissions: ['finance:invoices:all'], roles: ['super_admin', 'admin'] },
+      { to: '/utilities', label: 'Utilities', icon: Zap, permissions: ['utilities:meters:read', 'utilities:readings:read'], roles: ['super_admin', 'admin', 'tenant'] },
+      { to: '/documents', label: 'Documents', icon: FileText, permissions: ['documents:search', 'documents:upload', 'documents:history'], roles: ['super_admin', 'admin', 'tenant'] },
     ],
   },
   {
     label: 'System',
     icon: Settings,
     items: [
-      { to: '/users', label: 'Users', icon: UserCog, permission: 'users:read' },
-      { to: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles:read' },
-      { to: '/qr', label: 'QR Codes', icon: QrCode, permission: 'qr:analytics' },
-      { to: '/automations', label: 'Automations', icon: Bot, permission: 'settings:manage' },
-      { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports:view' },
-      { to: '/notifications', label: 'Notifications', icon: Bell },
-      { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:read' },
+      { to: '/users', label: 'Users', icon: UserCog, permission: 'users:read', roles: ['super_admin', 'admin'] },
+      { to: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles:read', roles: ['super_admin', 'admin'] },
+      { to: '/qr', label: 'QR Codes', icon: QrCode, permission: 'qr:analytics', roles: ['super_admin', 'admin'] },
+      { to: '/automations', label: 'Automations', icon: Bot, permission: 'settings:manage', roles: ['super_admin', 'admin'] },
+      { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports:view', roles: ['super_admin', 'admin', 'site_admin'] },
+      { to: '/notifications', label: 'Notifications', icon: Bell }, // Accessible by all roles
+      { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:read', roles: ['super_admin', 'admin'] },
     ],
   },
 ]
@@ -85,9 +93,21 @@ export default function NavBar() {
 
   function isItemVisible(item: any) {
     if (isSuperAdmin) return true
-    if (!item.permission && !item.permissions && !item.roles) return true
-    if (item.roles && item.roles.some((r: string) => userRoles.includes(r))) return true
-    if (item.permissions) return item.permissions.some((p: string) => userPermissions.includes(p))
+
+    // 1. Role Check
+    if (item.roles && !item.roles.some((r: string) => userRoles.includes(r))) {
+      return false
+    }
+
+    // 2. Permission Check (If no permissions specified, role check is sufficient)
+    if (!item.permission && !item.permissions) {
+      return true
+    }
+
+    if (item.permissions) {
+      return item.permissions.some((p: string) => userPermissions.includes(p))
+    }
+
     return item.permission ? userPermissions.includes(item.permission) : false
   }
 

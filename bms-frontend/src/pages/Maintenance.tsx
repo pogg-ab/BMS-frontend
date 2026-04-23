@@ -267,14 +267,20 @@ export default function Maintenance() {
   }, [requests])
 
   // ── Tenant / Unit labels ────────────────────────────────
-  function tenantLabel(t: any) {
-    if (!t) return ''
+  function tenantLabel(t: any, req?: any) {
+    if (!t) {
+      if (req?.building?.name) return 'Building Level'
+      return 'General Request'
+    }
     return t.name || t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || t.id
   }
 
-  function unitLabel(u: any) {
-    if (!u) return ''
-    return u.unit_number || u.name || u.id
+  function unitLabel(u: any, req?: any) {
+    if (!u) {
+      if (req?.building?.name) return req.building.name
+      return 'No specific unit'
+    }
+    return u.unit_number || u.name || (u.building?.name ? `${u.unit_number || u.name} (${u.building.name})` : u.id)
   }
 
   // ── Request CRUD ────────────────────────────────────────
@@ -613,8 +619,8 @@ export default function Maintenance() {
                                 {tenantLabel(req.tenant).charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-medium text-slate-700 dark:text-slate-300 truncate">{tenantLabel(req.tenant)}</p>
-                                <p className="text-[9px] text-slate-400">{unitLabel(req.unit)}</p>
+                                <p className="text-[10px] font-medium text-slate-700 dark:text-slate-300 truncate">{tenantLabel(req.tenant, req)}</p>
+                                <p className="text-[9px] text-slate-400">{unitLabel(req.unit, req)}</p>
                               </div>
                             </div>
                           </div>
@@ -1093,7 +1099,7 @@ export default function Maintenance() {
                         <tr key={wo.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                           <td className="px-6 py-4">
                             <div className="font-medium text-slate-900 dark:text-white capitalize">{wo.request?.category.replace('_', ' ') || '-'}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{tenantLabel(wo.request?.tenant)} · {unitLabel(wo.request?.unit)}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{tenantLabel(wo.request?.tenant, wo.request)} · {unitLabel(wo.request?.unit, wo.request)}</div>
                           </td>
                           <td className="px-6 py-4 text-slate-700 font-medium">{wo.contractor?.name || '-'}</td>
                           <td className="px-6 py-4 text-slate-600 text-xs">{wo.scheduled_date ? new Date(wo.scheduled_date).toLocaleDateString() : '-'}</td>
