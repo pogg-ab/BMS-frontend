@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
 interface UnitCard {
   id: string

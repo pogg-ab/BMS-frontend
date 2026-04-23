@@ -1,6 +1,6 @@
 import api from './axios'
 
-const BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:2546'
+const BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
 export async function generateQr(unitId: string) {
   const res = await api.post(`/qr/generate/${unitId}`)

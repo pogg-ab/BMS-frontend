@@ -80,7 +80,7 @@ export default function Settings() {
     } finally { setSaving(false) }
   }
 
-  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:2546'
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
   return (
     <PageLayout 

@@ -89,6 +89,8 @@ interface Message {
   read_status?: boolean;
 }
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
+
 export default function Tenants() {
   const toast = useToast()
   const [tenants, setTenants] = useState<Tenant[]>([])
@@ -685,7 +687,7 @@ export default function Tenants() {
                       <img
                         src={
                           detailTenant.profile_image
-                            ? `http://localhost:2546${detailTenant.profile_image}`
+                            ? `${API_BASE}${detailTenant.profile_image}`
                             : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=6366f1&color=fff&size=512&bold=true`
                         }
                         className="w-full h-full object-cover"
@@ -833,7 +835,7 @@ export default function Tenants() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
                       <div onClick={() => idImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
                         <input type="file" accept="image/*" ref={idImageRef} onChange={e => handleImageUpload(e, setIdImage)} className="hidden" />
-                        {idImage ? (<img src={`http://localhost:2546${idImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={18} className="text-slate-300" />)}
+                        {idImage ? (<img src={`${API_BASE}${idImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={18} className="text-slate-300" />)}
                       </div>
                     </div>
 
@@ -841,7 +843,7 @@ export default function Tenants() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
                       <div onClick={() => licenseImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
                         <input type="file" accept="image/*" ref={licenseImageRef} onChange={e => handleImageUpload(e, setLicenseImage)} className="hidden" />
-                        {licenseImage ? (<img src={`http://localhost:2546${licenseImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
+                        {licenseImage ? (<img src={`${API_BASE}${licenseImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
                       </div>
                     </div>
 
@@ -849,7 +851,7 @@ export default function Tenants() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
                       <div onClick={() => profileImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer overflow-hidden">
                         <input type="file" accept="image/*" ref={profileImageRef} onChange={e => handleImageUpload(e, setProfileImage)} className="hidden" />
-                        {profileImage ? (<img src={`http://localhost:2546${profileImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
+                        {profileImage ? (<img src={`${API_BASE}${profileImage}`} className="h-full w-full object-cover rounded-xl" />) : (<Plus size={16} className="text-slate-300" />)}
                       </div>
                     </div>
                   </div>
@@ -896,7 +898,7 @@ export default function Tenants() {
                       className="w-32 h-32 rounded-[40px] bg-white p-2 shadow-2xl border-4 border-white/20 -mb-12 cursor-pointer transition-all hover:scale-105 active:scale-95"
                       onClick={() => {
                         const url = detailTenant.profile_image
-                          ? `http://localhost:2546${detailTenant.profile_image}`
+                            ? `${API_BASE}${detailTenant.profile_image}`
                           : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`
                         window.open(url, '_blank')
                       }}
@@ -904,7 +906,7 @@ export default function Tenants() {
                       <img
                         src={
                           detailTenant.profile_image
-                            ? `http://localhost:2546${detailTenant.profile_image}`
+                            ? `${API_BASE}${detailTenant.profile_image}`
                             : `https://ui-avatars.com/api/?name=${detailTenant.first_name}+${detailTenant.last_name || ''}&background=f1f5f9&color=4f46e5&size=512&bold=true`
                         }
                         className="w-full h-full object-cover rounded-[32px]"
@@ -1173,7 +1175,7 @@ export default function Tenants() {
                               </div>
                               <div className="flex items-center gap-3">
                                 {doc.file_url && (
-                                  <a href={doc.file_url.startsWith('/') ? `http://localhost:2546${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer">View</a>
+                                  <a href={doc.file_url.startsWith('/') ? `${API_BASE}${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer">View</a>
                                 )}
                                 {!doc.verified && (
                                   (typeof doc.id === 'string' && !String(doc.id).startsWith('tenant-')) ? (

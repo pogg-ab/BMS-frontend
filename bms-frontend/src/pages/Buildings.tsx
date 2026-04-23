@@ -189,7 +189,7 @@ export default function Buildings() {
     return b.is_active ? 'ACTIVE' : 'INACTIVE'
   }
 
-  const apiBase = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000'
+  const apiBase = (import.meta as any).env.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
   return (
     <PageLayout

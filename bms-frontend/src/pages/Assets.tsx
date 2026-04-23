@@ -60,7 +60,7 @@ export default function Assets() {
     return allUnits.filter(u => String(u.building?.id || u.buildingId) === filterBuildingId)
   }, [filterBuildingId, allUnits])
 
-  const apiBase = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000'
+  const apiBase = (import.meta as any).env.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
   async function loadData() {
     setLoading(true)

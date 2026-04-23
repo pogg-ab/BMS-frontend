@@ -15,6 +15,8 @@ type Owner = {
   buildings_count?: number
 }
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
+
 export default function Owners() {
   const navigate = useNavigate()
   const toast = useToast()
@@ -175,7 +177,7 @@ export default function Owners() {
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-100 dark:border-indigo-800/50 overflow-hidden">
                       {o.profile_image ? (
-                        <img src={`http://localhost:3000${o.profile_image}`} alt={o.name} className="w-full h-full object-cover" />
+                        <img src={`${API_BASE}${o.profile_image}`} alt={o.name} className="w-full h-full object-cover" />
                       ) : (
                         <User size={28} />
                       )}
@@ -274,7 +276,7 @@ export default function Owners() {
                   <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
                     <Camera size={16} /> Upload Photo
                   </button>
-                  {profileImage && <img src={`http://localhost:3000${profileImage}`} alt="preview" className="h-10 w-10 object-cover rounded-full border border-slate-200 shadow-sm" />}
+                  {profileImage && <img src={`${API_BASE}${profileImage}`} alt="preview" className="h-10 w-10 object-cover rounded-full border border-slate-200 shadow-sm" />}
                 </div>
               </div>
 

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const env: any = (import.meta as any).env || {}
 const api = axios.create({
-  baseURL: env.VITE_API_BASE_URL || 'http://localhost:2546',
+  baseURL: env.VITE_API_BASE_URL || 'https://bms.skylinkict.com',
 });
 
 api.interceptors.request.use((config) => {

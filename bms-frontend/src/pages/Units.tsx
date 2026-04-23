@@ -31,6 +31,8 @@ const fallbackImages = [
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80'
 ]
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
+
 export default function Units() {
   const [searchParams, setSearchParams] = useSearchParams()
   const initialBuildingId = searchParams.get('buildingId') || ''
@@ -359,7 +361,7 @@ export default function Units() {
           <div className="relative w-full h-[320px] rounded-[32px] overflow-hidden group shadow-lg">
             <div 
               className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
-              style={{ backgroundImage: `url("${currentBuilding?.image_url ? `http://localhost:3000${currentBuilding.image_url}` : 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop'}")` }}
+              style={{ backgroundImage: `url("${currentBuilding?.image_url ? `${API_BASE}${currentBuilding.image_url}` : 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop'}")` }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
 
@@ -451,8 +453,8 @@ export default function Units() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {group.items.map((u, i) => {
-                    const fallbackImg = u.building?.image_url ? `http://localhost:3000${u.building.image_url}` : fallbackImages[i % fallbackImages.length]
-                    const imgUrl = u.image_url ? `http://localhost:3000${u.image_url}` : fallbackImg
+                    const fallbackImg = u.building?.image_url ? `${API_BASE}${u.building.image_url}` : fallbackImages[i % fallbackImages.length]
+                    const imgUrl = u.image_url ? `${API_BASE}${u.image_url}` : fallbackImg
                     
                     const statUpper = (u.status || 'VACANT').toUpperCase()
                     let statStyle = 'bg-slate-50 border-t-slate-200 text-slate-600'
@@ -614,7 +616,7 @@ export default function Units() {
                     <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
                       Choose File
                     </button>
-                    {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
+                    {imageUrl && <img src={`${API_BASE}${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
                   </div>
                 </div>
               </form>

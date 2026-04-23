@@ -13,6 +13,8 @@ const fallbackImages = [
   'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&q=80'
 ]
 
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
+
 export default function Sites() {
   const navigate = useNavigate()
   const toast = useToast()
@@ -172,7 +174,7 @@ export default function Sites() {
             {filteredItems.map((s, i) => {
               const bCount = Array.isArray(s.buildings) ? s.buildings.length : 0
               const fallbackUrl = fallbackImages[i % fallbackImages.length]
-              const imgUrl = s.image_url ? `http://localhost:3000${s.image_url}` : fallbackUrl
+              const imgUrl = s.image_url ? `${API_BASE}${s.image_url}` : fallbackUrl
 
               return (
                 <div 
@@ -291,7 +293,7 @@ export default function Sites() {
                     <button type="button" className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors" onClick={() => imageRef.current?.click()}>
                       Choose File
                     </button>
-                    {imageUrl && <img src={`http://localhost:3000${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
+                    {imageUrl && <img src={`${API_BASE}${imageUrl}`} alt="preview" className="h-12 w-20 object-cover rounded-lg border border-slate-200 shadow-sm" />}
                   </div>
                 </div>
               </form>

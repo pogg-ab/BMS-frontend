@@ -31,7 +31,7 @@ export default function Finance() {
   const getUploadUrl = (path: string) => {
     if (!path) return ''
     if (path.startsWith('http')) return path
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:2546'
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
     const normalizedPath = path.startsWith('/') ? path : '/' + path
     return `${normalizedBase}${normalizedPath}`

@@ -18,7 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3000'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
 
 interface Asset {
   id: string
