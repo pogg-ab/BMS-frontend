@@ -17,7 +17,8 @@ const tendersApi = {
 
 const commonApi = {
   getBuildings: () => api.get('/buildings?per_page=500').then(res => res.data),
-  getUnits: (buildingId: string) => api.get(`/units?building_id=${buildingId}&per_page=500`).then(res => res.data),
+  getAllVacantUnits: () => api.get('/units?status=VACANT&per_page=1000').then(res => res.data),
+  getUnits: (buildingId: string) => api.get(`/units?building_id=${buildingId}&status=VACANT&per_page=500`).then(res => res.data),
 };
 
 export default function Tenders() {
@@ -53,7 +54,21 @@ export default function Tenders() {
 
   useEffect(() => {
     loadData();
-    commonApi.getBuildings().then(b => setBuildings(b.data || b));
+    // Load buildings and filter by those that have vacant units
+    Promise.all([
+      commonApi.getBuildings(),
+      commonApi.getAllVacantUnits()
+    ]).then(([bRes, uRes]) => {
+      const allBuildings = bRes.data || bRes;
+      const vacantUnits = uRes.data || uRes;
+      
+      const buildingIdsWithVacancies = new Set(
+        vacantUnits.map((u: any) => u.building_id || u.building?.id)
+      );
+      
+      const filteredBuildings = allBuildings.filter((b: any) => buildingIdsWithVacancies.has(b.id));
+      setBuildings(filteredBuildings);
+    }).catch(e => console.error("Error loading tender building options", e));
   }, []);
 
   async function loadData() {
