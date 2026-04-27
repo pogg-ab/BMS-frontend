@@ -108,12 +108,15 @@ export default function Tenants() {
   const [detailedAddress, setDetailedAddress] = useState('')
   const [licenseImage, setLicenseImage] = useState('')
   const [tinNumber, setTinNumber] = useState('')
+  const [tinError, setTinError] = useState('')
+  const [tinCertImage, setTinCertImage] = useState('')
   const [vatRegNumber, setVatRegNumber] = useState('')
   const [profileImage, setProfileImage] = useState('')
 
   const idImageRef = useRef<HTMLInputElement>(null)
   const licenseImageRef = useRef<HTMLInputElement>(null)
   const profileImageRef = useRef<HTMLInputElement>(null)
+  const tinCertImageRef = useRef<HTMLInputElement>(null)
 
   const [detailTenant, setDetailTenant] = useState<Tenant | null>(null)
   const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'ledger' | 'messages' | 'documents'>('info')
@@ -141,6 +144,20 @@ export default function Tenants() {
   // accordion state
   const [openDocs, setOpenDocs] = useState(true)
   const [openAnnouncements, setOpenAnnouncements] = useState(false)
+
+  // Edit tenant state
+  const [showEditTenant, setShowEditTenant] = useState(false)
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editTinNumber, setEditTinNumber] = useState('')
+  const [editVatRegNumber, setEditVatRegNumber] = useState('')
+  const [editDetailedAddress, setEditDetailedAddress] = useState('')
+  const [editTenantStatus, setEditTenantStatus] = useState('active')
+  const [editIdImage, setEditIdImage] = useState('')
+  const [editLicenseImage, setEditLicenseImage] = useState('')
+  const [editingTenantId, setEditingTenantId] = useState<string | number>('')
   const [openMessages, setOpenMessages] = useState(false)
   const [openApplications, setOpenApplications] = useState(false)
   const [announceTitle, setAnnounceTitle] = useState('')
@@ -217,6 +234,13 @@ export default function Tenants() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
+    // TIN validation: if provided, must be exactly 10 digits
+    if (tinNumber && !/^[0-9]{10}$/.test(tinNumber)) {
+      setTinError('TIN must be exactly 10 digits (e.g. 0000011037)')
+      toast.addToast('TIN number must be exactly 10 digits', 'error')
+      return
+    }
+    setTinError('')
     try {
       const payload: any = {
         first_name: firstName,
@@ -231,16 +255,59 @@ export default function Tenants() {
       if (licenseImage) payload.license_image = licenseImage
       if (profileImage) payload.profile_image = profileImage
       if (tinNumber) payload.tin_number = tinNumber
+      if (tinCertImage) payload.tin_certificate_image = tinCertImage
       if (vatRegNumber) payload.vat_reg_number = vatRegNumber
       if (detailedAddress) payload.detailed_address = detailedAddress
       await registerTenant(payload)
       toast.addToast('Registered', 'success')
       setShowRegister(false)
-      setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setPhone(''); setIdImage(''); setDetailedAddress(''); setLicenseImage(''); setTinNumber(''); setVatRegNumber(''); setProfileImage(''); setTenantType('personal')
+      setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setPhone(''); setIdImage(''); setDetailedAddress(''); setLicenseImage(''); setTinNumber(''); setTinError(''); setTinCertImage(''); setVatRegNumber(''); setProfileImage(''); setTenantType('personal')
       load()
     } catch (err: any) {
       console.error(err)
       toast.addToast(err?.response?.data?.message || 'Register failed', 'error')
+    }
+  }
+
+  function openEditTenant(t: any) {
+    setEditingTenantId(t.id)
+    setEditFirstName(t.first_name || '')
+    setEditLastName(t.last_name || '')
+    setEditEmail(t.email || '')
+    setEditPhone(t.phone || '')
+    setEditTinNumber(t.tin_number || '')
+    setEditVatRegNumber(t.vat_reg_number || '')
+    setEditDetailedAddress(t.detailed_address || '')
+    setEditTenantStatus(t.status || 'active')
+    setEditIdImage(t.id_image || '')
+    setEditLicenseImage(t.license_image || '')
+    setShowEditTenant(true)
+  }
+
+  async function handleEditTenant(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      const payload: any = {
+        first_name: editFirstName,
+        last_name: editLastName,
+        email: editEmail,
+        phone: editPhone,
+      }
+      if (editTinNumber) payload.tin_number = editTinNumber
+      if (editVatRegNumber) payload.vat_reg_number = editVatRegNumber
+      if (editDetailedAddress) payload.detailed_address = editDetailedAddress
+      if (editTenantStatus) payload.status = editTenantStatus
+      if (editIdImage) payload.id_image = editIdImage
+      if (editLicenseImage) payload.license_image = editLicenseImage
+      await updateTenant(String(editingTenantId), payload)
+      toast.addToast('Tenant updated', 'success')
+      setShowEditTenant(false)
+      load()
+      if (detailTenant && String(detailTenant.id) === String(editingTenantId)) {
+        openDetail(editingTenantId)
+      }
+    } catch (err: any) {
+      toast.addToast(err?.response?.data?.message || 'Update failed', 'error')
     }
   }
 
@@ -249,11 +316,17 @@ export default function Tenants() {
     if (!file) return
     const fd = new FormData()
     fd.append('file', file)
+    
+    let endpoint = '/upload/image?type=tenants'
+    if (file.type === 'application/pdf' || file.type.includes('wordprocessingml') || file.type.includes('document')) {
+      endpoint = '/upload/document?type=tenants'
+    }
+
     try {
-      const res = await api.post('/upload/image?type=tenants', fd)
+      const res = await api.post(endpoint, fd)
       if (res.data?.path) setter(res.data.path)
-    } catch {
-      toast.addToast('Image upload failed', 'error')
+    } catch (err: any) {
+      toast.addToast(err?.response?.data?.message || 'File upload failed (only JPEG/PNG/PDF allowed)', 'error')
     }
   }
 
@@ -760,6 +833,12 @@ export default function Tenants() {
                       View Full Profile
                     </button>
                     <button
+                      onClick={() => openEditTenant(detailTenant)}
+                      className="w-full py-4 bg-amber-500 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-amber-100 dark:shadow-none hover:bg-amber-600 transition-all"
+                    >
+                      Edit Tenant
+                    </button>
+                    <button
                       onClick={() => setShowNoticeModal(true)}
                       className="w-full py-4 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all"
                     >
@@ -858,12 +937,38 @@ export default function Tenants() {
 
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
-                      <input placeholder="TIN Number" value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number <span className="text-slate-300 normal-case">(10 digits)</span></label>
+                      <input
+                        placeholder="e.g. 0000011037"
+                        value={tinNumber}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10)
+                          setTinNumber(val)
+                          if (val && val.length !== 10) setTinError('TIN must be exactly 10 digits')
+                          else setTinError('')
+                        }}
+                        maxLength={10}
+                        inputMode="numeric"
+                        pattern="[0-9]{10}"
+                        className={`w-full h-12 px-4 bg-white dark:bg-slate-800 border rounded-xl text-xs font-bold outline-none ${tinError ? 'border-rose-400 focus:ring-rose-500/20' : 'border-slate-200 dark:border-slate-700'}`}
+                      />
+                      {tinError && <p className="text-[10px] font-bold text-rose-500 ml-1">{tinError}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
                       <input placeholder="VAT Reg #" value={vatRegNumber} onChange={e => setVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 mt-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Certificate</label>
+                    <div onClick={() => tinCertImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                      <input type="file" accept="image/*,.pdf" ref={tinCertImageRef} onChange={e => handleImageUpload(e, setTinCertImage)} className="hidden" />
+                      {tinCertImage ? (
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><FileText size={14} /> TIN Certificate Uploaded</div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-slate-300"><Plus size={16} /> Upload TIN Certificate</div>
+                      )}
                     </div>
                   </div>
 
@@ -985,7 +1090,7 @@ export default function Tenants() {
                             <div>
                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Primary Residence</div>
                               <div className="text-lg font-black text-slate-800 dark:text-slate-200">{(detailTenant?.building?.name || detailTenant?.building_name || detailTenant?.building || '—')}{(detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) ? ' • ' + (detailTenant?.unit_number || detailTenant?.unit?.unit_number || detailTenant?.unit?.name) : ''}</div>
-                              <div className="text-xs font-medium text-slate-400 mt-0.5">Northern District • Commercial Zone A</div>
+                              <div className="text-xs font-medium text-slate-400 mt-0.5">{detailTenant?.lease?.building?.city || detailTenant?.building?.city || ''}{detailTenant?.lease?.building?.subcity ? ` • ${detailTenant.lease.building.subcity}` : (detailTenant?.building?.subcity ? ` • ${detailTenant.building.subcity}` : '')}</div>
                             </div>
                           </div>
                           <button className="p-4 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all hover:scale-110 active:scale-95">
@@ -1264,6 +1369,81 @@ export default function Tenants() {
           </div>
         )}
       </div>
+
+      {/* Edit Tenant Modal */}
+      {showEditTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+            <div className="mb-6 flex items-start justify-between">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Tenant</h3>
+              <button onClick={() => setShowEditTenant(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <X size={18} className="text-slate-400" />
+              </button>
+            </div>
+            <form onSubmit={handleEditTenant} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                  <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                  <input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                  <input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone</label>
+                  <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
+                  <input value={editTinNumber} onChange={e => setEditTinNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
+                  <input value={editVatRegNumber} onChange={e => setEditVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Address</label>
+                  <input value={editDetailedAddress} onChange={e => setEditDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                  <select value={editTenantStatus} onChange={e => setEditTenantStatus(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none">
+                    <option value="active">Active</option>
+                    <option value="blacklisted">Blacklisted</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport Image</label>
+                  <input type="file" accept="image/*,.pdf" onChange={e => handleImageUpload(e, setEditIdImage)} className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 dark:file:bg-indigo-500/10 dark:file:text-indigo-400" />
+                  {editIdImage && <p className="text-[10px] text-emerald-500 font-bold ml-1">✓ Document ready</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License / Contract</label>
+                  <input type="file" accept="image/*,.pdf" onChange={e => handleImageUpload(e, setEditLicenseImage)} className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 dark:file:bg-indigo-500/10 dark:file:text-indigo-400" />
+                  {editLicenseImage && <p className="text-[10px] text-emerald-500 font-bold ml-1">✓ Document ready</p>}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <button type="button" onClick={() => setShowEditTenant(false)} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="px-6 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </PageLayout>
   )
 }

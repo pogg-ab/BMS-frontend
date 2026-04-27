@@ -71,6 +71,10 @@ export function downloadLease(id: string | number) {
   return axios.get(`/leases/${id}/download`, { responseType: 'arraybuffer' }).then(r => r)
 }
 
+export function updateLease(id: string | number, dto: any) {
+  return axios.patch(`/leases/${id}`, dto).then(r => r.data)
+}
+
 export function deleteDraftLease(id: string | number) {
   return axios.delete(`/leases/${id}`).then(r => r.data)
 }
@@ -83,5 +87,6 @@ export default {
   renewLease,
   uploadLeaseDocument,
   downloadLease,
+  updateLease,
   deleteDraftLease,
 }

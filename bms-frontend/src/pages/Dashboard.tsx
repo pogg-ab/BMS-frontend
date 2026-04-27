@@ -31,6 +31,13 @@ export default function Dashboard() {
     const fetchData = async () => {
       setLoading(true)
       try {
+        const roles = getRoles()
+        const isTenant = roles.includes('tenant')
+        if (isTenant) {
+          setLoading(false)
+          return
+        }
+
         const [dashboardData, trendData, auditLogs] = await Promise.all([
           getDashboard(),
           getFinancialTrend(),

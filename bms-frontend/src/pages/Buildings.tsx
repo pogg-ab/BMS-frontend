@@ -48,6 +48,9 @@ export default function Buildings() {
   const [type, setType] = useState<string>('residential')
   const [imageUrl, setImageUrl] = useState<string>('')
   const [description, setDescription] = useState<string>('')
+  const [latitude, setLatitude] = useState<string | number>('')
+  const [longitude, setLongitude] = useState<string | number>('')
+  const [status, setStatus] = useState<string>('ACTIVE')
   const imageRef = useRef<HTMLInputElement | null>(null)
 
   const [sites, setSites] = useState<any[]>([])
@@ -115,21 +118,25 @@ export default function Buildings() {
   }, [buildings])
 
   function openCreate() {
-    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setDescription(''); setShowForm(true)
+    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setDescription(''); setLatitude(''); setLongitude(''); setStatus('ACTIVE'); setShowForm(true)
   }
 
   function openEdit(b: Building) {
     setEditing(b); setName(b.name || ''); setCode(b.code || ''); setAddress(b.address || '')
     setSiteId(b.siteId || (b as any).site_id || ''); setOwnerId(b.ownerId || (b as any).owner_id || '')
-    setType(b.type || 'residential'); setImageUrl(b.image_url || ''); setDescription((b as any).description || ''); setShowForm(true)
+    setType(b.type || 'residential'); setImageUrl(b.image_url || ''); setDescription((b as any).description || '')
+    setLatitude((b as any).latitude || ''); setLongitude((b as any).longitude || ''); setStatus((b as any).status || 'ACTIVE')
+    setShowForm(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const payload: any = { name, code, address, siteId, ownerId, type }
+      const payload: any = { name, code, address, siteId, ownerId, type, status }
       if (imageUrl) payload.image_url = imageUrl
       if (description) payload.description = description
+      if (latitude) payload.latitude = Number(latitude)
+      if (longitude) payload.longitude = Number(longitude)
       if (editing) { await updateBuilding(editing.id, payload) }
       else { await createBuilding(payload) }
       setShowForm(false); load()
@@ -408,6 +415,23 @@ export default function Buildings() {
                   <label className="form-label">Address</label>
                   <input required value={address} onChange={e => setAddress(e.target.value)} className="form-input" />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label">Latitude</label>
+                  <input type="number" step="any" value={latitude} onChange={e => setLatitude(e.target.value)} className="form-input" placeholder="e.g. 9.0123" />
+                </div>
+                <div>
+                  <label className="form-label">Longitude</label>
+                  <input type="number" step="any" value={longitude} onChange={e => setLongitude(e.target.value)} className="form-input" placeholder="e.g. 38.7654" />
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Status</label>
+                <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="form-label">Description</label>

@@ -12,6 +12,7 @@ import {
   uploadLeaseDocument,
   downloadLease,
   deleteDraftLease,
+  updateLease,
 } from '../api/leases'
 import { listTenants, createAndVerifyFromTenant, listDocuments } from '../api/tenants'
 import { listUnits } from '../api/units'
@@ -37,6 +38,17 @@ export default function Leases() {
   const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [selectedTenantForVerify, setSelectedTenantForVerify] = useState<any>(null)
   const [verifying, setVerifying] = useState(false)
+  const [verifyDocs, setVerifyDocs] = useState<any[]>([])
+
+  useEffect(() => {
+    if (showVerifyModal && selectedTenantForVerify) {
+      listDocuments({ tenant_id: selectedTenantForVerify.id }).then(docs => {
+        setVerifyDocs(Array.isArray(docs) ? docs : (docs?.data || docs || []))
+      }).catch(err => console.error('Failed to load docs', err))
+    } else {
+      setVerifyDocs([])
+    }
+  }, [showVerifyModal, selectedTenantForVerify])
 
   // Create form
   const [unitId, setUnitId] = useState('')
@@ -64,6 +76,16 @@ export default function Leases() {
   const [renewOnlyBillingCycle, setRenewOnlyBillingCycle] = useState('MONTHLY')
   const [uploadOnlyLeaseId, setUploadOnlyLeaseId] = useState<string | number>('')
   const [uploadOnlyFile, setUploadOnlyFile] = useState<File | null>(null)
+
+  // Edit lease state
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editLeaseId, setEditLeaseId] = useState<string | number>('')
+  const [editRent, setEditRent] = useState('')
+  const [editStartDate, setEditStartDate] = useState('')
+  const [editEndDate, setEditEndDate] = useState('')
+  const [editServiceCharge, setEditServiceCharge] = useState('')
+  const [editDeposit, setEditDeposit] = useState('')
+  const [editBillingCycle, setEditBillingCycle] = useState('MONTHLY')
 
   function tenantLabel(t: any) {
     if (!t) return ''
@@ -387,10 +409,17 @@ export default function Leases() {
     return null
   }
 
+  // Document Verification Helpers
+  const idDoc = verifyDocs.find((d: any) => d.type?.toUpperCase().includes('ID') || d.type?.toUpperCase().includes('PASSPORT'));
+  const idImageUrl = selectedTenantForVerify?.id_image || idDoc?.file_url || idDoc?.fileUrl;
+
+  const licenseDoc = verifyDocs.find((d: any) => d.type?.toUpperCase().includes('LICENSE') || d.type?.toUpperCase().includes('CONTRACT') || d.type?.toUpperCase().includes('PERMIT'));
+  const licenseImageUrl = selectedTenantForVerify?.license_image || licenseDoc?.file_url || licenseDoc?.fileUrl;
+
   return (
     <PageLayout
       title="Lease Portfolio"
-      subtitle={`Managing ${leases.length} active commercial and residential leases across the Northern District properties.`}
+      subtitle={`Managing ${leases.length} active commercial and residential leases across ${allBuildings.length} properties.`}
       searchPlaceholder="Search leases, tenants, or units..."
       actions={
         <div className="flex items-center gap-3">
@@ -504,6 +533,20 @@ export default function Leases() {
                       {(l.status === 'DRAFT' || l.status === 'draft') && (
                         <button onClick={() => handleActivateOnly(l.id)} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
                           Activate
+                        </button>
+                      )}
+                      {(l.status === 'DRAFT' || l.status === 'draft') && (
+                        <button onClick={() => {
+                          setEditLeaseId(l.id)
+                          setEditRent(String(l.rent_amount || l.rent || l.rent_price || ''))
+                          setEditStartDate(l.start_date || '')
+                          setEditEndDate(l.end_date || '')
+                          setEditServiceCharge(String(l.service_charge || ''))
+                          setEditDeposit(String(l.deposit_amount || ''))
+                          setEditBillingCycle(l.billing_cycle || 'MONTHLY')
+                          setShowEditModal(true)
+                        }} className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
+                          <Pen size={12} className="inline mr-1" />Edit
                         </button>
                       )}
                       {(l.status === 'DRAFT' || l.status === 'draft') && (
@@ -683,16 +726,40 @@ export default function Leases() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="form-label">Building</label>
-                <select value={leaseBuildingId} onChange={e => setLeaseBuildingId(e.target.value)} className="form-select" required>
+                <select 
+                  value={leaseBuildingId} 
+                  onChange={e => {
+                    setLeaseBuildingId(e.target.value);
+                    setUnitId('');
+                    setRent('');
+                  }} 
+                  className="form-select" 
+                  required
+                >
                   <option value="">Select building</option>
                   {allBuildings.map((b: any) => (<option key={b.id} value={String(b.id)}>{b.name || b.code || b.id}</option>))}
                 </select>
               </div>
               <div>
                 <label className="form-label">Unit</label>
-                <select value={unitId} onChange={e => setUnitId(e.target.value)} className="form-select" required>
+                <select 
+                  value={unitId} 
+                  onChange={e => { 
+                    const uid = e.target.value; 
+                    setUnitId(uid); 
+                    const u = units.find((x: any) => String(x.id) === uid); 
+                    if (u) setRent(String(u.rent_price || u.rent || '')) 
+                  }} 
+                  className="form-select" 
+                  required
+                >
                   <option value="">Select unit</option>
-                  {units.map((u: any) => (<option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>))}
+                  {units
+                    .filter((u: any) => !leaseBuildingId || String(u.building?.id || u.building_id) === String(leaseBuildingId))
+                    .map((u: any) => (
+                      <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
+                    ))
+                  }
                 </select>
               </div>
             </div>
@@ -864,21 +931,39 @@ export default function Leases() {
             <div className="space-y-3">
               <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                  <a 
+                    href={idImageUrl ? (idImageUrl.startsWith('http') ? idImageUrl : `${(import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'}${idImageUrl.startsWith('/') ? '' : '/'}${idImageUrl}`) : '#'} 
+                    target={idImageUrl ? "_blank" : "_self"} 
+                    rel="noopener noreferrer"
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${idImageUrl ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 cursor-not-allowed'}`}
+                    title={idImageUrl ? "View ID Document" : "No document uploaded"}
+                    onClick={e => !idImageUrl && e.preventDefault()}
+                  >
                     <Eye size={16} />
-                  </div>
+                  </a>
                   <span className="text-sm font-medium dark:text-slate-200">ID / Passport Image</span>
                 </div>
-                <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md uppercase">Pending</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${idImageUrl ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10' : 'text-amber-500 bg-amber-50 dark:bg-amber-500/10'}`}>
+                  {idImageUrl ? 'Uploaded' : 'Missing'}
+                </span>
               </div>
               <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                  <a 
+                    href={licenseImageUrl ? (licenseImageUrl.startsWith('http') ? licenseImageUrl : `${(import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:3000'}${licenseImageUrl.startsWith('/') ? '' : '/'}${licenseImageUrl}`) : '#'} 
+                    target={licenseImageUrl ? "_blank" : "_self"} 
+                    rel="noopener noreferrer"
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${licenseImageUrl ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 cursor-not-allowed'}`}
+                    title={licenseImageUrl ? "View License Document" : "No document uploaded"}
+                    onClick={e => !licenseImageUrl && e.preventDefault()}
+                  >
                     <Eye size={16} />
-                  </div>
+                  </a>
                   <span className="text-sm font-medium dark:text-slate-200">Contract / License</span>
                 </div>
-                <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md uppercase">Pending</span>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${licenseImageUrl ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10' : 'text-amber-500 bg-amber-50 dark:bg-amber-500/10'}`}>
+                  {licenseImageUrl ? 'Uploaded' : 'Missing'}
+                </span>
               </div>
             </div>
 
@@ -902,6 +987,75 @@ export default function Leases() {
               By clicking verify all, you confirm that you have reviewed the uploaded documents and they are valid for this lease.
             </p>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* Edit Lease Modal */}
+    {showEditModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+          <div className="mb-4 flex items-start justify-between">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Draft Lease</h3>
+            <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          </div>
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            try {
+              const payload: any = {}
+              if (editRent) payload.rent_amount = Number(editRent)
+              if (editStartDate) payload.start_date = editStartDate
+              if (editEndDate) payload.end_date = editEndDate
+              if (editServiceCharge) payload.service_charge = Number(editServiceCharge)
+              if (editDeposit) payload.deposit_amount = Number(editDeposit)
+              if (editBillingCycle) payload.billing_cycle = editBillingCycle
+              await updateLease(editLeaseId, payload)
+              toast.addToast('Lease updated', 'success')
+              setShowEditModal(false)
+              loadLeases()
+            } catch (err: any) {
+              toast.addToast(err?.response?.data?.message || 'Update failed', 'error')
+            }
+          }} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Start Date</label>
+                <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="form-input w-full" />
+              </div>
+              <div>
+                <label className="form-label">End Date</label>
+                <input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} className="form-input w-full" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Rent Amount (ETB)</label>
+                <input type="number" value={editRent} onChange={e => setEditRent(e.target.value)} className="form-input w-full" />
+              </div>
+              <div>
+                <label className="form-label">Billing Cycle</label>
+                <select value={editBillingCycle} onChange={e => setEditBillingCycle(e.target.value)} className="form-select w-full">
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="QUARTERLY">Quarterly</option>
+                  <option value="YEARLY">Yearly</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="form-label">Service Charge</label>
+                <input type="number" value={editServiceCharge} onChange={e => setEditServiceCharge(e.target.value)} className="form-input w-full" placeholder="Optional" />
+              </div>
+              <div>
+                <label className="form-label">Deposit</label>
+                <input type="number" value={editDeposit} onChange={e => setEditDeposit(e.target.value)} className="form-input w-full" placeholder="Optional" />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end pt-4 border-t border-slate-100 dark:border-slate-700">
+              <button type="button" onClick={() => setShowEditModal(false)} className="button-secondary">Cancel</button>
+              <button type="submit" className="button">Save Changes</button>
+            </div>
+          </form>
         </div>
       </div>
     )}

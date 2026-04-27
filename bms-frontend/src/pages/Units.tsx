@@ -136,14 +136,14 @@ export default function Units() {
       (u.building?.name && u.building.name.toLowerCase().includes(search.toLowerCase()))
     )) return false
 
-    if (floorFilter !== 'All Floors' && String(u.floor || '1') !== floorFilter) return false
+    if (floorFilter !== 'All Floors' && String(u.floor ?? '') !== floorFilter) return false
     if (statusFilter !== 'Status: All') {
       const match = statusFilter.split(': ')[1].toUpperCase()
       if ((u.status || 'VACANT').toUpperCase() !== match) return false
     }
     if (typeFilter !== 'Type: All') {
-      const match = typeFilter.split(': ')[1].toUpperCase()
-      if ((u.type || 'STUDIO').toUpperCase() !== match) return false
+      const matchValue = typeFilter.split(': ')[1]
+      if ((u.type || 'STUDIO').toUpperCase() !== matchValue.toUpperCase()) return false
     }
     return true
   })
@@ -151,16 +151,16 @@ export default function Units() {
   // Grouping logic (by floor if building selected, otherwise by building)
   let groups: { name: string, items: any[] }[] = []
   if (selectedBuildingId) {
-    const activeFloors = Array.from(new Set(filteredUnits.map(u => String(u.floor || '1')))).sort((a,b)=>Number(a)-Number(b))
+    const activeFloors = Array.from(new Set(filteredUnits.map(u => String(u.floor ?? '')))).sort((a,b)=>Number(a)-Number(b))
     groups = activeFloors.map(f => ({
-      name: `Floor ${f}`,
-      items: filteredUnits.filter(u => String(u.floor || '1') === f)
+      name: f === '' ? 'Floor 0' : `Floor ${f}`,
+      items: filteredUnits.filter(u => String(u.floor ?? '') === f)
     }))
   } else {
     const activeBuildings = Array.from(new Set(filteredUnits.map(u => u.building?.name || 'Unknown Building')))
     groups = activeBuildings.map(b => ({
       name: b,
-      items: filteredUnits.filter(u => (u.building?.name || 'Unknown Building') === b).sort((a,b) => Number(a.floor||1) - Number(b.floor||1))
+      items: filteredUnits.filter(u => (u.building?.name || 'Unknown Building') === b).sort((a,b) => Number(a.floor??0) - Number(b.floor??0))
     }))
   }
 
@@ -200,7 +200,17 @@ export default function Units() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const dto: any = { unit_number: unitNumber, buildingId: formBuildingId, floor, bedrooms, bathrooms, size_sqm: sizeSqm, type: unitType, status }
+      const isCommercial = unitType === 'SHOP' || unitType === 'OFFICE';
+      const dto: any = { 
+        unit_number: unitNumber, 
+        buildingId: formBuildingId, 
+        floor, 
+        bedrooms: isCommercial ? 0 : (bedrooms || 0), 
+        bathrooms: isCommercial ? 0 : (bathrooms || 0), 
+        size_sqm: sizeSqm, 
+        type: unitType, 
+        status 
+      }
       if (rentPrice !== '') dto.rent_price = rentPrice
       if (description) dto.description = description
       if (imageUrl) dto.image_url = imageUrl
@@ -400,8 +410,8 @@ export default function Units() {
               onChange={e => setFloorFilter(e.target.value)}
             >
               <option>All Floors</option>
-              {Array.from(new Set(units.map(u => String(u.floor || '1')))).sort((a,b)=>Number(a)-Number(b)).map(f => (
-                <option key={f} value={f}>Floor {f}</option>
+              {Array.from(new Set(units.map(u => String(u.floor ?? '')))).sort((a,b)=>Number(a)-Number(b)).map(f => (
+                <option key={f} value={f}>{f === '' ? 'Floor 0' : `Floor ${f}`}</option>
               ))}
             </select>
             <select 
@@ -420,10 +430,9 @@ export default function Units() {
               onChange={e => setTypeFilter(e.target.value)}
             >
               <option>Type: All</option>
-              <option>Type: Studio</option>
-              <option>Type: 1BR</option>
-              <option>Type: 2BR</option>
-              <option>Type: Penthouse</option>
+              {UNIT_TYPES.map(t => (
+                <option key={t.value} value={`Type: ${t.value}`}>{t.label}</option>
+              ))}
             </select>
           </div>
           <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm shrink-0">
@@ -467,6 +476,8 @@ export default function Units() {
                     let prettyType = 'Studio'
                     if (rawType.includes('1BR')) prettyType = '1 Bedroom'
                     if (rawType.includes('2BR')) prettyType = '2 Bedroom'
+                    if (rawType === 'OFFICE') prettyType = 'Office'
+                    if (rawType === 'SHOP') prettyType = 'Shop'
 
                     return (
                       <div key={u.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100 dark:border-slate-700 overflow-hidden group hover:-translate-y-1 transition-all duration-300 flex flex-col hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] relative">
@@ -507,9 +518,11 @@ export default function Units() {
                             <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
                               <Maximize size={12} className="text-slate-400" /> {u.size_sqm || 45} sqm
                             </div>
-                            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
-                              <Bed size={12} className="text-slate-400" /> {u.bedrooms || 1} Bed
-                            </div>
+                            {u.type !== 'OFFICE' && u.type !== 'SHOP' && (
+                              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
+                                <Bed size={12} className="text-slate-400" /> {u.bedrooms || 0}
+                              </div>
+                            )}
                           </div>
 
                           <div className="mt-auto pt-5 flex items-baseline gap-1.5">
@@ -568,7 +581,18 @@ export default function Units() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type</label>
-                    <select value={unitType} onChange={e => setUnitType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+                    <select 
+                      value={unitType} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setUnitType(val);
+                        if (val === 'SHOP' || val === 'OFFICE') {
+                          setBedrooms(0);
+                          setBathrooms(0);
+                        }
+                      }} 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                    >
                       {UNIT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
@@ -587,11 +611,11 @@ export default function Units() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Beds</label>
-                    <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                    <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm disabled:opacity-50" required disabled={unitType === 'SHOP' || unitType === 'OFFICE'} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Baths</label>
-                    <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                    <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm disabled:opacity-50" required disabled={unitType === 'SHOP' || unitType === 'OFFICE'} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sqm</label>

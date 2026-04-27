@@ -25,6 +25,7 @@ import * as maintenanceApi from '../api/maintenance'
 import { listTenants } from '../api/tenants'
 import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
+import { listLeases } from '../api/leases'
 import { getRoles, getUserId } from '../utils/jwt'
 
 type Tab = 'requests' | 'work-orders' | 'contractors' | 'reports' | 'schedules'
@@ -63,6 +64,7 @@ export default function Maintenance() {
   const [tenants, setTenants] = useState<any[]>([])
   const [units, setUnits] = useState<any[]>([])
   const [buildings, setBuildings] = useState<any[]>([])
+  const [leases, setLeases] = useState<any[]>([])
 
   // ── Requests ─────────────────────────────────────────────
   const [requests, setRequests] = useState<any[]>([])
@@ -125,6 +127,7 @@ export default function Maintenance() {
   const [schDate, setSchDate] = useState(new Date().toISOString().split('T')[0])
   const [schBuildingId, setSchBuildingId] = useState('')
   const [schDesc, setSchDesc] = useState('')
+  const [listTenantFilter, setListTenantFilter] = useState('')
 
   // ── Load helpers ─────────────────────────────────────────
   useEffect(() => {
@@ -142,6 +145,7 @@ export default function Maintenance() {
   }, [tab])
 
   async function loadLookups() {
+    if (isTenant) return // Tenants don't need global building/unit lookups
     try {
       const t: any = await listTenants({ page: 1, per_page: 500 })
       setTenants(Array.isArray(t) ? t : [])
@@ -150,19 +154,16 @@ export default function Maintenance() {
       const u: any = await listUnits()
       const ul = Array.isArray(u) ? u : (u?.data || [])
       setUnits(ul)
-      if (isTenant && ul.length > 0) {
-        // Find units belonging to this tenant
-        const tenantUnits = ul.filter((unit: any) => unit.tenant?.user?.id === currentUserId)
-        if (tenantUnits.length > 0) {
-          setReqUnitId(tenantUnits[0].id)
-        }
-      }
     } catch (e: any) { console.error('load units', e) }
     try {
       const b: any = await listBuildings({ per_page: 500 })
       const bl = Array.isArray(b) ? b : (b?.data || [])
       setBuildings(bl)
     } catch (e: any) { console.error('load buildings', e) }
+    try {
+      const l: any = await listLeases({ page: 1, per_page: 500 })
+      setLeases(Array.isArray(l) ? l : [])
+    } catch (e: any) { console.error('load leases', e) }
   }
 
   async function loadRequests() {
@@ -252,19 +253,24 @@ export default function Maintenance() {
     } catch (e: any) { console.error('load contractors', e) }
   }
 
+  const filteredRequests = useMemo(() => {
+    if (!listTenantFilter) return requests;
+    return requests.filter((r: any) => String(r.tenant?.id) === String(listTenantFilter));
+  }, [requests, listTenantFilter])
+
   // ── Stats ──────────────────────────────────────────────
   const maintenanceStats = useMemo(() => {
-    const pending = requests.filter(r => ['SUBMITTED', 'submitted', 'APPROVED', 'approved', 'ASSIGNED', 'assigned'].includes(r.status)).length
-    const inProgress = requests.filter(r => ['IN_PROGRESS', 'in_progress'].includes(r.status)).length
-    const completed = requests.filter(r => ['COMPLETED', 'completed'].includes(r.status)).length
-    const critical = requests.filter(r => r.priority === 'urgent' && r.status !== 'COMPLETED' && r.status !== 'completed').length
+    const pending = filteredRequests.filter(r => ['SUBMITTED', 'submitted', 'APPROVED', 'approved', 'ASSIGNED', 'assigned'].includes(r.status)).length
+    const inProgress = filteredRequests.filter(r => ['IN_PROGRESS', 'in_progress'].includes(r.status)).length
+    const completed = filteredRequests.filter(r => ['COMPLETED', 'completed'].includes(r.status)).length
+    const critical = filteredRequests.filter(r => r.priority === 'urgent' && r.status !== 'COMPLETED' && r.status !== 'completed').length
 
     // Calculate avg response (dummy logic if not in API)
     const avgResponse = "2.4 hrs"
     const efficiency = "94%"
 
     return { pending, inProgress, completed, critical, avgResponse, efficiency }
-  }, [requests])
+  }, [filteredRequests])
 
   // ── Tenant / Unit labels ────────────────────────────────
   function tenantLabel(t: any, req?: any) {
@@ -720,9 +726,36 @@ export default function Maintenance() {
                             required
                           >
                             <option value="">Select unit</option>
-                            {units.map((u: any) => (
-                              <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
-                            ))}
+                            {(() => {
+                              // For tenants: only show units from their active leases
+                              if (isTenant) {
+                                const myTenant = tenants.find(t => String(t.user?.id) === String(currentUserId))
+                                if (myTenant) {
+                                  const myLeaseUnitIds = leases
+                                    .filter(l => (l.tenant?.id === myTenant.id || l.tenant_id === myTenant.id) && ['ACTIVE', 'active'].includes(l.status))
+                                    .map(l => l.unit?.id || l.unit_id)
+                                  const myUnits = units.filter(u => myLeaseUnitIds.includes(u.id))
+                                  return myUnits.map((u: any) => (
+                                    <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
+                                  ))
+                                }
+                              }
+                              // For admins: filter by selected tenant if one is chosen
+                              if (reqTenantId) {
+                                const tenantLeaseUnitIds = leases
+                                  .filter(l => (String(l.tenant?.id) === String(reqTenantId) || String(l.tenant_id) === String(reqTenantId)) && ['ACTIVE', 'active'].includes(l.status))
+                                  .map(l => String(l.unit?.id || l.unit_id))
+                                
+                                const filteredUnits = units.filter(u => tenantLeaseUnitIds.includes(String(u.id)))
+                                return filteredUnits.length > 0 ? filteredUnits.map((u: any) => (
+                                  <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
+                                )) : <option value="" disabled>No active units for this tenant</option>
+                              }
+                              // Fallback: show all units
+                              return units.map((u: any) => (
+                                <option key={u.id} value={String(u.id)}>{unitLabel(u)}</option>
+                              ))
+                            })()}
                           </select>
                         </div>
 
@@ -805,8 +838,22 @@ export default function Maintenance() {
 
                   {/* Requests Table */}
                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight">All Requests</h3>
-                    {reqLoading ? <div className="py-12 flex justify-center text-slate-500">Loading requests...</div> : requests.length === 0 ? (
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-200 tracking-tight">All Requests</h3>
+                      {!isTenant && (
+                        <select
+                          value={listTenantFilter}
+                          onChange={e => setListTenantFilter(e.target.value)}
+                          className="form-select text-xs w-48 py-1.5"
+                        >
+                          <option value="">All Tenants</option>
+                          {tenants.map((t: any) => (
+                            <option key={t.id} value={String(t.id)}>{tenantLabel(t)}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    {reqLoading ? <div className="py-12 flex justify-center text-slate-500">Loading requests...</div> : filteredRequests.length === 0 ? (
                       <div className="py-12 flex justify-center text-slate-500 bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed border-slate-300">No requests found</div>
                     ) : (
                       <div className="table-container shadow-none ring-0 border border-slate-200 dark:border-slate-700 rounded-xl">
@@ -827,7 +874,7 @@ export default function Maintenance() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {requests.map((req: any) => (
+                            {filteredRequests.map((req: any) => (
                               <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150">
                                 <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{tenantLabel(req.tenant)}</td>
                                 <td className="px-6 py-4 text-slate-600 font-mono text-xs">{unitLabel(req.unit)}</td>

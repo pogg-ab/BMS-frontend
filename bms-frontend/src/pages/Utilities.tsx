@@ -51,20 +51,22 @@ export default function Utilities() {
   useEffect(() => {
     loadMeters()
     loadReadings()
-    listUnits({ page: 1, per_page: 500 }).then((res: any) => {
-      setAllUnits(Array.isArray(res) ? res : (res?.data || []))
-    }).catch(console.error)
+    if (isAdmin) {
+      listUnits({ page: 1, per_page: 500 }).then((res: any) => {
+        setAllUnits(Array.isArray(res) ? res : (res?.data || []))
+      }).catch(console.error)
 
-    // load sites for meter creation cascade
-    listSites({ page: 1, per_page: 500 }).then((res: any) => {
-      const s = Array.isArray(res) ? res : (res?.data || [])
-      setAllSites(s)
-    }).catch(console.error)
-    // preload buildings so we can resolve building names from ids
-    listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
-      const b = Array.isArray(res) ? res : (res?.data || [])
-      setAllBuildings(b)
-    }).catch(console.error)
+      // load sites for meter creation cascade
+      listSites({ page: 1, per_page: 500 }).then((res: any) => {
+        const s = Array.isArray(res) ? res : (res?.data || [])
+        setAllSites(s)
+      }).catch(console.error)
+      // preload buildings so we can resolve building names from ids
+      listBuildings({ page: 1, per_page: 500 }).then((res: any) => {
+        const b = Array.isArray(res) ? res : (res?.data || [])
+        setAllBuildings(b)
+      }).catch(console.error)
+    }
   }, [])
 
   const meterMap = React.useMemo(() => {
@@ -210,6 +212,8 @@ export default function Utilities() {
                   className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border-none rounded-xl text-sm w-48 md:w-64 focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+              {isAdmin && (
+              <>
               <div className="flex items-center gap-2">
                  <Filter size={14} className="text-slate-400" />
                  <select value={siteFilter} onChange={e => {
@@ -242,6 +246,8 @@ export default function Utilities() {
                    {(unitsForFilter.length ? unitsForFilter : allUnits).map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
                  </select>
               </div>
+              </>
+              )}
            </div>
            <button onClick={() => activeTab === 'meters' ? loadMeters({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined }) : loadReadings({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined })} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
              <RefreshCw size={16} />

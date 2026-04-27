@@ -48,10 +48,10 @@ export default function Finance() {
   // Filter tabs based on permissions
   const visibleTabs = TABS.filter(t => {
     if (isSuperAdmin) return true
-    if (isTenant && ['invoices', 'payments'].includes(t.key)) return true
-    if (t.key === 'drafts') return !isTenant && (isSuperAdmin || userPermissions.includes('finance:manage'))
-    if (['bank-accounts', 'reports'].includes(t.key)) {
-      return !isTenant && (isSuperAdmin || userPermissions.includes('finance:manage') || userPermissions.includes('reports:view'))
+    if (isTenant) return ['invoices', 'payments'].includes(t.key)
+    if (t.key === 'drafts') return isSuperAdmin || userPermissions.includes('finance:manage')
+    if (['bank-accounts', 'reports', 'expenses'].includes(t.key)) {
+      return isSuperAdmin || userPermissions.includes('finance:manage') || userPermissions.includes('reports:view')
     }
     return true
   })
@@ -167,9 +167,12 @@ export default function Finance() {
   useEffect(() => {
     loadLookups()
     loadBankAccounts()
-    loadAnalytics()
-    loadDepositAdvices()
-    if (isTenant) loadTenantSummary()
+    if (!isTenant) {
+      loadAnalytics()
+      loadDepositAdvices()
+    } else {
+      loadTenantSummary()
+    }
   }, [])
 
   async function loadAnalytics() {
@@ -191,14 +194,15 @@ export default function Finance() {
   useEffect(() => {
     if (tab === 'invoices' || tab === 'payments' || tab === 'drafts') loadInvoices()
     if (tab === 'expenses') loadExpenses()
-    if (tab === 'reports') { loadHubData(); loadAnalytics(); }
-    if (tab === 'deposit-advice') loadDepositAdvices()
+    if (tab === 'reports' && !isTenant) { loadHubData(); loadAnalytics(); }
+    if (tab === 'deposit-advice' && !isTenant) loadDepositAdvices()
   }, [tab, invFilterBuilding, invFilterStatus])
 
   const draftInvoices = useMemo(() => invoices.filter(i => i.status === 'draft'), [invoices])
   const confirmedInvoices = useMemo(() => invoices.filter(i => i.status !== 'draft'), [invoices])
 
   async function loadLookups() {
+    if (isTenant) return // Tenants don't need buildings/sites lookups here
     try {
       const l: any = await listLeases({ page: 1, per_page: 500 })
       setLeases(Array.isArray(l) ? l : [])
@@ -765,7 +769,24 @@ export default function Finance() {
                     <select 
                       className="form-select" 
                       value={invLeaseId} 
-                      onChange={e => setInvLeaseId(e.target.value)}
+                      onChange={e => {
+                        const lid = e.target.value
+                        setInvLeaseId(lid)
+                        // Auto-populate rent from lease
+                        const lease = leases.find(l => String(l.id) === lid)
+                        if (lease) {
+                          const rentAmt = String(lease.rent_amount || lease.rent || lease.rent_price || '')
+                          if (rentAmt) {
+                            setInvItems(prev => {
+                              const copy = [...prev]
+                              if (copy.length > 0 && copy[0].type === 'RENT') {
+                                copy[0] = { ...copy[0], amount: rentAmt }
+                              }
+                              return copy
+                            })
+                          }
+                        }
+                      }}
                       required
                     >
                       <option value="">-- Choose Lease --</option>
@@ -968,6 +989,18 @@ export default function Finance() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-3 items-center">
+                            {isTenant && inv.status !== 'paid' && inv.status !== 'processing' && (
+                              <button 
+                                onClick={() => {
+                                  setPayInvoiceId(String(inv.id))
+                                  setPayAmount(String(Number(inv.total_amount) + Number(inv.late_fee_amount || 0) - Number(inv.amount_paid || 0)))
+                                  setTab('payments')
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900 text-xs font-bold flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                              >
+                                Pay Now
+                              </button>
+                            )}
                             {inv.status === 'paid' && inv.payments?.length > 0 && (
                                <button 
                                  onClick={() => financeApi.downloadPaymentReceiptPdf(inv.payments[0].id)}
@@ -1196,6 +1229,36 @@ export default function Finance() {
               </div>
             </form>
           </div>
+          
+          {isTenant && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Bank Account Details</h3>
+              <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">Please use the details below for your bank transfers and ensure you upload the proof of payment.</p>
+              <div className="grid grid-cols-1 gap-4">
+                {bankAccounts.length === 0 ? (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl text-center text-slate-400 text-xs border border-dashed border-slate-300">No bank details available. Please contact management.</div>
+                ) : (
+                  bankAccounts.map((ba: any) => (
+                    <div key={ba.id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-500/50 transition-all duration-300">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp size={14} className="text-indigo-600" />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ba.bank_name}</span>
+                        </div>
+                        {ba.is_default && <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">Primary</span>}
+                      </div>
+                      <div className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center justify-between">
+                        {ba.account_number}
+                      </div>
+                      <div className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-tighter flex items-center gap-1.5">
+                         Branch: <span className="text-slate-600 dark:text-slate-300">{ba.branch}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Payments Awaiting Verification */}
           {!isTenant && (

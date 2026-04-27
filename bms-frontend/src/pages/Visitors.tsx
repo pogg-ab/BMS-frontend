@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
+import { getProfile } from '../auth/auth'
 import {
   FiUser, FiPhone, FiMapPin, FiPlus, FiTrash2, 
   FiLogOut, FiEdit2, FiSearch, FiInfo, FiActivity, FiClock, FiHome
@@ -17,9 +18,14 @@ import { listUsers } from '../api/users'
 import { listSites } from '../api/sites'
 import { listBuildings } from '../api/buildings'
 import { listUnits } from '../api/units'
+import { getRoles, getUserId } from '../utils/jwt'
 
 export default function Visitors() {
   const toast = useToast()
+  const userRoles = getRoles()
+  const currentUserId = getUserId()
+  const isTenant = userRoles.includes('tenant')
+  const isAdmin = userRoles.includes('super_admin') || userRoles.includes('admin') || userRoles.includes('nominee_admin')
   const [visitors, setVisitors] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -54,8 +60,22 @@ export default function Visitors() {
 
   async function loadLookups() {
     try {
-      const usersRes: any = await listUsers({ page: 1, per_page: 500 })
-      setAllUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data || usersRes?.users || []))
+      // Load profile to get tenant associations
+      const profile = await getProfile()
+      if (isTenant && profile?.tenant) {
+        // Pre-fill site/building/unit from active lease if possible
+        const activeLease = profile.tenant.leases?.find((l: any) => l.status === 'ACTIVE' || l.status === 'active')
+        if (activeLease) {
+          setSiteId(String(activeLease.site_id || activeLease.building?.site_id || ''))
+          setBuildingId(String(activeLease.building_id || ''))
+          setUnitId(String(activeLease.unit_id || ''))
+        }
+      }
+
+      if (!isTenant) {
+        const usersRes: any = await listUsers({ page: 1, per_page: 500 })
+        setAllUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data || usersRes?.users || []))
+      }
       
       const sitesRes: any = await listSites({ page: 1, per_page: 200 })
       setAllSites(Array.isArray(sitesRes) ? sitesRes : (sitesRes?.data || []))
@@ -236,37 +256,43 @@ export default function Visitors() {
                   <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Number / Card No</label>
                     <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="ID-12345" value={idNumber} onChange={e => setIdNumber(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance</label>
-                    <div className="relative">
-                      <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required value={siteId} onChange={e => setSiteId(e.target.value)}>
-                        <option value="">Select Site</option>
-                        {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
-                      </select>
+                  </div>                  {!isTenant && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance</label>
+                      <div className="relative">
+                        <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required value={siteId} onChange={e => setSiteId(e.target.value)}>
+                          <option value="">Select Site</option>
+                          {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Building (Optional)</label>
-                    <div className="relative">
-                      <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!siteId} value={buildingId} onChange={e => setBuildingId(e.target.value)}>
-                        <option value="">Select Building</option>
-                        {siteBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
-                      </select>
+                  )}
+                  {!isTenant && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Building (Optional)</label>
+                      <div className="relative">
+                        <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!siteId} value={buildingId} onChange={e => setBuildingId(e.target.value)}>
+                          <option value="">Select Building</option>
+                          {siteBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit (Optional)</label>
-                    <div className="relative">
-                      <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!buildingId} value={unitId} onChange={e => setUnitId(e.target.value)}>
-                        <option value="">Select Unit</option>
-                        {buildingUnits.map(u => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
-                      </select>
+                  )}
+                  {!isTenant && (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit (Optional)</label>
+                      <div className="relative">
+                        <FiHome className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" disabled={!buildingId} value={unitId} onChange={e => setUnitId(e.target.value)}>
+                          <option value="">Select Unit</option>
+                          {buildingUnits.map(u => <option key={u.id} value={String(u.id)}>{u.unit_number || `Unit #${u.id}`}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
                   <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vehicle Number (Optional)</label>
                     <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="AA-B12345" value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} />
@@ -297,10 +323,12 @@ export default function Visitors() {
             </h3>
             <div className="flex items-center gap-2">
               <FiSearch className="text-slate-400 ml-2" />
-              <select className="form-select !w-auto !py-1 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white" value={querySiteId} onChange={e => setQuerySiteId(e.target.value)}>
-                <option value="">All Sites</option>
-                {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
-              </select>
+              {!isTenant && (
+                <select className="form-select !w-auto !py-1 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white" value={querySiteId} onChange={e => setQuerySiteId(e.target.value)}>
+                  <option value="">All Sites</option>
+                  {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                </select>
+              )}
               <button onClick={loadVisitors} className="button-secondary !py-1.5 text-sm">Refresh</button>
             </div>
           </div>
@@ -366,17 +394,21 @@ export default function Visitors() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(v)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit Record">
-                            <FiEdit2 size={16} />
-                          </button>
+                          {!isTenant && (
+                            <button onClick={() => openEdit(v)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit Record">
+                              <FiEdit2 size={16} />
+                            </button>
+                          )}
                           {v.status !== 'exited' && (
                             <button onClick={() => handleCheckout(v.id)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Checkout">
                               <FiLogOut size={16} />
                             </button>
                           )}
-                          <button onClick={() => setDeletingId(v.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Delete record">
-                            <FiTrash2 size={16} />
-                          </button>
+                          {!isTenant && (
+                            <button onClick={() => setDeletingId(v.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Delete record">
+                              <FiTrash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
