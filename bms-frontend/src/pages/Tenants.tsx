@@ -157,7 +157,14 @@ export default function Tenants() {
   const [editTenantStatus, setEditTenantStatus] = useState('active')
   const [editIdImage, setEditIdImage] = useState('')
   const [editLicenseImage, setEditLicenseImage] = useState('')
+  const [editTenantType, setEditTenantType] = useState('personal')
+  const [editProfileImage, setEditProfileImage] = useState('')
+  const [editTinCertImage, setEditTinCertImage] = useState('')
   const [editingTenantId, setEditingTenantId] = useState<string | number>('')
+  const editIdImageRef = useRef<HTMLInputElement>(null)
+  const editLicenseImageRef = useRef<HTMLInputElement>(null)
+  const editProfileImageRef = useRef<HTMLInputElement>(null)
+  const editTinCertImageRef = useRef<HTMLInputElement>(null)
   const [openMessages, setOpenMessages] = useState(false)
   const [openApplications, setOpenApplications] = useState(false)
   const [announceTitle, setAnnounceTitle] = useState('')
@@ -281,6 +288,9 @@ export default function Tenants() {
     setEditTenantStatus(t.status || 'active')
     setEditIdImage(t.id_image || '')
     setEditLicenseImage(t.license_image || '')
+    setEditTenantType(t.tenant_type || 'personal')
+    setEditProfileImage(t.profile_image || '')
+    setEditTinCertImage(t.tin_certificate_image || '')
     setShowEditTenant(true)
   }
 
@@ -292,6 +302,7 @@ export default function Tenants() {
         last_name: editLastName,
         email: editEmail,
         phone: editPhone,
+        tenant_type: editTenantType,
       }
       if (editTinNumber) payload.tin_number = editTinNumber
       if (editVatRegNumber) payload.vat_reg_number = editVatRegNumber
@@ -299,6 +310,8 @@ export default function Tenants() {
       if (editTenantStatus) payload.status = editTenantStatus
       if (editIdImage) payload.id_image = editIdImage
       if (editLicenseImage) payload.license_image = editLicenseImage
+      if (editProfileImage) payload.profile_image = editProfileImage
+      if (editTinCertImage) payload.tin_certificate_image = editTinCertImage
       await updateTenant(String(editingTenantId), payload)
       toast.addToast('Tenant updated', 'success')
       setShowEditTenant(false)
@@ -1373,9 +1386,12 @@ export default function Tenants() {
       {/* Edit Tenant Modal */}
       {showEditTenant && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+          <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl border border-white/20 dark:border-slate-700/50 p-8 max-h-[85vh] overflow-y-auto">
             <div className="mb-6 flex items-start justify-between">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Tenant</h3>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Tenant</h3>
+                <p className="text-sm font-medium text-slate-500 mt-1">Update tenant profile and documentation.</p>
+              </div>
               <button onClick={() => setShowEditTenant(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
                 <X size={18} className="text-slate-400" />
               </button>
@@ -1403,18 +1419,11 @@ export default function Tenants() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number</label>
-                  <input value={editTinNumber} onChange={e => setEditTinNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
-                  <input value={editVatRegNumber} onChange={e => setEditVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Address</label>
-                  <input value={editDetailedAddress} onChange={e => setEditDetailedAddress(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tenant Type</label>
+                  <select value={editTenantType} onChange={e => setEditTenantType(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none appearance-none cursor-pointer">
+                    <option value="personal">Individual Tenant</option>
+                    <option value="organizational">Corporate Entity</option>
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Status</label>
@@ -1424,18 +1433,62 @@ export default function Tenants() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport Image</label>
-                  <input type="file" accept="image/*,.pdf" onChange={e => handleImageUpload(e, setEditIdImage)} className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 dark:file:bg-indigo-500/10 dark:file:text-indigo-400" />
-                  {editIdImage && <p className="text-[10px] text-emerald-500 font-bold ml-1">✓ Document ready</p>}
+
+              {/* Professional Documentation Section */}
+              <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Shield size={12} className="text-indigo-500" /> Professional Documentation
+                </h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Number <span className="text-slate-300 normal-case">(10 digits)</span></label>
+                    <input value={editTinNumber} onChange={e => setEditTinNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} inputMode="numeric" className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">VAT Number</label>
+                    <input value={editVatRegNumber} onChange={e => setEditVatRegNumber(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                  </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License / Contract</label>
-                  <input type="file" accept="image/*,.pdf" onChange={e => handleImageUpload(e, setEditLicenseImage)} className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 dark:file:bg-indigo-500/10 dark:file:text-indigo-400" />
-                  {editLicenseImage && <p className="text-[10px] text-emerald-500 font-bold ml-1">✓ Document ready</p>}
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Detailed Address</label>
+                  <input value={editDetailedAddress} onChange={e => setEditDetailedAddress(e.target.value)} placeholder="Suite / House #" className="w-full h-12 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">ID / Passport</label>
+                    <div onClick={() => editIdImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                      <input type="file" accept="image/*,.pdf" ref={editIdImageRef} onChange={e => handleImageUpload(e, setEditIdImage)} className="hidden" />
+                      {editIdImage ? (<div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><FileText size={14} /> ✓ Uploaded</div>) : (<Plus size={18} className="text-slate-300" />)}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">License</label>
+                    <div onClick={() => editLicenseImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                      <input type="file" accept="image/*,.pdf" ref={editLicenseImageRef} onChange={e => handleImageUpload(e, setEditLicenseImage)} className="hidden" />
+                      {editLicenseImage ? (<div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><FileText size={14} /> ✓ Uploaded</div>) : (<Plus size={16} className="text-slate-300" />)}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile</label>
+                    <div onClick={() => editProfileImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                      <input type="file" accept="image/*" ref={editProfileImageRef} onChange={e => handleImageUpload(e, setEditProfileImage)} className="hidden" />
+                      {editProfileImage ? (<div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><FileText size={14} /> ✓ Uploaded</div>) : (<Plus size={16} className="text-slate-300" />)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">TIN Certificate</label>
+                  <div onClick={() => editTinCertImageRef.current?.click()} className="w-full h-12 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 transition-all overflow-hidden">
+                    <input type="file" accept="image/*,.pdf" ref={editTinCertImageRef} onChange={e => handleImageUpload(e, setEditTinCertImage)} className="hidden" />
+                    {editTinCertImage ? (<div className="flex items-center gap-2 text-xs font-bold text-emerald-600"><FileText size={14} /> TIN Certificate Uploaded</div>) : (<div className="flex items-center gap-2 text-xs text-slate-300"><Plus size={16} /> Upload TIN Certificate</div>)}
+                  </div>
                 </div>
               </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <button type="button" onClick={() => setShowEditTenant(false)} className="px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
                 <button type="submit" className="px-6 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all">Save Changes</button>

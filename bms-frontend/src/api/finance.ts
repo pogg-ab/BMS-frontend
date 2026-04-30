@@ -89,6 +89,17 @@ export async function createPayment(dto: {
   return res.data
 }
 
+export async function getPayments(params?: {
+  building_id?: string;
+  tenant_id?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+}) {
+  const res = await api.get('/finance/payments', { params })
+  return res.data
+}
+
 // Backend now extracts verified_by from req.user (JWT), status and optional reason are needed in body
 export async function verifyPayment(id: string, dto: { status: 'confirmed' | 'rejected'; reason?: string }) {
   const res = await api.patch(`/finance/payments/${id}/verify`, dto)

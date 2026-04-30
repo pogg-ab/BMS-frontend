@@ -110,6 +110,12 @@ export default function Finance() {
   // verify
   const [verifyPaymentId, setVerifyPaymentId] = useState('')
   const [verifyStatus, setVerifyStatus] = useState<'confirmed' | 'rejected'>('confirmed')
+  const [paySubTab, setPaySubTab] = useState<'record' | 'history'>('record')
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([])
+  const [payHistoryLoading, setPayHistoryLoading] = useState(false)
+  const [payFilterStatus, setPayFilterStatus] = useState('')
+  const [payFilterStartDate, setPayFilterStartDate] = useState('')
+  const [payFilterEndDate, setPayFilterEndDate] = useState('')
 
   // ── Bank Accounts ────────────────────────────────────────
   const [bankAccounts, setBankAccounts] = useState<any[]>([])
@@ -193,10 +199,11 @@ export default function Finance() {
 
   useEffect(() => {
     if (tab === 'invoices' || tab === 'payments' || tab === 'drafts') loadInvoices()
+    if (tab === 'payments') loadPaymentHistory()
     if (tab === 'expenses') loadExpenses()
     if (tab === 'reports' && !isTenant) { loadHubData(); loadAnalytics(); }
     if (tab === 'deposit-advice' && !isTenant) loadDepositAdvices()
-  }, [tab, invFilterBuilding, invFilterStatus])
+  }, [tab, invFilterBuilding, invFilterStatus, payFilterStatus, payFilterStartDate, payFilterEndDate])
 
   const draftInvoices = useMemo(() => invoices.filter(i => i.status === 'draft'), [invoices])
   const confirmedInvoices = useMemo(() => invoices.filter(i => i.status !== 'draft'), [invoices])
@@ -280,6 +287,24 @@ export default function Finance() {
       setDepositAdvices(Array.isArray(data) ? data : [])
     } catch { console.error('load deposit advices') }
     finally { setDaLoading(false) }
+  }
+
+  async function loadPaymentHistory() {
+    setPayHistoryLoading(true)
+    try {
+      const params: any = {}
+      if (payFilterStatus) params.status = payFilterStatus
+      if (payFilterStartDate) params.start_date = payFilterStartDate
+      if (payFilterEndDate) params.end_date = payFilterEndDate
+      if (invFilterBuilding) params.building_id = invFilterBuilding
+      
+      const data = await financeApi.getPayments(params)
+      setPaymentHistory(Array.isArray(data) ? data : [])
+    } catch {
+      toast.addToast('Failed to load payment history', 'error')
+    } finally {
+      setPayHistoryLoading(false)
+    }
   }
 
   // ── Selected lease derived data ──────────────────────────
@@ -449,6 +474,7 @@ export default function Finance() {
       toast.addToast('Payment recorded', 'success')
       setPayInvoiceId(''); setPayAmount(''); setPayRefNo(''); setPayProofUrl('')
       loadInvoices()
+      loadPaymentHistory()
     } catch (e: any) {
       toast.addToast(e?.response?.data?.message || 'Record payment failed', 'error')
     }
@@ -462,6 +488,7 @@ export default function Finance() {
       setRejectionReason('')
       setShowRejectModal(false)
       loadInvoices()
+      loadPaymentHistory()
       loadAnalytics() // Refresh trends
       loadBankAccounts() // Refresh bank balances
     } catch { toast.addToast('Verification failed', 'error') }
@@ -1139,194 +1166,321 @@ export default function Finance() {
 
       {/* ────── PAYMENTS TAB ────── */}
       {tab === 'payments' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-            <h3 className="font-semibold mb-4 text-lg">Record Payment</h3>
-            <form onSubmit={handleCreatePayment} className="space-y-3">
-              <div>
-                <label className="form-label">Invoice</label>
-                <select
-                  value={payInvoiceId}
-                  onChange={e => setPayInvoiceId(e.target.value)}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Select invoice</option>
-                  {(isTenant ? confirmedInvoices.filter(i => i.status !== 'processing') : confirmedInvoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.status !== 'processing')).map((inv: any) => (
-                    <option key={inv.id} value={String(inv.id)}>{invoiceLabel(inv)}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="form-label">Amount</label>
-                {payInvoiceId && (
-                  <div className="text-xs text-slate-500 mb-1">
-                    Outstanding: {fmtMoney(Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.total_amount || 0) + Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.late_fee_amount || 0) - Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.amount_paid || 0))}
-                  </div>
-                )}
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Payment amount"
-                  value={payAmount}
-                  onChange={e => setPayAmount(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label">Reference No</label>
-                <input
-                  placeholder="Transaction/receipt ref"
-                  value={payRefNo}
-                  onChange={e => setPayRefNo(e.target.value)}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label text-slate-700 dark:text-slate-300">Recipient Bank Account</label>
-                  <select
-                    value={payBankId}
-                    onChange={e => setPayBankId(e.target.value)}
-                    className="form-select"
-                    required
-                  >
-                    <option value="">-- Choose Account --</option>
-                    {bankAccounts.map((ba: any) => (
-                      <option key={ba.id} value={ba.id}>{ba.bank_name} ({ba.account_number})</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label text-slate-700 dark:text-slate-300">Proof of Payment</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setPayProofUrl)}
-                      className="hidden"
-                      id="pay-proof-upload"
-                      accept="image/*,application/pdf"
-                    />
-                    <label 
-                      htmlFor="pay-proof-upload" 
-                      className={`flex-1 p-2 border-2 border-dashed rounded-xl text-center cursor-pointer text-xs transition-all ${payProofUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
-                    >
-                      {isUploading ? 'Uploading...' : payProofUrl ? '✓ Receipt Attached' : 'Upload Screenshot/PDF'}
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button type="submit" className="button">
-                  Record Payment
-                </button>
-              </div>
-            </form>
+        <div className="space-y-6">
+          {/* Payment Sub-tabs */}
+          <div className="flex items-center gap-4 border-b border-slate-100 dark:border-slate-800 mb-2">
+            <button
+              onClick={() => setPaySubTab('record')}
+              className={`pb-2 text-xs font-bold uppercase tracking-widest transition-all ${paySubTab === 'record' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              {isTenant ? 'Record Payment' : 'Verification Queue'}
+            </button>
+            <button
+              onClick={() => setPaySubTab('history')}
+              className={`pb-2 text-xs font-bold uppercase tracking-widest transition-all ${paySubTab === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Payment History
+            </button>
           </div>
-          
-          {isTenant && (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-              <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Bank Account Details</h3>
-              <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">Please use the details below for your bank transfers and ensure you upload the proof of payment.</p>
-              <div className="grid grid-cols-1 gap-4">
-                {bankAccounts.length === 0 ? (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl text-center text-slate-400 text-xs border border-dashed border-slate-300">No bank details available. Please contact management.</div>
-                ) : (
-                  bankAccounts.map((ba: any) => (
-                    <div key={ba.id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-500/50 transition-all duration-300">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp size={14} className="text-indigo-600" />
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ba.bank_name}</span>
-                        </div>
-                        {ba.is_default && <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">Primary</span>}
+
+          {paySubTab === 'record' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+                <h3 className="font-semibold mb-4 text-lg">{isTenant ? 'New Payment Slip' : 'Record Manual Payment'}</h3>
+                <form onSubmit={handleCreatePayment} className="space-y-3">
+                  <div>
+                    <label className="form-label">Invoice</label>
+                    <select
+                      value={payInvoiceId}
+                      onChange={e => setPayInvoiceId(e.target.value)}
+                      className="form-select"
+                      required
+                    >
+                      <option value="">Select invoice</option>
+                      {(isTenant ? confirmedInvoices.filter(i => i.status !== 'processing') : confirmedInvoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled' && i.status !== 'processing')).map((inv: any) => (
+                        <option key={inv.id} value={String(inv.id)}>{invoiceLabel(inv)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Amount</label>
+                    {payInvoiceId && (
+                      <div className="text-xs text-slate-500 mb-1">
+                        Outstanding: {fmtMoney(Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.total_amount || 0) + Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.late_fee_amount || 0) - Number(confirmedInvoices.find(i => String(i.id) === payInvoiceId)?.amount_paid || 0))}
                       </div>
-                      <div className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center justify-between">
-                        {ba.account_number}
-                      </div>
-                      <div className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-tighter flex items-center gap-1.5">
-                         Branch: <span className="text-slate-600 dark:text-slate-300">{ba.branch}</span>
+                    )}
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Payment amount"
+                      value={payAmount}
+                      onChange={e => setPayAmount(e.target.value)}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Reference No</label>
+                    <input
+                      placeholder="Transaction/receipt ref"
+                      value={payRefNo}
+                      onChange={e => setPayRefNo(e.target.value)}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label text-slate-700 dark:text-slate-300">Recipient Bank Account</label>
+                      <select
+                        value={payBankId}
+                        onChange={e => setPayBankId(e.target.value)}
+                        className="form-select"
+                        required
+                      >
+                        <option value="">-- Choose Account --</option>
+                        {bankAccounts.map((ba: any) => (
+                          <option key={ba.id} value={ba.id}>{ba.bank_name} ({ba.account_number})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label text-slate-700 dark:text-slate-300">Proof of Payment</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], setPayProofUrl)}
+                          className="hidden"
+                          id="pay-proof-upload"
+                          accept="image/*,application/pdf"
+                        />
+                        <label 
+                          htmlFor="pay-proof-upload" 
+                          className={`flex-1 p-2 border-2 border-dashed rounded-xl text-center cursor-pointer text-xs transition-all ${payProofUrl ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 hover:border-indigo-400 text-slate-500'}`}
+                        >
+                          {isUploading ? 'Uploading...' : payProofUrl ? '✓ Receipt Attached' : 'Upload Screenshot/PDF'}
+                        </label>
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button type="submit" className="button">
+                      Record Payment
+                    </button>
+                  </div>
+                </form>
               </div>
+              
+              {isTenant && (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Bank Account Details</h3>
+                  <p className="text-sm text-slate-500 mb-6 font-medium leading-relaxed">Please use the details below for your bank transfers and ensure you upload the proof of payment.</p>
+                  <div className="grid grid-cols-1 gap-4">
+                    {bankAccounts.length === 0 ? (
+                      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl text-center text-slate-400 text-xs border border-dashed border-slate-300">No bank details available. Please contact management.</div>
+                    ) : (
+                      bankAccounts.map((ba: any) => (
+                        <div key={ba.id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-500/50 transition-all duration-300">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp size={14} className="text-indigo-600" />
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ba.bank_name}</span>
+                            </div>
+                            {ba.is_default && <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">Primary</span>}
+                          </div>
+                          <div className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center justify-between">
+                            {ba.account_number}
+                          </div>
+                          <div className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-tighter flex items-center gap-1.5">
+                            Branch: <span className="text-slate-600 dark:text-slate-300">{ba.branch}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Payments Awaiting Verification (Only for Admin in Record tab) */}
+              {!isTenant && (
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Payments Awaiting Verification</h3>
+                  {pendingPayments.length === 0 ? (
+                    <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 rounded-xl">
+                      <DollarSign size={40} className="opacity-20" />
+                      <p>No pending payments to verify.</p>
+                    </div>
+                  ) : (
+                    <div className="table-container border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
+                          <tr>
+                            <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Tenant / Invoice</th>
+                            <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
+                            <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Reference</th>
+                            <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Proof</th>
+                            <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                          {pendingPayments.map((p: any) => (
+                            <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="font-bold text-slate-900 dark:text-white">
+                                  {p._invoice?.tenant?.first_name || p._invoice?.tenant?.name || '-'}{p._invoice?.tenant?.last_name ? ` ${p._invoice.tenant.last_name}` : ''}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">Invoice #{p._invoice?.invoice_no || p._invoice?.id}</div>
+                              </td>
+                              <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(p.amount)}</td>
+                              <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{p.reference_no || '-'}</td>
+                              <td className="px-6 py-4">
+                                {p.proof_url ? (
+                                  <a
+                                    href={getUploadUrl(p.proof_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
+                                  >
+                                    <FileText size={12} /> View Proof
+                                  </a>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">No proof uploaded</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => setViewPayment(p)}
+                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => handleVerifyPayment(p.id, 'confirmed')}
+                                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => { setPaymentToReject(p); setShowRejectModal(true) }}
+                                    className="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg transition-all"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Payments Awaiting Verification */}
-          {!isTenant && (
-            <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
-              <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4 tracking-tight text-lg">Payments Awaiting Verification</h3>
-              {pendingPayments.length === 0 ? (
-                <div className="py-8 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 rounded-xl">
-                  <DollarSign size={40} className="opacity-20" />
-                  <p>No pending payments to verify.</p>
+          {/* Payment History Section */}
+          {paySubTab === 'history' && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 tracking-tight text-lg">Payment History</h3>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">From</span>
+                    <input 
+                      type="date" 
+                      className="form-input py-1.5 text-xs w-32" 
+                      value={payFilterStartDate} 
+                      onChange={e => setPayFilterStartDate(e.target.value)} 
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">To</span>
+                    <input 
+                      type="date" 
+                      className="form-input py-1.5 text-xs w-32" 
+                      value={payFilterEndDate} 
+                      onChange={e => setPayFilterEndDate(e.target.value)} 
+                    />
+                  </div>
+                  <select 
+                    className="form-select py-1.5 text-xs w-32"
+                    value={payFilterStatus}
+                    onChange={e => setPayFilterStatus(e.target.value)}
+                  >
+                    <option value="">All Status</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                  <button 
+                    onClick={() => { setPayFilterStatus(''); setPayFilterStartDate(''); setPayFilterEndDate('') }}
+                    className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Clear Filters"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {payHistoryLoading ? (
+                <div className="py-12 text-center text-slate-400 italic">Loading payment history...</div>
+              ) : paymentHistory.length === 0 ? (
+                <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 rounded-xl">
+                  <FileText size={40} className="opacity-20" />
+                  <p>No payment history found for the selected filters.</p>
                 </div>
               ) : (
                 <div className="table-container border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700">
                       <tr>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Date</th>
                         <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Tenant / Invoice</th>
                         <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
-                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Reference</th>
-                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Proof</th>
-                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Reference / Proof</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Notes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                      {pendingPayments.map((p: any) => (
+                      {paymentHistory.map((p: any) => (
                         <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900 dark:text-white">
-                              {p._invoice?.tenant?.first_name || p._invoice?.tenant?.name || '-'}{p._invoice?.tenant?.last_name ? ` ${p._invoice.tenant.last_name}` : ''}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Invoice #{p._invoice?.invoice_no || p._invoice?.id}</div>
+                          <td className="px-6 py-4 text-xs text-slate-500">
+                            {new Date(p.created_at).toLocaleDateString()}
+                            <div className="text-[9px] mt-0.5">{new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                           </td>
-                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{fmtMoney(p.amount)}</td>
-                          <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{p.reference_no || '-'}</td>
                           <td className="px-6 py-4">
-                            {p.proof_url ? (
+                            <div className="font-bold text-slate-900 dark:text-white text-xs">
+                              {p.invoice?.tenant?.first_name || p.invoice?.tenant?.name || '-'}{p.invoice?.tenant?.last_name ? ` ${p.invoice.tenant.last_name}` : ''}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">Invoice #{p.invoice?.invoice_no || p.invoice?.id}</div>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-slate-900 dark:text-white text-xs">{fmtMoney(p.amount)}</td>
+                          <td className="px-6 py-4">
+                            <StatusBadge status={p.status || 'pending'} />
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-[10px] text-slate-600 dark:text-slate-400 font-mono mb-1">{p.reference_no || '-'}</div>
+                            {p.proof_url && (
                               <a
                                 href={getUploadUrl(p.proof_url)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors"
+                                className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
                               >
-                                <FileText size={12} /> View Proof
+                                <FileText size={10} /> View Proof
                               </a>
-                            ) : (
-                              <span className="text-[10px] text-slate-400 italic">No proof uploaded</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => setViewPayment(p)}
-                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
-                              >
-                                View
-                              </button>
-                              <button
-                                onClick={() => handleVerifyPayment(p.id, 'confirmed')}
-                                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                onClick={() => { setPaymentToReject(p); setShowRejectModal(true) }}
-                                className="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg transition-all"
-                              >
-                                Reject
-                              </button>
-                            </div>
+                          <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={p.note}>
+                            {p.note || '-'}
                           </td>
                         </tr>
                       ))}
