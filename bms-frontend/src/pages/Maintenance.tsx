@@ -52,11 +52,13 @@ export default function Maintenance() {
   const isSuperAdmin = userRoles.includes('super_admin')
   const isNomineeAdmin = userRoles.includes('nominee_admin')
   const isTenant = userRoles.includes('tenant')
+  const isContractor = userRoles.includes('contractor')
   const isAdmin = isSuperAdmin || isNomineeAdmin
 
-  // Filter tabs for tenants
+  // Filter tabs for tenants and contractors
   const visibleTabs = TABS.filter(t => {
     if (isAdmin) return true
+    if (isContractor) return t.key === 'requests' || t.key === 'work-orders'
     return t.key === 'requests'
   })
 
@@ -544,9 +546,11 @@ export default function Maintenance() {
             <option value="">All Buildings</option>
             {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code}</option>)}
           </select>
-          <button onClick={() => { setTab('requests'); setViewMode('table'); requestFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="button">
-            <Plus size={16} /> New Request
-          </button>
+          {!isContractor && (
+            <button onClick={() => { setTab('requests'); setViewMode('table'); requestFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="button">
+              <Plus size={16} /> New Request
+            </button>
+          )}
         </div>
       }
     >
@@ -1012,113 +1016,115 @@ export default function Maintenance() {
         {/* ────── WORK ORDERS TAB ────── */}
         {tab === 'work-orders' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Create Work Order */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-                <h3 className="font-semibold mb-4 text-lg">Assign Work Order</h3>
-                <form onSubmit={handleCreateWorkOrder} className="space-y-3">
-                  <div>
-                    <label className="form-label">Request</label>
-                    <select
-                      value={woRequestId}
-                      onChange={e => setWoRequestId(e.target.value)}
-                      className="form-select"
-                      required
-                    >
-                      <option value="">Select request</option>
-                      {assignableRequests.map((r: any) => (
-                        <option key={r.id} value={String(r.id)}>
-                          {r.category} — {tenantLabel(r.tenant)} — {unitLabel(r.unit)}
-                        </option>
-                      ))}
-                    </select>
-                    {assignableRequests.length === 0 && (
-                      <p className="text-xs text-gray-400 mt-1">No open requests available. Submit a request first.</p>
-                    )}
-                  </div>
+            {isAdmin && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Create Work Order */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+                  <h3 className="font-semibold mb-4 text-lg">Assign Work Order</h3>
+                  <form onSubmit={handleCreateWorkOrder} className="space-y-3">
+                    <div>
+                      <label className="form-label">Request</label>
+                      <select
+                        value={woRequestId}
+                        onChange={e => setWoRequestId(e.target.value)}
+                        className="form-select"
+                        required
+                      >
+                        <option value="">Select request</option>
+                        {assignableRequests.map((r: any) => (
+                          <option key={r.id} value={String(r.id)}>
+                            {r.category} — {tenantLabel(r.tenant)} — {unitLabel(r.unit)}
+                          </option>
+                        ))}
+                      </select>
+                      {assignableRequests.length === 0 && (
+                        <p className="text-xs text-gray-400 mt-1">No open requests available. Submit a request first.</p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className="form-label">Contractor</label>
-                    <select
-                      value={woContractorId}
-                      onChange={e => setWoContractorId(e.target.value)}
-                      className="form-select"
-                      required
-                    >
-                      <option value="">Select contractor</option>
-                      {contractors.map((c: any) => (
-                        <option key={c.id} value={String(c.id)}>
-                          {c.name} ({c.specialization})
-                        </option>
-                      ))}
-                    </select>
-                    {contractors.length === 0 && (
-                      <p className="text-xs text-gray-400 mt-1">No contractors available. Add one in the Contractors tab.</p>
-                    )}
-                  </div>
+                    <div>
+                      <label className="form-label">Contractor</label>
+                      <select
+                        value={woContractorId}
+                        onChange={e => setWoContractorId(e.target.value)}
+                        className="form-select"
+                        required
+                      >
+                        <option value="">Select contractor</option>
+                        {contractors.map((c: any) => (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.name} ({c.specialization})
+                          </option>
+                        ))}
+                      </select>
+                      {contractors.length === 0 && (
+                        <p className="text-xs text-gray-400 mt-1">No contractors available. Add one in the Contractors tab.</p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className="form-label">Preliminary Photo (Optional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={e => setWoPhotoReported(e.target.files?.[0] || null)}
-                      className="form-input text-xs pt-1.5"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Cost Estimate (Birr)</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">Birr</span>
+                    <div>
+                      <label className="form-label">Preliminary Photo (Optional)</label>
                       <input
-                        type="number"
-                        placeholder="Estimated cost"
-                        value={woCostEstimate}
-                        onChange={e => setWoCostEstimate(e.target.value)}
-                        className="form-input pl-12"
+                        type="file"
+                        accept="image/*"
+                        onChange={e => setWoPhotoReported(e.target.files?.[0] || null)}
+                        className="form-input text-xs pt-1.5"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="form-label">Scheduled Date</label>
-                    <input
-                      type="date"
-                      value={woScheduledDate}
-                      onChange={e => setWoScheduledDate(e.target.value)}
-                      className="form-input"
-                      required
-                    />
-                  </div>
+                    <div>
+                      <label className="form-label">Cost Estimate (Birr)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">Birr</span>
+                        <input
+                          type="number"
+                          placeholder="Estimated cost"
+                          value={woCostEstimate}
+                          onChange={e => setWoCostEstimate(e.target.value)}
+                          className="form-input pl-12"
+                        />
+                      </div>
+                    </div>
 
-                  <div className="flex justify-end">
-                    <button type="submit" className="button">
-                      Create Work Order
-                    </button>
-                  </div>
-                </form>
-              </div>
+                    <div>
+                      <label className="form-label">Scheduled Date</label>
+                      <input
+                        type="date"
+                        value={woScheduledDate}
+                        onChange={e => setWoScheduledDate(e.target.value)}
+                        className="form-input"
+                        required
+                      />
+                    </div>
 
-              {/* Info */}
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
-                <h3 className="font-semibold mb-3">Work Order Flow</h3>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block w-3 h-3 rounded-full bg-yellow-400"></span>
-                    <span><strong>Assigned</strong> → Contractor receives the job</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block w-3 h-3 rounded-full bg-orange-400"></span>
-                    <span><strong>In Progress</strong> → Work has started</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-                    <span><strong>Completed</strong> → Proof uploaded, tenant notified</span>
+                    <div className="flex justify-end">
+                      <button type="submit" className="button">
+                        Create Work Order
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Info */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-100 p-6">
+                  <h3 className="font-semibold mb-3">Work Order Flow</h3>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full bg-yellow-400"></span>
+                      <span><strong>Assigned</strong> → Contractor receives the job</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full bg-orange-400"></span>
+                      <span><strong>In Progress</strong> → Work has started</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+                      <span><strong>Completed</strong> → Proof uploaded, tenant notified</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Work Orders Table */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 transition-shadow hover:shadow-md">

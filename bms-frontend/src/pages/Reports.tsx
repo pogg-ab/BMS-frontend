@@ -28,6 +28,7 @@ import {
   Pie, Cell, Legend, LineChart, Line
 } from 'recharts'
 import { downloadReport } from '../utils/export'
+import { getRoles } from '../utils/jwt'
 
 function Money({ value }: { value: number }) {
   return <span className="font-bold">ETB {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -39,7 +40,11 @@ const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function Reports() {
   const toast = useToast()
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  
+  const userRoles = getRoles()
+  const isFinanceOnly = userRoles.includes('finance') && !userRoles.includes('super_admin') && !userRoles.includes('admin')
+  
+  const [activeTab, setActiveTab] = useState<TabType>(isFinanceOnly ? 'finance' : 'overview')
   const [loading, setLoading] = useState(true)
   
   // Data States
@@ -112,7 +117,7 @@ export default function Reports() {
     }
   }
 
-  const tabs = [
+  const allTabs = [
     { id: 'overview', name: 'Overview', icon: Activity },
     { id: 'finance', name: 'Finance Analytics', icon: DollarSign },
     { id: 'property', name: 'Property Mix', icon: Home },
@@ -120,6 +125,8 @@ export default function Reports() {
     { id: 'leases', name: 'Lease Intelligence', icon: ClipboardList },
     { id: 'overdue', name: 'Delinquency & Eviction', icon: ShieldAlert },
   ]
+  
+  const tabs = isFinanceOnly ? allTabs.filter(t => t.id === 'finance') : allTabs
 
   return (
     <PageLayout 

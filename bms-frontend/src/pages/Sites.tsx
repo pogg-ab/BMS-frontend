@@ -40,6 +40,8 @@ export default function Sites() {
   const [contactEmail, setContactEmail] = useState('')
   const [notes, setNotes] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [managerId, setManagerId] = useState('')
+  const [users, setUsers] = useState<any[]>([])
   const imageRef = React.useRef<HTMLInputElement | null>(null)
 
   async function load() {
@@ -52,6 +54,12 @@ export default function Sites() {
       console.error('load sites', e)
       toast.addToast('Failed to load sites', 'error')
     } finally { setLoading(false) }
+
+    // Load users for the manager dropdown
+    import('../api/users').then(m => m.listUsers({ per_page: 500 }).then(res => {
+      const list = Array.isArray(res) ? res : (res?.data || res?.users || [])
+      setUsers(list)
+    })).catch(console.error)
   }
 
   useEffect(() => { load() }, [])
@@ -69,7 +77,8 @@ export default function Sites() {
     try {
       const payload: any = {
         name, city, subcity, location,
-        code, address, timezone, currency, contact_email: contactEmail, notes
+        code, address, timezone, currency, contact_email: contactEmail, notes,
+        manager_id: managerId || null
       }
       if (imageUrl) payload.image_url = imageUrl
       if (editingSite) {
@@ -92,7 +101,7 @@ export default function Sites() {
   function resetForm() {
     setName(''); setCity(''); setSubcity(''); setLocation('')
     setCode(''); setAddress(''); setTimezone(''); setCurrency('ETB')
-    setContactEmail(''); setNotes(''); setImageUrl(''); setEditingSite(null)
+    setContactEmail(''); setNotes(''); setImageUrl(''); setManagerId(''); setEditingSite(null)
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -121,6 +130,7 @@ export default function Sites() {
     setContactEmail(site.contact_email || '')
     setNotes(site.notes || '')
     setImageUrl(site.image_url || '')
+    setManagerId(site.manager_id || site.manager?.id || '')
     setShowForm(true)
   }
 
@@ -283,6 +293,22 @@ export default function Sites() {
                   <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="site@example.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
                 <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Admin (Optional)</label>
+                  <select 
+                    value={managerId} 
+                    onChange={e => setManagerId(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                  >
+                    <option value="">No Admin Assigned</option>
+                    {users
+                      .filter(u => u.userRoles?.some((ur: any) => ur.role?.name === 'site_admin'))
+                      .map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                      ))
+                    }
+                  </select>
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Notes</label>
                   <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Additional information..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
@@ -357,6 +383,22 @@ export default function Sites() {
                      <span className="bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded text-xs font-bold text-slate-600 dark:text-slate-300">{viewingSite.timezone || 'UTC'}</span>
                      <span className="bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded text-xs font-bold text-emerald-700 dark:text-emerald-400">{viewingSite.currency || 'USD'}</span>
                    </div>
+                 </div>
+                 <div className="col-span-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned Site Admin</p>
+                    {viewingSite.manager ? (
+                      <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-500/10 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">
+                          {viewingSite.manager.name?.[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-indigo-700 dark:text-indigo-400">{viewingSite.manager.name}</p>
+                          <p className="text-[10px] text-indigo-500/70">{viewingSite.manager.email}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic text-center py-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl">No admin assigned to this site.</p>
+                    )}
                  </div>
               </div>
             </div>
