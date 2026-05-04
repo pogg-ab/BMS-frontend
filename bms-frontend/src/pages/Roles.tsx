@@ -19,7 +19,6 @@ type Role = {
 export default function Roles() {
   const toast = useToast()
   
-  const [activeTab, setActiveTab] = useState<'roles' | 'permissions'>('roles')
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -30,7 +29,6 @@ export default function Roles() {
   const [manageRoleId, setManageRoleId] = useState<string | null>(null)
   const [selectedPermIds, setSelectedPermIds] = useState<string[]>([])
   const [toDeleteRole, setToDeleteRole] = useState<Role | null>(null)
-  const [toDeletePerm, setToDeletePerm] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // Role Form State
@@ -39,8 +37,7 @@ export default function Roles() {
   const [roleDescription, setRoleDescription] = useState('')
 
   // Permission Form State
-  const [permCode, setPermCode] = useState('')
-  const [permDescription, setPermDescription] = useState('')
+  // (Removed)
 
   async function loadData() {
     setLoading(true)
@@ -129,22 +126,7 @@ export default function Roles() {
     }
   }
 
-  // --- Permissions Logic ---
-  async function handleCreatePermission(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await createPermission({ code: permCode, description: permDescription })
-      setPermCode(''); setPermDescription('')
-      toast.addToast('Permission registered', 'success')
-      loadData()
-    } catch (e:any) {
-      toast.addToast(e?.response?.data?.message || 'Failed to create permission', 'error')
-    }
-  }
-
-  async function handleDeletePermission(id: string) {
-    setToDeletePerm({ id })
-  }
+  // (Removed permission creation/deletion logic)
 
   async function confirmDeleteRole() {
     if (!toDeleteRole) return
@@ -159,149 +141,79 @@ export default function Roles() {
     } finally { setDeleting(false) }
   }
 
-  async function confirmDeletePermission() {
-    if (!toDeletePerm) return
-    setDeleting(true)
-    try {
-      await deletePermission(toDeletePerm.id)
-      toast.addToast('Permission deleted', 'success')
-      setToDeletePerm(null)
-      loadData()
-    } catch (e:any) {
-      toast.addToast(e?.response?.data?.message || 'Failed to delete permission', 'error')
-    } finally { setDeleting(false) }
-  }
+  // (Removed permission delete confirmation logic)
 
   return (
     <PageLayout
       title="Access Control"
       subtitle="Manage security roles and fine-grained system permissions."
-      actions={
-        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('roles')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'roles' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Roles
-          </button>
-          <button
-            onClick={() => setActiveTab('permissions')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'permissions' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Permissions
-          </button>
-        </div>
-      }
+      actions={null}
     >
       <div className="space-y-8 pb-10">
         
-        {activeTab === 'roles' ? (
-          <>
-            <div className="flex justify-end">
-              <button onClick={openCreateRole} className="button shadow-md">
-                <Plus size={16} /> Create Role
-              </button>
+        <>
+          <div className="flex justify-end">
+            <button onClick={openCreateRole} className="button shadow-md">
+              <Plus size={16} /> Create Role
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
+          ) : roles.length === 0 ? (
+             <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <Shield size={48} className="mb-4 opacity-50 text-slate-300" />
+              <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No roles defined</p>
             </div>
-
-            {loading ? (
-              <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
-            ) : roles.length === 0 ? (
-               <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-white dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-                <Shield size={48} className="mb-4 opacity-50 text-slate-300" />
-                <p className="font-bold text-lg text-slate-600 dark:text-slate-300">No roles defined</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {roles.map(r => {
-                  const isSudo = r.name === 'super_admin'
-                  return (
-                    <div key={r.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 group hover:shadow-md transition-all relative overflow-hidden">
-                      {isSudo && <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-400/10 rounded-full -mr-12 -mt-12 flex items-end justify-start p-4"><ShieldCheck size={24} className="text-yellow-500" /></div>}
-                      
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSudo ? 'bg-yellow-50 text-yellow-600' : 'bg-indigo-50 text-indigo-600'} dark:bg-slate-900 border border-slate-100`}>
-                          <UserCheck size={20} />
-                        </div>
-                        <div className="flex items-center gap-1">
-                              {!isSudo && (
-                            <>
-                              <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
-                              <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
-                            </>
-                          )}
-                        </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {roles.map(r => {
+                const isSudo = r.name === 'super_admin'
+                return (
+                  <div key={r.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 group hover:shadow-md transition-all relative overflow-hidden">
+                    {isSudo && <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-400/10 rounded-full -mr-12 -mt-12 flex items-end justify-start p-4"><ShieldCheck size={24} className="text-yellow-500" /></div>}
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSudo ? 'bg-yellow-50 text-yellow-600' : 'bg-indigo-50 text-indigo-600'} dark:bg-slate-900 border border-slate-100`}>
+                        <UserCheck size={20} />
                       </div>
-
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">{r.name.replace('_', ' ')}</h3>
-                      <p className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">{r.type || 'Staff'}</p>
-                      
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-4 line-clamp-2 min-h-[40px] italic">
-                        {r.description || 'No system description provided for this security role.'}
-                      </p>
-
-                      <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                           <Lock size={14} className="text-slate-400" />
-                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{isSudo ? 'Unlimited' : r.permissions?.length || 0} Permissions</span>
-                         </div>
-                         {!isSudo && (
-                           <button 
-                            onClick={() => openManagePermissions(r)}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
-                           >
-                            View Rights
-                           </button>
-                         )}
+                      <div className="flex items-center gap-1">
+                            {!isSudo && (
+                          <>
+                            <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
+                            <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                          </>
+                        )}
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-6 shadow-sm sticky top-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Register Permission</h3>
-                <form onSubmit={handleCreatePermission} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Permission Code</label>
-                    <input required value={permCode} onChange={e=>setPermCode(e.target.value)} placeholder="scope:action" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Description</label>
-                    <textarea value={permDescription} onChange={e=>setPermDescription(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm h-24 resize-none" placeholder="What does this grant?" />
-                  </div>
-                  <button type="submit" className="w-full button shadow-md">Register Code</button>
-                </form>
-              </div>
-            </div>
 
-            <div className="lg:col-span-2 space-y-4">
-               {permissions.length === 0 ? (
-                 <div className="p-10 text-center text-slate-400">No raw permissions found</div>
-               ) : (
-                 permissions.map(p => (
-                   <div key={p.id || p.code} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-slate-100 dark:border-slate-800">
-                          <KeySquare size={20} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">{p.code || p.id}</h4>
-                          <p className="text-xs text-slate-500 font-medium">{p.description || 'Global system permission code.'}</p>
-                        </div>
-                      </div>
-                      <button onClick={() => handleDeletePermission(p.id || p.code)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors">
-                        <Trash2 size={16} />
-                      </button>
-                   </div>
-                 ))
-               )}
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white capitalize">{r.name.replace('_', ' ')}</h3>
+                    <p className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mt-1">{r.type || 'Staff'}</p>
+                    
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-4 line-clamp-2 min-h-[40px] italic">
+                      {r.description || 'No system description provided for this security role.'}
+                    </p>
+
+                    <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-700/50 flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <Lock size={14} className="text-slate-400" />
+                         <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{isSudo ? 'Unlimited' : r.permissions?.length || 0} Permissions</span>
+                       </div>
+                       {!isSudo && (
+                         <button 
+                          onClick={() => openManagePermissions(r)}
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                         >
+                          View Rights
+                         </button>
+                       )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          </div>
-        )}
+          )}
+        </>
       </div>
 
       {/* ROLE FORM MODAL */}
@@ -351,16 +263,7 @@ export default function Roles() {
         onCancel={() => setToDeleteRole(null)}
       />
 
-      <ConfirmModal
-        open={!!toDeletePerm}
-        title="Delete Permission"
-        message={toDeletePerm ? 'Delete permission? This will remove it from all roles.' : 'Delete permission?'}
-        confirmText="Delete"
-        cancelText="Cancel"
-        loading={deleting}
-        onConfirm={confirmDeletePermission}
-        onCancel={() => setToDeletePerm(null)}
-      />
+  // (Removed permission delete modal)
 
       {/* MANAGE PERMISSIONS MODAL */}
       {manageRoleId && (

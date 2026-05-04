@@ -44,11 +44,13 @@ export default function Finance() {
   const userPermissions = getPermissions()
   const isSuperAdmin = userRoles.includes('super_admin')
   const isTenant = userRoles.includes('tenant')
+  const isOwner = userRoles.includes('owner')
 
   // Filter tabs based on permissions
   const visibleTabs = TABS.filter(t => {
     if (isSuperAdmin) return true
     if (isTenant) return ['invoices', 'payments'].includes(t.key)
+    if (isOwner) return ['invoices', 'payments', 'bank-accounts', 'reports'].includes(t.key)
     if (t.key === 'drafts') return isSuperAdmin || userPermissions.includes('finance:manage')
     if (['bank-accounts', 'reports', 'expenses'].includes(t.key)) {
       return isSuperAdmin || userPermissions.includes('finance:manage') || userPermissions.includes('reports:view')

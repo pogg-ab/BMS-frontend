@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { listOwners, createOwner, updateOwner, deleteOwner } from '../api/owners'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { Plus, Trash2, Edit2, User, Mail, Phone, Building2, Search, Briefcase, ExternalLink, MoreVertical, X, Camera } from 'lucide-react'
+import { Plus, Trash2, Edit2, User, Mail, Phone, Building2, Search, Briefcase, ExternalLink, MoreVertical, X, Camera, Lock } from 'lucide-react'
 import api from '../api/axios'
 
 type Owner = {
@@ -30,6 +30,7 @@ export default function Owners() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [profileImage, setProfileImage] = useState('')
   const imageRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -63,6 +64,7 @@ export default function Owners() {
     setName('')
     setEmail('')
     setPhone('')
+    setPassword('')
     setProfileImage('')
     setShowForm(true)
   }
@@ -81,13 +83,14 @@ export default function Owners() {
     try {
       const payload: any = { name, email, phone }
       if (profileImage) payload.profile_image = profileImage
+      if (!editing && password) payload.password = password
       
       if (editing) {
         await updateOwner(editing.id, payload)
         toast.addToast('Owner updated successfully', 'success')
       } else {
         await createOwner(payload)
-        toast.addToast('Owner registered successfully', 'success')
+        toast.addToast('Owner registered and login account created', 'success')
       }
       setShowForm(false)
       load()
@@ -248,6 +251,7 @@ export default function Owners() {
                 <div className="relative">
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input 
+                    required 
                     type="email" 
                     value={email} 
                     onChange={e => setEmail(e.target.value)} 
@@ -268,6 +272,26 @@ export default function Owners() {
                   />
                 </div>
               </div>
+
+              {/* Password field — create only */}
+              {!editing && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Login Password</label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      required 
+                      type="password" 
+                      minLength={8}
+                      value={password} 
+                      onChange={e => setPassword(e.target.value)} 
+                      placeholder="Min. 8 characters" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" 
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">This creates a login account for the owner.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Profile Image</label>
