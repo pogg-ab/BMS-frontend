@@ -13,9 +13,24 @@ import {
   Menu, ChevronLeft, ChevronRight, HelpCircle, CircleDot, LayoutGrid, Package
 } from 'lucide-react'
 
-// Grouped navigation structure matching Stitch design
+interface NavItem {
+  to: string;
+  label: string;
+  icon: any;
+  exact?: boolean;
+  permission?: string;
+  permissions?: string[];
+  roles?: string[];
+}
+
+interface NavGroup {
+  label: string;
+  icon: any;
+  items: NavItem[];
+}
+
 // Grouped navigation structure with role and permission requirements
-const NAV_GROUPS = [
+const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
     icon: CircleDot,
@@ -26,7 +41,7 @@ const NAV_GROUPS = [
         icon: LayoutDashboard, 
         exact: true, 
         permission: 'reports:dashboard',
-        roles: ['super_admin', 'admin', 'finance']
+        roles: ['super_admin', 'admin', 'finance', 'site_admin']
       },
     ],
   },
@@ -37,7 +52,7 @@ const NAV_GROUPS = [
       { to: '/sites', label: 'Sites', icon: Map, permission: 'sites:read', roles: ['super_admin', 'admin', 'site_admin'] },
       { to: '/buildings', label: 'Buildings', icon: Building2, permission: 'buildings:read', roles: ['super_admin', 'admin', 'site_admin'] },
       { to: '/owners', label: 'Owners', icon: UserSquare2, permission: 'owners:read', roles: ['super_admin', 'admin', 'site_admin'] },
-      { to: '/units', label: 'Units', icon: DoorOpen, permission: 'units:read', roles: ['super_admin', 'admin'] },
+      { to: '/units', label: 'Units', icon: DoorOpen, permission: 'units:read', roles: ['super_admin', 'admin', 'site_admin'] },
       { to: '/assets', label: 'Assets', icon: Package, permission: 'assets:read', roles: ['super_admin', 'admin'] },
       { to: '/facilities', label: 'Facilities', icon: LayoutGrid, permissions: ['amenities:read', 'reports:view'], roles: ['super_admin', 'admin'] },
       { to: '/management', label: 'Management', icon: ShieldCheck, permission: 'settings:manage', roles: ['super_admin', 'admin'] },
@@ -47,7 +62,7 @@ const NAV_GROUPS = [
     label: 'People',
     icon: Users,
     items: [
-      { to: '/tenants', label: 'Tenants', icon: Users, permission: 'users:read', roles: ['super_admin', 'admin'] },
+      { to: '/tenants', label: 'Tenants', icon: Users, permission: 'users:read', roles: ['super_admin', 'admin', 'site_admin'] },
       { to: '/visitors', label: 'Visitors', icon: UserCheck, permission: 'visitors:read', roles: ['super_admin', 'admin', 'site_admin', 'tenant'] },
     ],
   },
@@ -91,7 +106,7 @@ export default function NavBar() {
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useNotification()
 
-  function isItemVisible(item: any) {
+  function isItemVisible(item: NavItem) {
     if (isSuperAdmin) return true
 
     // 1. Role Check
