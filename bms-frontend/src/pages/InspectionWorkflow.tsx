@@ -86,34 +86,34 @@ export const InspectionWorkflow = () => {
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Progress Stepper */}
-        <div className="flex items-center justify-between relative px-2">
+        <div className="flex items-center justify-between relative px-2 mb-8">
           {[0, 1, 2].map((s) => (
             <div key={s} className="flex flex-col items-center gap-2 relative z-10">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${activeStep >= s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                {activeStep > s ? <CheckCircle2 size={20} /> : s + 1}
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold transition-all text-xs sm:text-base ${activeStep >= s ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                {activeStep > s ? <CheckCircle2 size={16} className="sm:w-5 sm:h-5" /> : s + 1}
               </div>
-              <span className={`text-xs font-bold uppercase tracking-wider ${activeStep >= s ? 'text-indigo-600' : 'text-slate-400'}`}>
+              <span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${activeStep >= s ? 'text-indigo-600' : 'text-slate-400'}`}>
                 {['Start', 'Checklist', 'Review'][s]}
               </span>
             </div>
           ))}
-          <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-200 -z-0" />
-          <div className={`absolute top-5 left-0 h-0.5 bg-indigo-600 transition-all duration-500 -z-0`} style={{ width: `${(activeStep / 2) * 100}%` }} />
+          <div className="absolute top-4 sm:top-5 left-0 w-full h-0.5 bg-slate-200 -z-0" />
+          <div className={`absolute top-4 sm:top-5 left-0 h-0.5 bg-indigo-600 transition-all duration-500 -z-0`} style={{ width: `${(activeStep / 2) * 100}%` }} />
         </div>
 
         {/* Step 0: Welcome */}
         {activeStep === 0 && (
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 text-center space-y-6">
-            <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto">
-              <Info size={40} />
+          <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-[24px] sm:rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 text-center space-y-6">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-100 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto">
+              <Info size={32} className="sm:w-10 sm:h-10" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Unit Condition Report</h2>
-            <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Unit Condition Report</h2>
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-md mx-auto">
               Please go through each item in your unit. Take photos of any pre-existing damage or issues to ensure they are documented.
             </p>
             <button
               onClick={() => setActiveStep(1)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2 mx-auto"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 sm:px-8 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2 mx-auto text-sm sm:text-base"
             >
               Start Checklist <ChevronRight size={20} />
             </button>
@@ -122,24 +122,24 @@ export const InspectionWorkflow = () => {
 
         {/* Step 1: Checklist */}
         {activeStep === 1 && (
-          <div className="space-y-12 pb-20">
+          <div className="space-y-8 sm:space-y-12 pb-24 sm:pb-32">
             {categories.map((cat: any) => (
               <div key={cat} className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 px-2">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 px-2">
                   <LayoutGrid size={20} className="text-indigo-500" />
                   {cat}
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
                   {inspection.items.filter((i: any) => i.room_category === cat).map((item: any) => (
-                    <div key={item.id} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{item.item_name}</span>
-                        <div className="flex gap-2">
+                    <div key={item.id} className="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 text-sm sm:text-base">{item.item_name}</span>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {['GOOD', 'FAIR', 'POOR', 'BROKEN'].map((cond) => (
                             <button
                               key={cond}
                               onClick={() => updateItem(item.id, { condition: cond })}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                              className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all border ${
                                 item.condition === cond 
                                   ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
                                   : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-indigo-400'
@@ -153,19 +153,19 @@ export const InspectionWorkflow = () => {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <textarea
-                          placeholder="Add comments or details about any issues..."
-                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20"
+                          placeholder="Add comments or details..."
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500/20"
                           rows={2}
                           defaultValue={item.comment}
                           onBlur={(e) => updateItem(item.id, { comment: e.target.value })}
                         />
                         <div className="space-y-2">
-                          <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 p-4 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-all text-sm font-medium">
+                          <label className="flex items-center gap-2 cursor-pointer bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 p-4 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-all text-xs sm:text-sm font-medium">
                             <Camera size={18} />
                             Add Photo
                             <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} />
                           </label>
-                          <div className="flex gap-2 overflow-x-auto pb-2">
+                          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                             {item.photos?.map((p: string) => (
                               <div key={p} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
                                 <img src={p} className="w-full h-full object-cover" />
@@ -180,17 +180,17 @@ export const InspectionWorkflow = () => {
               </div>
             ))}
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 z-50">
-              <div className="max-w-4xl mx-auto flex gap-4">
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 z-50">
+              <div className="max-w-4xl mx-auto flex gap-3 sm:gap-4">
                 <button
                   onClick={() => setActiveStep(0)}
-                  className="flex-1 px-6 py-3 rounded-2xl font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                  className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all text-sm sm:text-base"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => setActiveStep(2)}
-                  className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20"
+                  className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 text-sm sm:text-base"
                 >
                   Review Submission
                 </button>

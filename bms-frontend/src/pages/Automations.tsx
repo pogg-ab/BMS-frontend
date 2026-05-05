@@ -104,13 +104,14 @@ export default function Automations() {
       <div className="space-y-8 pb-10">
         
         {/* Header Actions */}
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2 px-1 sm:px-0">
           <button 
             onClick={() => { setLoading(true); fetchData(); }}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh Status
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span className="hidden xs:inline">Refresh Status</span>
+            <span className="xs:hidden">Refresh</span>
           </button>
         </div>
 

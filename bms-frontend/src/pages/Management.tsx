@@ -144,9 +144,12 @@ export default function Management() {
       title="Management & Delegation"
       subtitle="Manage third-party companies and building operations."
       actions={
-        <button onClick={() => setShowAddCompany(true)} className="button">
-          <Plus size={16} /> Add Company
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={() => setShowAddCompany(true)} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+            <Plus size={16} /> <span className="hidden xs:inline">Add Company</span>
+            <span className="xs:hidden">Add</span>
+          </button>
+        </div>
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -188,52 +191,53 @@ export default function Management() {
               <div className="p-8 bg-gradient-to-br from-slate-900 to-indigo-950 text-white relative">
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
                       <Shield size={24} className="text-indigo-400" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest leading-none mb-1">{selectedCompany.company_type || 'Management Company'}</div>
-                      <h2 className="text-3xl font-bold leading-none">{selectedCompany.name}</h2>
+                      <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none mb-1">{selectedCompany.company_type || 'Management Company'}</div>
+                      <h2 className="text-xl sm:text-3xl font-bold leading-tight">{selectedCompany.name}</h2>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-8 border-t border-white/10">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 pt-8 border-t border-white/10">
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Tax / Reg</div>
-                      <div className="text-sm font-medium text-slate-300">TIN: {selectedCompany.tin_number || 'N/A'}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">Reg: {selectedCompany.registration_number || 'N/A'}</div>
+                      <div className="text-xs sm:text-sm font-medium text-slate-300">TIN: {selectedCompany.tin_number || 'N/A'}</div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Reg: {selectedCompany.registration_number || 'N/A'}</div>
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Contact</div>
-                      <div className="text-sm font-medium text-slate-300">{selectedCompany.phone_primary || 'N/A'}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5 truncate">{selectedCompany.email_business || 'N/A'}</div>
+                      <div className="text-xs sm:text-sm font-medium text-slate-300 truncate">{selectedCompany.phone_primary || 'N/A'}</div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">{selectedCompany.email_business || 'N/A'}</div>
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Location</div>
-                      <div className="text-sm font-medium text-slate-300">{selectedCompany.city || 'N/A'}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5 truncate">{selectedCompany.address || 'N/A'}</div>
+                      <div className="text-xs sm:text-sm font-medium text-slate-300">{selectedCompany.city || 'N/A'}</div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">{selectedCompany.address || 'N/A'}</div>
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Banking</div>
-                      <div className="text-sm font-medium text-slate-300">{selectedCompany.bank_name || 'N/A'}</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">A/C: {selectedCompany.bank_account_number || 'N/A'}</div>
+                      <div className="text-xs sm:text-sm font-medium text-slate-300 truncate">{selectedCompany.bank_name || 'N/A'}</div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">A/C: {selectedCompany.bank_account_number || 'N/A'}</div>
                     </div>
                   </div>
                 </div>
-                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none hidden sm:block">
                   <Building2 size={200} />
                 </div>
               </div>
 
-              <div className="p-6 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center">
-                <h3 className="font-bold text-lg">Operating Scope</h3>
-                <button onClick={() => setShowAddAssignment(true)} className="button-secondary text-sm">
-                  <Plus size={14} /> New Assignment
+              <div className="p-4 sm:p-6 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center">
+                <h3 className="font-bold text-base sm:text-lg">Operating Scope</h3>
+                <button onClick={() => setShowAddAssignment(true)} className="button-secondary text-xs sm:text-sm py-1.5 px-3">
+                  <Plus size={14} /> <span className="hidden xs:inline">New Assignment</span>
+                  <span className="xs:hidden">Assign</span>
                 </button>
               </div>
 
-              <div className="p-0 overflow-x-auto">
-                <table className="w-full text-left">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                       <th className="px-6 py-4">Scope</th>

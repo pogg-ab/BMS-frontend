@@ -5,6 +5,7 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import { Plus, Trash2, Edit2, User, Mail, Phone, Building2, Search, Briefcase, ExternalLink, MoreVertical, X, Camera, Lock } from 'lucide-react'
 import api from '../api/axios'
+import PermissionGate from '../components/PermissionGate'
 
 type Owner = {
   id: string
@@ -131,20 +132,23 @@ export default function Owners() {
       title="Property Owners" 
       subtitle="Manage portfolio investors and their real estate holdings."
       actions={
-        <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search owners..."
-              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-48"
             />
           </div>
-          <button onClick={openCreate} className="button shadow-md">
-            <Plus size={16} /> Register Owner
-          </button>
+          <PermissionGate permission="owners:create">
+            <button onClick={openCreate} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+              <Plus size={16} /> <span className="hidden xs:inline">Register Owner</span>
+              <span className="xs:hidden">New Owner</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -168,12 +172,16 @@ export default function Owners() {
               >
                 {/* Floating Actions */}
                 <div className="absolute top-4 right-4 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); openEdit(o) }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-slate-600 hover:text-indigo-600 transition-colors">
-                    <Edit2 size={12} />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id) }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-slate-600 hover:text-rose-600 transition-colors">
-                    <Trash2 size={12} />
-                  </button>
+                  <PermissionGate permission="owners:update">
+                    <button onClick={(e) => { e.stopPropagation(); openEdit(o) }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-slate-600 hover:text-indigo-600 transition-colors">
+                      <Edit2 size={12} />
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate permission="owners:delete">
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(o.id) }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-slate-600 hover:text-rose-600 transition-colors">
+                      <Trash2 size={12} />
+                    </button>
+                  </PermissionGate>
                 </div>
 
                 <div className="p-6">

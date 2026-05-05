@@ -148,8 +148,9 @@ export default function Tenders() {
       subtitle="Transparent bidding system for premium property leasing."
       actions={
         (isSuperAdmin || isNominee) && (
-          <button onClick={() => setShowAddTender(true)} className="button">
-            <Plus size={16} /> Open New Tender
+          <button onClick={() => setShowAddTender(true)} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+            <Plus size={16} /> <span className="hidden xs:inline">Open New Tender</span>
+            <span className="xs:hidden">New Tender</span>
           </button>
         )
       }

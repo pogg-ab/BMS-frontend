@@ -51,6 +51,7 @@ import {
   Download
 } from 'lucide-react'
 import { downloadReport } from '../utils/export'
+import PermissionGate from '../components/PermissionGate'
 
 
 interface Tenant {
@@ -665,13 +666,19 @@ export default function Tenants() {
       title="Tenant Management"
       subtitle={`Curating ${tenants.length.toLocaleString()} active lease agreements across 14 properties.`}
       actions={
-        <div className="flex items-center gap-3">
-          <button onClick={() => downloadReport('tenants')} className="button-secondary flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-sm transition-all active:scale-95">
-            <Download size={18} /> Export CSV
-          </button>
-          <button onClick={() => setShowRegister(true)} className="button flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
-            <Plus size={18} /> Register Tenant
-          </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <PermissionGate permission="reports:view">
+            <button onClick={() => downloadReport('tenants')} className="button-secondary flex items-center gap-2 px-3 sm:px-6 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 text-xs sm:text-sm whitespace-nowrap">
+              <Download size={18} /> <span className="hidden xs:inline">Export CSV</span>
+              <span className="xs:hidden">Export</span>
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="users:create">
+            <button onClick={() => setShowRegister(true)} className="button flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 text-xs sm:text-sm whitespace-nowrap">
+              <Plus size={18} /> <span className="hidden xs:inline">Register Tenant</span>
+              <span className="xs:hidden">Register</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -687,7 +694,7 @@ export default function Tenants() {
             {/* Tenant List Section */}
             <div className={`${selectedTenantId ? 'xl:col-span-8' : 'xl:col-span-12'}`}>
 
-              <div className="grid grid-cols-12 px-10 mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              <div className="hidden lg:grid grid-cols-12 px-10 mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                 <div className="col-span-5">Tenant Identity</div>
                 <div className="col-span-3">Building</div>
                 <div className="col-span-2 text-center ml-[-40px]">Lease Status</div>
@@ -708,7 +715,7 @@ export default function Tenants() {
                           openDetail(t)
                         }
                       }}
-                      className={`group grid grid-cols-12 items-center px-10 py-7 rounded-[32px] border transition-all duration-300 cursor-pointer relative overflow-hidden ${isSelected
+                      className={`group flex flex-col sm:grid sm:grid-cols-12 items-start sm:items-center px-6 lg:px-10 py-5 sm:py-7 rounded-[24px] sm:rounded-[32px] border transition-all duration-300 cursor-pointer relative overflow-hidden ${isSelected
                         ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-2xl shadow-slate-200 dark:shadow-none'
                         : 'bg-white/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-700/50 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-200 shadow-sm hover:shadow-xl'
                         }`}
@@ -717,38 +724,39 @@ export default function Tenants() {
                       {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-600"></div>}
 
                       {/* Identity */}
-                      <div className="col-span-5 flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-[24px] overflow-hidden flex items-center justify-center shadow-sm">
+                      <div className="col-span-12 sm:col-span-5 flex items-center gap-4 sm:gap-6 mb-4 sm:mb-0">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-[18px] sm:rounded-[24px] overflow-hidden flex items-center justify-center shadow-sm shrink-0">
                           <img
                             src={`https://ui-avatars.com/api/?name=${t.first_name}+${t.last_name || ''}&background=f1f5f9&color=64748b&bold=true`}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div>
-                          <div className="font-black text-slate-900 dark:text-white text-lg tracking-tight">
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-900 dark:text-white text-base sm:text-lg tracking-tight truncate">
                             {t.first_name} {t.last_name || ''}
                           </div>
-                          <div className="text-xs font-bold text-slate-400 flex items-center gap-2 mt-1 lowercase">
-                            <Mail size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" /> {t.email}
+                          <div className="text-[11px] sm:text-xs font-bold text-slate-400 flex items-center gap-2 mt-1 lowercase truncate">
+                            <Mail size={12} className="shrink-0" /> {t.email}
                           </div>
                         </div>
                       </div>
 
                       {/* Building */}
-                      <div className="col-span-3">
-                        <div className="text-sm font-black text-slate-700 dark:text-slate-300">{t.building?.name || t.building_name || t.building || (t.lease?.building?.name) || '—'}</div>
+                      <div className="col-span-6 sm:col-span-3 mb-2 sm:mb-0">
+                        <div className="text-[10px] sm:hidden font-black uppercase tracking-widest text-slate-400 mb-1">Building</div>
+                        <div className="text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300">{t.building?.name || t.building_name || t.building || (t.lease?.building?.name) || '—'}</div>
                       </div>
 
                       {/* Status */}
-                      <div className="col-span-2 flex justify-center ml-[-40px]">
-                        <StatusBadge status={t.lease?.status || 'NO LEASE'} size="md" />
+                      <div className="col-span-6 sm:col-span-2 flex flex-col sm:items-center sm:justify-center sm:ml-[-40px]">
+                        <div className="text-[10px] sm:hidden font-black uppercase tracking-widest text-slate-400 mb-1">Status</div>
+                        <StatusBadge status={t.lease?.status || 'NO LEASE'} size="sm" />
                       </div>
 
                       {/* Actions */}
-                      <div className="col-span-2 flex items-center justify-end gap-3">
-                        {/* phone button removed as requested */}
-                        <button className={`p-3.5 rounded-2xl transition-all ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}>
-                          {isSelected ? <Plus size={20} className="rotate-45" /> : <MoreVertical size={20} />}
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 sm:static sm:translate-y-0 col-span-12 sm:col-span-2 flex items-center justify-end">
+                        <button className={`p-2 sm:p-3.5 rounded-xl sm:rounded-2xl transition-all ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}>
+                          {isSelected ? <Plus size={18} className="rotate-45" /> : <MoreHorizontal size={18} />}
                         </button>
                       </div>
                     </div>

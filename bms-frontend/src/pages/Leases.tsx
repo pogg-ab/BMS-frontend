@@ -19,6 +19,7 @@ import { listUnits } from '../api/units'
 import { listBuildings } from '../api/buildings'
 import { Filter, Plus, FileSignature, Building2, Pen, Archive, RefreshCw, Upload, Download, Eye, X, Trash2 } from 'lucide-react'
 import { downloadReport } from '../utils/export'
+import PermissionGate from '../components/PermissionGate'
 
 export default function Leases() {
   const toast = useToast()
@@ -422,16 +423,23 @@ export default function Leases() {
       subtitle={`Managing ${leases.length} active commercial and residential leases across ${allBuildings.length} properties.`}
       searchPlaceholder="Search leases, tenants, or units..."
       actions={
-        <div className="flex items-center gap-3">
-          <button onClick={() => downloadReport('leases')} className="button-secondary">
-            <Download size={16} /> Export CSV
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <PermissionGate permission="reports:view">
+            <button onClick={() => downloadReport('leases')} className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+              <Download size={16} /> <span className="hidden xs:inline">Export CSV</span>
+              <span className="xs:hidden">Export</span>
+            </button>
+          </PermissionGate>
+          <button onClick={() => { const open = !showQuickActions; setShowQuickActions(open); if (open) setQuickActionMode('all') }} className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+            <Filter size={16} /> <span className="hidden xs:inline">Filter View</span>
+            <span className="xs:hidden">Filter</span>
           </button>
-          <button onClick={() => { const open = !showQuickActions; setShowQuickActions(open); if (open) setQuickActionMode('all') }} className="button-secondary">
-            <Filter size={16} /> Filter View
-          </button>
-          <button onClick={() => setShowCreateModal(true)} className="button">
-            <Plus size={16} /> New Lease Agreement
-          </button>
+          <PermissionGate permission="leases:create">
+            <button onClick={() => setShowCreateModal(true)} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+              <Plus size={16} /> <span className="hidden xs:inline">New Lease Agreement</span>
+              <span className="xs:hidden">New Lease</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -529,71 +537,84 @@ export default function Leases() {
                     <StatusBadge status={l.status} size="md" />
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex flex-wrap items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
                       {(l.status === 'DRAFT' || l.status === 'draft') && (
-                        <button onClick={() => handleActivateOnly(l.id)} className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                          Activate
-                        </button>
+                        <PermissionGate permission="leases:activate">
+                          <button onClick={() => handleActivateOnly(l.id)} className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap">
+                            Activate
+                          </button>
+                        </PermissionGate>
                       )}
                       {(l.status === 'DRAFT' || l.status === 'draft') && (
+                        <PermissionGate permission="leases:update">
+                          <button onClick={() => {
+                            setEditLeaseId(l.id)
+                            setEditRent(String(l.rent_amount || l.rent || l.rent_price || ''))
+                            setEditStartDate(l.start_date || '')
+                            setEditEndDate(l.end_date || '')
+                            setEditServiceCharge(String(l.service_charge || ''))
+                            setEditDeposit(String(l.deposit_amount || ''))
+                            setEditBillingCycle(l.billing_cycle || 'MONTHLY')
+                            setShowEditModal(true)
+                          }} className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors whitespace-nowrap">
+                            <Pen size={12} className="inline mr-1" />Edit
+                          </button>
+                        </PermissionGate>
+                      )}
+                      {(l.status === 'DRAFT' || l.status === 'draft') && (
+                        <PermissionGate permission="tenants:documents:verify">
+                          <button
+                            onClick={() => handleOpenVerifyModal(l.tenant || { id: l.tenant_id, name: l.tenant_name })}
+                            className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors whitespace-nowrap"
+                          >
+                            Docs
+                          </button>
+                        </PermissionGate>
+                      )}
+                      <PermissionGate permission="leases:renew">
                         <button onClick={() => {
-                          setEditLeaseId(l.id)
-                          setEditRent(String(l.rent_amount || l.rent || l.rent_price || ''))
-                          setEditStartDate(l.start_date || '')
-                          setEditEndDate(l.end_date || '')
-                          setEditServiceCharge(String(l.service_charge || ''))
-                          setEditDeposit(String(l.deposit_amount || ''))
-                          setEditBillingCycle(l.billing_cycle || 'MONTHLY')
-                          setShowEditModal(true)
-                        }} className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
-                          <Pen size={12} className="inline mr-1" />Edit
+                          setRenewOnlyLeaseId(l.id)
+                          try {
+                            const origStart = l.start_date ? new Date(l.start_date) : null
+                            const origEnd = l.end_date ? new Date(l.end_date) : null
+                            let durationDays = 365
+                            if (origStart && origEnd) {
+                              durationDays = Math.max(1, Math.round((origEnd.getTime() - origStart.getTime()) / (1000 * 60 * 60 * 24)))
+                            }
+                            const today = new Date()
+                            const newStart = today.toISOString().split('T')[0]
+                            const newEndDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000)
+                            const newEnd = newEndDate.toISOString().split('T')[0]
+                            setRenewOnlyStart(newStart)
+                            setRenewOnlyEnd(newEnd)
+                          } catch (err) { console.error('prefill renew', err) }
+                          setShowRenewModal(true)
+                        }} className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap">
+                          Renew
                         </button>
-                      )}
-                      {(l.status === 'DRAFT' || l.status === 'draft') && (
-                        <button
-                          onClick={() => handleOpenVerifyModal(l.tenant || { id: l.tenant_id, name: l.tenant_name })}
-                          className="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                        >
-                          View Documents
-                        </button>
-                      )}
-                      <button onClick={() => {
-                        // prefill renew form from this lease and open renew modal
-                        setRenewOnlyLeaseId(l.id)
-                        try {
-                          const origStart = l.start_date ? new Date(l.start_date) : null
-                          const origEnd = l.end_date ? new Date(l.end_date) : null
-                          let durationDays = 365
-                          if (origStart && origEnd) {
-                            durationDays = Math.max(1, Math.round((origEnd.getTime() - origStart.getTime()) / (1000 * 60 * 60 * 24)))
-                          }
-                          const today = new Date()
-                          const newStart = today.toISOString().split('T')[0]
-                          const newEndDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000)
-                          const newEnd = newEndDate.toISOString().split('T')[0]
-                          setRenewOnlyStart(newStart)
-                          setRenewOnlyEnd(newEnd)
-                        } catch (err) { console.error('prefill renew', err) }
-                        setShowRenewModal(true)
-                      }} className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
-                        Renew Now
-                      </button>
+                      </PermissionGate>
                       {(l.status === 'ACTIVE' || l.status === 'active' || l.status === 'RENEWED') && (
-                        <button onClick={() => { setTerminateOnlyLeaseId(l.id); setShowTerminateModal(true) }} className="px-3 py-1.5 text-xs font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors">
-                          Terminate
-                        </button>
+                        <PermissionGate permission="leases:terminate">
+                          <button onClick={() => { setTerminateOnlyLeaseId(l.id); setShowTerminateModal(true) }} className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors whitespace-nowrap">
+                            Terminate
+                          </button>
+                        </PermissionGate>
                       )}
-                      <button onClick={() => handleDownload(l.id, 'view')} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors" title="View Document">
-                        <Eye size={16} />
-                      </button>
-                      <button onClick={() => handleDownload(l.id, 'download')} className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors" title="Download">
-                        <Download size={16} />
-                      </button>
-                      {(['DRAFT', 'draft', 'TERMINATED', 'terminated'].includes(String(l.status))) && (
-                        <button onClick={(e) => { e.stopPropagation(); setLeaseToDelete(l); setShowDeleteConfirm(true) }} className="p-1.5 text-rose-500 hover:text-rose-700 transition-colors" title="Delete Lease">
-                          <Trash2 size={16} />
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleDownload(l.id, 'view')} className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors" title="View Document">
+                          <Eye size={16} />
                         </button>
-                      )}
+                        <button onClick={() => handleDownload(l.id, 'download')} className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors" title="Download">
+                          <Download size={16} />
+                        </button>
+                        {(['DRAFT', 'draft', 'TERMINATED', 'terminated'].includes(String(l.status))) && (
+                          <PermissionGate permission="leases:delete">
+                            <button onClick={(e) => { e.stopPropagation(); setLeaseToDelete(l); setShowDeleteConfirm(true) }} className="p-1.5 text-rose-500 hover:text-rose-700 transition-colors" title="Delete Lease">
+                              <Trash2 size={16} />
+                            </button>
+                          </PermissionGate>
+                        )}
+                      </div>
                     </div>
                   </div>
 

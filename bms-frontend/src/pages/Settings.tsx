@@ -271,18 +271,18 @@ export default function Settings() {
           </div>
 
           {/* FLOAT BAR FOR SAVE */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-4 z-40">
+          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-xs sm:max-w-sm px-4 z-40">
             <button 
               type="submit" 
               disabled={saving}
-              className="w-full bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white font-bold py-4 rounded-2xl shadow-2xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+              className="w-full bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white font-bold py-3 sm:py-4 rounded-2xl shadow-2xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 text-sm sm:text-base"
             >
               {saving ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white dark:border-slate-900/30 dark:border-t-slate-900 rounded-full animate-spin" />
               ) : (
                 <Save size={18} />
               )}
-              {saving ? 'UPDATING CONFIG...' : 'PUBLISH CHANGES'}
+              {saving ? 'UPDATING...' : 'PUBLISH CHANGES'}
             </button>
           </div>
         </form>

@@ -152,19 +152,20 @@ export default function Sites() {
       title="Sites Portfolio" 
       subtitle="Manage geographical locations and organization campuses."
       actions={
-        <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search sites..."
-              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-48"
             />
           </div>
-          <button onClick={() => { resetForm(); setShowForm(true) }} className="button shadow-md">
-            <Plus size={16} /> Register Site
+          <button onClick={() => { resetForm(); setShowForm(true) }} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm">
+            <Plus size={16} /> <span className="hidden xs:inline">Register Site</span>
+            <span className="xs:hidden">Add Site</span>
           </button>
         </div>
       }

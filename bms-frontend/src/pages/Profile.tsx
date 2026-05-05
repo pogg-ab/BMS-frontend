@@ -89,22 +89,22 @@ export default function Profile() {
 
         {/* ── Profile Header Card ── */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 overflow-hidden">
-          <div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-          <div className="px-8 pb-8 -mt-14">
-            <div className="flex items-end gap-6">
-              <div className="w-28 h-28 rounded-2xl bg-white dark:bg-slate-800 shadow-lg border-4 border-white flex items-center justify-center text-3xl font-bold text-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 flex-shrink-0">
+          <div className="h-24 sm:h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+          <div className="px-6 sm:px-8 pb-6 sm:pb-8 -mt-10 sm:-mt-14">
+            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 text-center sm:text-left">
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl bg-white dark:bg-slate-800 shadow-lg border-4 border-white dark:border-slate-800 flex items-center justify-center text-2xl sm:text-3xl font-bold text-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 flex-shrink-0">
                 {initials}
               </div>
-              <div className="pt-16 pb-1 flex-1">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
-                <p className="text-slate-500 mt-0.5">{profile.email}</p>
+              <div className="sm:pt-16 pb-1 flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
+                <p className="text-sm text-slate-500 mt-0.5">{profile.email}</p>
               </div>
             </div>
 
             {/* Role Badges */}
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap justify-center sm:justify-start gap-2">
               {roles.map((role: string) => (
-                <span key={role} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                <span key={role} className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                   {role.replace(/_/g, ' ')}
                 </span>

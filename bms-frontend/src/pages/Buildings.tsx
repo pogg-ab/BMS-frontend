@@ -7,6 +7,7 @@ import { listBuildings, createBuilding, getBuilding, updateBuilding, deleteBuild
 import api from '../api/axios'
 import { Building2, MapPin, Plus, Search, Pen, Trash2, Eye, X, Users, Layers, Home, TrendingUp, AlertCircle, DollarSign, Download } from 'lucide-react'
 import { downloadReport } from '../utils/export'
+import PermissionGate from '../components/PermissionGate'
 
 type Building = {
   id: number | string
@@ -204,15 +205,15 @@ export default function Buildings() {
       subtitle={`${buildings.length} properties with real-time telemetry and occupancy tracking across your district portfolio.`}
       searchPlaceholder="Search buildings..."
       actions={
-        <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search properties or addresses..."
-              className="pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64"
+              placeholder="Search properties..."
+              className="pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-48"
             />
           </div>
           <select
@@ -222,29 +223,19 @@ export default function Buildings() {
               if (e.target.value) p.set('siteId', e.target.value); else p.delete('siteId')
               return p
             })}
-            className="py-2 pl-3 pr-8 text-sm font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 shadow-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer hidden md:block"
+            className="py-2 pl-3 pr-8 text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 shadow-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer hidden lg:block"
           >
             <option value="">All Sites</option>
             {sites.map(s => <option key={s.id} value={s.id}>{s.name || s.code}</option>)}
           </select>
-          <select
-            value={filterOwnerId}
-            onChange={e => setSearchParams(prev => {
-              const p = new URLSearchParams(prev)
-              if (e.target.value) p.set('ownerId', e.target.value); else p.delete('ownerId')
-              return p
-            })}
-            className="py-2 pl-3 pr-8 text-sm font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 shadow-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer hidden md:block"
-          >
-            <option value="">All Owners</option>
-            {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-          <button onClick={() => downloadReport('buildings')} className="button-secondary shadow-sm">
-            <Download size={16} /> Export CSV
+          <button onClick={() => downloadReport('buildings')} className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm">
+            <Download size={16} /> <span className="hidden xs:inline">Export</span>
           </button>
-          <button onClick={openCreate} className="button shadow-md">
-            <Plus size={16} /> Add Property
-          </button>
+          <PermissionGate permission="buildings:create">
+            <button onClick={openCreate} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm">
+              <Plus size={16} /> <span className="hidden xs:inline">Add Property</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -291,12 +282,16 @@ export default function Buildings() {
                     </div>
                     {/* Action Buttons (hover) */}
                     <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={e => { e.stopPropagation(); openEdit(b) }} className="p-2 rounded-lg bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-white shadow-sm backdrop-blur-sm transition-all">
-                        <Pen size={14} />
-                      </button>
-                      <button onClick={e => { e.stopPropagation(); handleDelete(b.id) }} className="p-2 rounded-lg bg-white/90 dark:bg-slate-800/90 text-rose-500 hover:bg-white shadow-sm backdrop-blur-sm transition-all">
-                        <Trash2 size={14} />
-                      </button>
+                      <PermissionGate permission="buildings:update">
+                        <button onClick={e => { e.stopPropagation(); openEdit(b) }} className="p-2 rounded-lg bg-white/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-white shadow-sm backdrop-blur-sm transition-all">
+                          <Pen size={14} />
+                        </button>
+                      </PermissionGate>
+                      <PermissionGate permission="buildings:delete">
+                        <button onClick={e => { e.stopPropagation(); handleDelete(b.id) }} className="p-2 rounded-lg bg-white/90 dark:bg-slate-800/90 text-rose-500 hover:bg-white shadow-sm backdrop-blur-sm transition-all">
+                          <Trash2 size={14} />
+                        </button>
+                      </PermissionGate>
                     </div>
                   </div>
 

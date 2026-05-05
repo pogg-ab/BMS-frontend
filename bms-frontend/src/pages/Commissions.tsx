@@ -149,14 +149,15 @@ export default function Commissions() {
       title="Commission Management"
       subtitle="Track earnings, approve payouts, and manage operational incentives."
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {tab === 'dashboard' && selectedForPayment.length > 0 && (
-            <button onClick={() => setShowPaymentModal(true)} className="button bg-emerald-600 hover:bg-emerald-700">
-              <CreditCard size={16} /> Pay Selected ({selectedForPayment.length})
+            <button onClick={() => setShowPaymentModal(true)} className="button bg-emerald-600 hover:bg-emerald-700 shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+              <CreditCard size={16} /> <span className="hidden xs:inline">Pay Selected ({selectedForPayment.length})</span>
+              <span className="xs:hidden">Pay ({selectedForPayment.length})</span>
             </button>
           )}
           {isSuperAdmin && tab === 'rules' && (
-            <button onClick={() => setShowAddRule(true)} className="button">
+            <button onClick={() => setShowAddRule(true)} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
               <Plus size={16} /> New Rule
             </button>
           )}
@@ -165,23 +166,23 @@ export default function Commissions() {
     >
       <div className="space-y-6">
         {/* KPI Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <KPICard title="Pending Payouts" value={fmtMoney(kpis.pending)} subtitle="Calculated but not yet approved" variant="white" icon={<TrendingUp size={18} />} />
           <KPICard title="Approved & Owed" value={fmtMoney(kpis.approved)} subtitle="Ready for final settlement" variant="purple" icon={<Coins size={18} />} />
           <KPICard title="Total Paid" value={fmtMoney(kpis.paid)} subtitle="Historical settled commissions" variant="white" icon={<Wallet size={18} />} />
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center overflow-x-auto no-scrollbar gap-1 border-b border-slate-200 dark:border-slate-700 w-full">
           {[
-            { key: 'dashboard', label: 'Earnings & Approval' },
-            { key: 'rules', label: 'Commission Rules' },
-            { key: 'payments', label: 'Payment History' }
+            { key: 'dashboard', label: 'Earnings' },
+            { key: 'rules', label: 'Rules' },
+            { key: 'payments', label: 'Payments' }
           ].map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key as Tab)}
-              className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              className={`px-4 sm:px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all whitespace-nowrap ${tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
             >
               {t.label}
             </button>
@@ -192,10 +193,10 @@ export default function Commissions() {
         {tab === 'dashboard' && (
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left min-w-[800px]">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/50 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    <th className="px-6 py-4 w-10">
+                    <th className="px-6 py-4 w-10 text-center">
                       <input type="checkbox" checked={selectedForPayment.length === commissions.filter(c => c.status === 'APPROVED').length && commissions.length > 0} onChange={() => {}} className="rounded border-slate-300" />
                     </th>
                     <th className="px-6 py-4">Nominee</th>
@@ -209,11 +210,11 @@ export default function Commissions() {
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
                   {commissions.map(c => (
                     <tr key={c.id} className="hover:bg-slate-50/20 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         {c.status === 'APPROVED' && <input type="checkbox" checked={selectedForPayment.includes(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-slate-300 text-indigo-600" />}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-sm">{c.nominee?.name}</div>
+                        <div className="font-semibold text-sm dark:text-slate-200">{c.nominee?.name}</div>
                         <div className="text-[10px] text-slate-400 uppercase">{c.building?.name || 'Global'}</div>
                       </td>
                       <td className="px-6 py-4">

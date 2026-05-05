@@ -11,6 +11,7 @@ import { listBuildings } from '../api/buildings'
 import { listSites } from '../api/sites'
 import { getRoles, getPermissions } from '../utils/jwt'
 import { downloadReport } from '../utils/export'
+import PermissionGate from '../components/PermissionGate'
 
 type Tab = 'invoices' | 'drafts' | 'payments' | 'bank-accounts' | 'deposit-advice' | 'reports' | 'expenses'
 
@@ -630,13 +631,14 @@ export default function Finance() {
       subtitle="Comprehensive financial management across your property portfolio."
       searchPlaceholder="Search invoices, tenants..."
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {isTenant && (
             <button 
               onClick={() => financeApi.downloadTenantLedgerPdf(tenantSummary?.id || '')} 
-              className="button-secondary"
+              className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap"
             >
-              <Download size={16} /> My Statement
+              <Download size={16} /> <span className="hidden xs:inline">My Statement</span>
+              <span className="xs:hidden">Statement</span>
             </button>
           )}
           {!isTenant && (
@@ -646,20 +648,27 @@ export default function Finance() {
                 downloadReport(type);
                 toast.addToast(`${type} exported successfully`, 'success');
               }} 
-              className="button-secondary"
+              className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap"
             >
-              <Download size={16} /> Export CSV
+              <Download size={16} /> <span className="hidden xs:inline">Export CSV</span>
+              <span className="xs:hidden">Export</span>
             </button>
           )}
           {!isTenant && (
-            <button onClick={() => { setGenSiteId(''); setGenBuildingId(''); handleGenerateInvoices({ preventDefault: () => {} } as any) }} className="button-secondary">
-              <BarChart3 size={16} /> Bulk Generate
-            </button>
+            <PermissionGate permission="finance:invoices:generate">
+              <button onClick={() => { setGenSiteId(''); setGenBuildingId(''); handleGenerateInvoices({ preventDefault: () => {} } as any) }} className="button-secondary shadow-sm px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <BarChart3 size={16} /> <span className="hidden xs:inline">Bulk Generate</span>
+                <span className="xs:hidden">Bulk</span>
+              </button>
+            </PermissionGate>
           )}
           {!isTenant && (
-            <button onClick={() => setTab('invoices')} className="button">
-              <Plus size={16} /> Create Invoice
-            </button>
+            <PermissionGate permission="finance:invoices:create">
+              <button onClick={() => setTab('invoices')} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Plus size={16} /> <span className="hidden xs:inline">Create Invoice</span>
+                <span className="xs:hidden">Create</span>
+              </button>
+            </PermissionGate>
           )}
         </div>
       }

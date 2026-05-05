@@ -216,9 +216,12 @@ export default function Visitors() {
       title="Visitor Management" 
       subtitle="Track and manage on-site visitors, contractors, and guests"
       actions={
-        <button onClick={() => { resetForm(); setShowForm(true) }} className="button">
-          <FiPlus className="mr-2" /> Check-in Visitor
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={() => { resetForm(); setShowForm(true) }} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+            <FiPlus size={16} /> <span className="hidden xs:inline">Check-in Visitor</span>
+            <span className="xs:hidden">Check-in</span>
+          </button>
+        </div>
       }
     >
       <div className="space-y-6">
@@ -226,15 +229,15 @@ export default function Visitors() {
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/30" onClick={resetForm}></div>
-            <div className="relative bg-white dark:bg-slate-800 rounded-[16px] p-6 w-full max-w-3xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.10)] border border-white/20 dark:border-slate-700/50 max-h-[70vh] overflow-y-auto animate-in zoom-in duration-200">
+            <div className="relative bg-white dark:bg-slate-800 rounded-[16px] p-6 w-full max-w-3xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.10)] border border-white/20 dark:border-slate-700/50 max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     {editing ? 'Edit Visitor Record' : 'Resident/Guest Check-in'}
                   </h3>
                   <p className="text-sm font-medium text-slate-500 mt-1">Quickly check-in guests or contractors</p>
                 </div>
-                <button onClick={resetForm} className="p-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all">✕</button>
+                <button onClick={resetForm} className="p-2 sm:p-3 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all">✕</button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -256,7 +259,8 @@ export default function Visitors() {
                   <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Number / Card No</label>
                     <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="ID-12345" value={idNumber} onChange={e => setIdNumber(e.target.value)} />
-                  </div>                  {!isTenant && (
+                  </div>
+                  {!isTenant && (
                     <div>
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance</label>
                       <div className="relative">
@@ -307,8 +311,8 @@ export default function Visitors() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                  <button type="button" onClick={resetForm} className="button-secondary">Cancel</button>
-                  <button type="submit" className="button px-8">{editing ? 'Save Changes' : 'Complete Check-in'}</button>
+                  <button type="button" onClick={resetForm} className="button-secondary text-sm">Cancel</button>
+                  <button type="submit" className="button px-6 text-sm">{editing ? 'Save Changes' : 'Complete Check-in'}</button>
                 </div>
               </form>
             </div>
@@ -317,19 +321,21 @@ export default function Visitors() {
 
         {/* List Card */}
         <div className="card">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <FiActivity className="text-blue-500" /> Current Visitor Log
             </h3>
-            <div className="flex items-center gap-2">
-              <FiSearch className="text-slate-400 ml-2" />
-              {!isTenant && (
-                <select className="form-select !w-auto !py-1 text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white" value={querySiteId} onChange={e => setQuerySiteId(e.target.value)}>
-                  <option value="">All Sites</option>
-                  {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
-                </select>
-              )}
-              <button onClick={loadVisitors} className="button-secondary !py-1.5 text-sm">Refresh</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex items-center">
+                <FiSearch size={14} className="absolute left-3 text-slate-400" />
+                {!isTenant && (
+                  <select className="form-select pl-9 !w-auto !py-1 text-xs sm:text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white" value={querySiteId} onChange={e => setQuerySiteId(e.target.value)}>
+                    <option value="">All Sites</option>
+                    {allSites.map(s => <option key={s.id} value={String(s.id)}>{s.name || s.code}</option>)}
+                  </select>
+                )}
+              </div>
+              <button onClick={loadVisitors} className="button-secondary !py-1.5 px-3 text-xs sm:text-sm">Refresh</button>
             </div>
           </div>
 
@@ -344,8 +350,8 @@ export default function Visitors() {
               <p className="text-slate-500">No active visitors recorded at this time.</p>
             </div>
           ) : (
-            <div className="table-container shadow-none ring-0 border border-slate-100 rounded-xl">
-              <table className="w-full text-sm text-left whitespace-nowrap">
+            <div className="overflow-x-auto border border-slate-100 rounded-xl">
+              <table className="w-full text-sm text-left whitespace-nowrap min-w-[700px]">
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="px-6 py-4 font-medium tracking-wider">Visitor</th>
@@ -358,10 +364,10 @@ export default function Visitors() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                   {visitors.map((v: any) => (
-                    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150 group">
+                    <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900/50 transition-colors duration-150 group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
                             <FiUser size={14} />
                           </div>
                           <div>
@@ -371,14 +377,14 @@ export default function Visitors() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-slate-600 text-xs">
-                        <div className="font-semibold">{allSites.find((s: any) => String(s.id) === String(v.site_id))?.name || v.site_id || '-'}</div>
+                        <div className="font-semibold dark:text-slate-300">{allSites.find((s: any) => String(s.id) === String(v.site_id))?.name || v.site_id || '-'}</div>
                         {v.unit_id && <div className="text-[10px] text-slate-400 mt-0.5">Unit ID: {v.unit_id}</div>}
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
+                      <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
                         <span className="truncate max-w-[150px] inline-block" title={v.purpose}>{v.purpose || '-'}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2 text-slate-600 text-xs">
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-xs">
                           <FiClock className="text-slate-400" />
                           {v.check_in_time ? new Date(v.check_in_time).toLocaleString() : '-'}
                         </div>

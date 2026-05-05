@@ -133,12 +133,13 @@ export default function Reports() {
       title="Intelligence Reports" 
       subtitle="Comprehensive data-driven insights into your portfolio performance."
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button 
             onClick={handleExport}
-            className="button-secondary text-xs font-bold gap-2 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700"
+            className="button-secondary text-xs font-bold gap-2 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} /> <span className="hidden xs:inline">Export CSV</span>
+            <span className="xs:hidden">Export</span>
           </button>
         </div>
       }

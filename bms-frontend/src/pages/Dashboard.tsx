@@ -128,15 +128,15 @@ export default function Dashboard() {
       title="Portfolio Intelligence"
       subtitle="Real-time telemetry for the North-East Commercial District."
       actions={
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/leases')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <FileSignature size={16} className="text-indigo-600" /> Lease
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={() => navigate('/leases')} className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <FileSignature size={16} className="text-indigo-600" /> <span className="hidden xs:inline">Lease</span>
           </button>
-          <button onClick={() => navigate('/maintenance')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <Wrench size={16} className="text-amber-600" /> Request
+          <button onClick={() => navigate('/maintenance')} className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <Wrench size={16} className="text-amber-600" /> <span className="hidden xs:inline">Request</span>
           </button>
-          <button onClick={() => navigate('/visitors')} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <UserCheck size={16} className="text-emerald-600" /> Check-in
+          <button onClick={() => navigate('/visitors')} className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <UserCheck size={16} className="text-emerald-600" /> <span className="hidden xs:inline">Check-in</span>
           </button>
         </div>
       }
@@ -147,7 +147,7 @@ export default function Dashboard() {
         <div className="xl:col-span-3 space-y-6">
           
           {/* Top KPI Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             
             {/* Occupancy Card */}
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">

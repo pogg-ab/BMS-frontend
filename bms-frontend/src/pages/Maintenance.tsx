@@ -537,18 +537,19 @@ export default function Maintenance() {
       subtitle="Operations / Maintenance Board"
       searchPlaceholder="Search requests, tickets..."
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <select
             value={filterBuilding}
             onChange={e => setFilterBuilding(e.target.value)}
-            className="form-select w-40 h-[42px]"
+            className="form-select w-32 sm:w-40 h-[38px] sm:h-[42px] text-xs sm:text-sm"
           >
             <option value="">All Buildings</option>
             {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code}</option>)}
           </select>
           {!isContractor && (
-            <button onClick={() => { setTab('requests'); setViewMode('table'); requestFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="button">
-              <Plus size={16} /> New Request
+            <button onClick={() => { setTab('requests'); setViewMode('table'); requestFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="button px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+              <Plus size={16} /> <span className="hidden xs:inline">New Request</span>
+              <span className="xs:hidden">Request</span>
             </button>
           )}
         </div>

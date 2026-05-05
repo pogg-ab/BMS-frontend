@@ -7,6 +7,7 @@ import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import ConfirmModal from '../components/ConfirmModal'
 import { ShieldCheck, UserCheck, KeySquare, Plus, Trash2, Edit2, Shield, Lock, Check, X, Info } from 'lucide-react'
+import PermissionGate from '../components/PermissionGate'
 
 type Role = {
   id: string
@@ -152,11 +153,14 @@ export default function Roles() {
       <div className="space-y-8 pb-10">
         
         <>
-          <div className="flex justify-end">
-            <button onClick={openCreateRole} className="button shadow-md">
-              <Plus size={16} /> Create Role
-            </button>
-          </div>
+          <PermissionGate permission="roles:create">
+            <div className="flex justify-end px-1 sm:px-0">
+              <button onClick={openCreateRole} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+                <Plus size={16} /> <span className="hidden xs:inline">Create Role</span>
+                <span className="xs:hidden">New Role</span>
+              </button>
+            </div>
+          </PermissionGate>
 
           {loading ? (
             <div className="py-20 flex justify-center"><div className="w-8 h-8 rounded-full border-4 border-indigo-600/30 border-t-indigo-600 animate-spin" /></div>
@@ -180,8 +184,12 @@ export default function Roles() {
                       <div className="flex items-center gap-1">
                             {!isSudo && (
                           <>
-                            <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
-                            <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                            <PermissionGate permission="roles:update">
+                              <button onClick={() => openEditRole(r)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit2 size={16} /></button>
+                            </PermissionGate>
+                            <PermissionGate permission="roles:delete">
+                              <button onClick={() => handleDeleteRole(r.id, r.name)} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                            </PermissionGate>
                           </>
                         )}
                       </div>

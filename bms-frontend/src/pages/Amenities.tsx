@@ -220,45 +220,46 @@ export default function Amenities() {
       title="Property Amenities" 
       subtitle="Manage shared services and facilities across buildings and units."
       actions={
-        <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search amenities..."
-              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-48"
             />
           </div>
-          <button onClick={openCreate} className="button shadow-md">
-            <Plus size={16} /> Create Amenity
+          <button onClick={openCreate} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm">
+            <Plus size={16} /> <span className="hidden xs:inline">Create Amenity</span>
+            <span className="xs:hidden">Add Amenity</span>
           </button>
         </div>
       }
     >
-      <div className="space-y-8 pb-10">
+      <div className="space-y-6 pb-10">
         {/* Filter Bar */}
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-slate-400" />
+        <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Building2 size={16} className="text-slate-400 shrink-0" />
             <select 
               value={filterBuildingId} 
               onChange={e => {setFilterBuildingId(e.target.value); setFilterUnitId('')}}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full"
             >
               <option value="">All Buildings</option>
               {allBuildings.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Home size={16} className="text-slate-400" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Home size={16} className="text-slate-400 shrink-0" />
             <select 
               value={filterUnitId} 
               onChange={e => setFilterUnitId(e.target.value)}
               disabled={!filterBuildingId}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
+              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50 w-full"
             >
               <option value="">All Units</option>
               {filteredUnitsForFilter.map(u => <option key={u.id} value={String(u.id)}>Unit {u.unit_number}</option>)}
@@ -268,7 +269,7 @@ export default function Amenities() {
           {(filterBuildingId || filterUnitId) && (
             <button 
               onClick={() => {setFilterBuildingId(''); setFilterUnitId('')}}
-              className="ml-auto text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors sm:ml-auto"
             >
               Reset Filters
             </button>

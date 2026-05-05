@@ -43,8 +43,9 @@ function AuthLayoutContent() {
     <>
       <NavBar />
       <div 
-        className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-all duration-300"
-        style={{ paddingLeft: sidebarCollapsed ? 80 : 256 }}
+        className={`min-h-screen bg-slate-50 dark:bg-slate-900 transition-all duration-300 ${
+          sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+        } pl-0`}
       >
         <Outlet />
       </div>

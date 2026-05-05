@@ -4,6 +4,7 @@ import { listRoles } from '../api/roles'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import { Plus, Trash2, Edit2, Shield, User, Mail, Lock, CheckCircle, XCircle, MoreVertical, Search, X } from 'lucide-react'
+import PermissionGate from '../components/PermissionGate'
 
 type UserRow = {
   id: string | number
@@ -173,20 +174,23 @@ export default function Users() {
       title="System Users" 
       subtitle="Manage internal administrators, managers, and staff access control."
       actions={
-        <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search users..."
-              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-64"
+              className="pl-10 pr-4 py-2 text-sm bg-white dark:bg-slate-800 border-none rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 shadow-sm w-48"
             />
           </div>
-          <button onClick={openCreate} className="button shadow-md">
-            <Plus size={16} /> Create User
-          </button>
+          <PermissionGate permission="users:create">
+            <button onClick={openCreate} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm">
+              <Plus size={16} /> <span className="hidden xs:inline">Create User</span>
+              <span className="xs:hidden">Add User</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -219,48 +223,56 @@ export default function Users() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filteredUsers.map((u) => (
-              <div key={String(u.id)} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div key={String(u.id)} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col xs:flex-row items-start xs:items-center justify-between gap-4 group hover:shadow-md transition-all">
+                <div className="flex items-center gap-4 w-full">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
                     {u.name?.charAt(0).toUpperCase() || <User size={20} />}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      {u.name || 'Unnamed User'}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm sm:text-base">
+                      <span className="truncate">{u.name || 'Unnamed User'}</span>
                       {u.is_active ? (
-                        <CheckCircle size={14} className="text-emerald-500" />
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
                       ) : (
-                        <XCircle size={14} className="text-rose-500" />
+                        <XCircle size={14} className="text-rose-500 shrink-0" />
                       )}
                     </h3>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                        <Mail size={12} /> {u.email}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-slate-500 font-medium truncate">
+                        <Mail size={12} className="shrink-0" /> {u.email}
                       </div>
-                      <span className="text-slate-300 dark:text-slate-700">|</span>
-                      <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
-                        <Shield size={12} /> {u.roles && u.roles.length ? u.roles.join(', ') : 'No Role'}
+                      <span className="hidden sm:inline text-slate-300 dark:text-slate-700">|</span>
+                      <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
+                        <Shield size={12} className="shrink-0" /> <span className="truncate">{u.roles && u.roles.length ? u.roles.join(', ') : 'No Role'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all" title="Edit User">
-                      <Edit2 size={16} />
-                    </button>
+                  <div className="flex items-center gap-1 sm:gap-2 self-end xs:self-center">
+                    <PermissionGate permission="users:update">
+                      <button onClick={() => openEdit(u)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all" title="Edit User">
+                        <Edit2 size={16} />
+                      </button>
+                    </PermissionGate>
                     {u.is_active ? (
-                      <button onClick={() => handleDeactivate(u.id)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all" title="Deactivate">
-                        <XCircle size={16} />
-                      </button>
+                      <PermissionGate permission="users:update">
+                        <button onClick={() => handleDeactivate(u.id)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all" title="Deactivate">
+                          <XCircle size={16} />
+                        </button>
+                      </PermissionGate>
                     ) : (
-                      <button onClick={() => handleActivate(u.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all" title="Activate">
-                        <CheckCircle size={16} />
-                      </button>
+                      <PermissionGate permission="users:update">
+                        <button onClick={() => handleActivate(u.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-all" title="Activate">
+                          <CheckCircle size={16} />
+                        </button>
+                      </PermissionGate>
                     )}
-                    <button onClick={() => setUserToDelete(u)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all" title="Delete User">
-                      <Trash2 size={16} />
-                    </button>
+                    <PermissionGate permission="users:delete">
+                      <button onClick={() => setUserToDelete(u)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all" title="Delete User">
+                        <Trash2 size={16} />
+                      </button>
+                    </PermissionGate>
                   </div>
               </div>
             ))}

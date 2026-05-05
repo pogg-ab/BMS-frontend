@@ -191,19 +191,20 @@ export default function Assets() {
       title="Assets & Inventory"
       subtitle="Track physical furnishings, appliances, and equipment across your portfolio."
       actions={
-        <div className="flex gap-3">
-          <div className="relative hidden md:block">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative hidden xl:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search assets or categories..." 
-              className="pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 w-64"
+              placeholder="Search assets..." 
+              className="pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 w-48"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-          <button onClick={() => setShowForm(true)} className="button">
-            <Plus size={16} /> Add Asset
+          <button onClick={() => setShowForm(true)} className="button shadow-md px-3 sm:px-4 py-2 text-xs sm:text-sm">
+            <Plus size={16} /> <span className="hidden xs:inline">Add Asset</span>
+            <span className="xs:hidden">Add</span>
           </button>
         </div>
       }
@@ -211,64 +212,66 @@ export default function Assets() {
       <div className="pb-10 space-y-6">
         
         {/* Filter Bar */}
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Tag size={16} className="text-slate-400" />
-            <select 
-              value={filterCategory} 
-              onChange={e => setFilterCategory(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="">All Categories</option>
-              {ASSET_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+        <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-4 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Tag size={16} className="text-slate-400 shrink-0" />
+              <select 
+                value={filterCategory} 
+                onChange={e => setFilterCategory(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-2 sm:px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full"
+              >
+                <option value="">Categories</option>
+                {ASSET_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 min-w-0">
+              <Activity size={16} className="text-slate-400 shrink-0" />
+              <select 
+                value={filterCondition} 
+                onChange={e => setFilterCondition(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-2 sm:px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full"
+              >
+                <option value="">Conditions</option>
+                {ASSET_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Activity size={16} className="text-slate-400" />
-            <select 
-              value={filterCondition} 
-              onChange={e => setFilterCondition(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="">All Conditions</option>
-              {ASSET_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-4 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 size={16} className="text-slate-400 shrink-0" />
+              <select 
+                value={filterBuildingId} 
+                onChange={e => {setFilterBuildingId(e.target.value); setFilterUnitId('')}}
+                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-2 sm:px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full"
+              >
+                <option value="">Buildings</option>
+                {allBuildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
 
-          <div className="h-6 w-px bg-slate-100 dark:bg-slate-700 mx-2 hidden md:block" />
-
-          <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-slate-400" />
-            <select 
-              value={filterBuildingId} 
-              onChange={e => {setFilterBuildingId(e.target.value); setFilterUnitId('')}}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="">All Buildings</option>
-              {allBuildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Home size={16} className="text-slate-400" />
-            <select 
-              value={filterUnitId} 
-              onChange={e => setFilterUnitId(e.target.value)}
-              disabled={!filterBuildingId}
-              className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
-            >
-              <option value="">All Units</option>
-              {filteredUnitsForFilter.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number}</option>)}
-            </select>
+            <div className="flex items-center gap-2 min-w-0">
+              <Home size={16} className="text-slate-400 shrink-0" />
+              <select 
+                value={filterUnitId} 
+                onChange={e => setFilterUnitId(e.target.value)}
+                disabled={!filterBuildingId}
+                className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-2 sm:px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50 w-full"
+              >
+                <option value="">Units</option>
+                {filteredUnitsForFilter.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number}</option>)}
+              </select>
+            </div>
           </div>
 
           {(filterCategory || filterCondition || filterBuildingId || filterUnitId) && (
             <button 
               onClick={() => {setFilterCategory(''); setFilterCondition(''); setFilterBuildingId(''); setFilterUnitId('')}}
-              className="ml-auto text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors sm:ml-auto"
             >
-              Clear Filters
+              Clear
             </button>
           )}
         </div>

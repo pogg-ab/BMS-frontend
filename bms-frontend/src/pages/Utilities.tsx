@@ -182,19 +182,19 @@ export default function Utilities() {
   return (
     <PageLayout 
       title="Utility Management" 
-      subtitle="Monitor electric, water, and gas consumption across units and facilities."
-      actions={
-        <div className="flex items-center gap-3">
+      subtitle="Monitor electric, water, and gas consumption across units and facilities."      actions={
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-             <button onClick={() => setActiveTab('meters')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'meters' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Meters</button>
-             <button onClick={() => setActiveTab('readings')} className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'readings' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>History</button>
+             <button onClick={() => setActiveTab('meters')} className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${activeTab === 'meters' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Meters</button>
+             <button onClick={() => setActiveTab('readings')} className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${activeTab === 'readings' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>History</button>
           </div>
           {isAdmin && (
             <button 
               onClick={() => activeTab === 'meters' ? setShowMeterForm(true) : setShowReadingForm(true)} 
-              className="button shadow-md"
+              className="button shadow-md px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm whitespace-nowrap"
             >
-              <Plus size={16} /> {activeTab === 'meters' ? 'New Meter' : 'Record Reading'}
+              <Plus size={16} /> <span className="hidden xs:inline">{activeTab === 'meters' ? 'New Meter' : 'Record Reading'}</span>
+              <span className="xs:hidden">{activeTab === 'meters' ? 'Add' : 'Record'}</span>
             </button>
           )}
         </div>
@@ -203,55 +203,64 @@ export default function Utilities() {
       <div className="space-y-6 pb-20">
         
         {/* Filters */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all">
-           <div className="flex items-center gap-4">
-              <div className="relative group">
+        <div className="flex flex-col gap-4 bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all">
+           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="relative group flex-1 max-w-md">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input 
                   placeholder={activeTab === 'meters' ? "Search serials..." : "Search history..."}
-                  className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border-none rounded-xl text-sm w-48 md:w-64 focus:ring-2 focus:ring-indigo-500"
+                  className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border-none rounded-xl text-sm w-full focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              {isAdmin && (
-              <>
-              <div className="flex items-center gap-2">
-                 <Filter size={14} className="text-slate-400" />
-                 <select value={siteFilter} onChange={e => {
-                   const v = e.target.value; setSiteFilter(v); setBuildingFilter(''); setUnitsForFilter([]); setBuildingsForFilter([])
-                   if (!v) { setBuildingsForFilter([]); setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
-                   listBuildings({ page: 1, per_page: 500, site_id: v }).then((res: any) => { const b = Array.isArray(res) ? res : (res?.data || []); setBuildingsForFilter(b) }).catch(console.error)
-                   if (activeTab === 'meters') { loadMeters({ site_id: v }) } else { loadReadings({ site_id: v }) }
-                 }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer">
-                   <option value="">All Sites</option>
-                   {allSites.map(s => <option key={s.id} value={s.id}>{s.name || s.code || s.id}</option>)}
-                 </select>
-                 <select value={buildingFilter} onChange={e => {
-                   const v = e.target.value; setBuildingFilter(v); setUnitsForFilter([])
-                   if (!v) { setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
-                   listUnits({ building_id: v, page: 1, per_page: 500 }).then((res: any) => { setUnitsForFilter(Array.isArray(res) ? res : (res?.data || [])) }).catch(console.error)
-                   if (activeTab === 'meters') { loadMeters({ building_id: v, site_id: siteFilter }) } else { loadReadings({ building_id: v, site_id: siteFilter }) }
-                 }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer">
-                   <option value="">All Buildings</option>
-                   {buildingsForFilter.length ? buildingsForFilter.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>) : allBuildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
-                 </select>
+
+              <div className="flex items-center gap-2 self-end">
+                <button onClick={() => activeTab === 'meters' ? loadMeters({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined }) : loadReadings({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined })} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                  <RefreshCw size={16} />
+                </button>
               </div>
-              <div className="flex items-center gap-2">
-                 <Filter size={14} className="text-slate-400" />
-                 <select 
-                  value={unitFilter} 
-                  onChange={e => {setUnitFilter(e.target.value); if (activeTab === 'meters') { loadMeters({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) } else { loadReadings({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) }}} 
-                  className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer"
-                 >
-                   <option value="">All Units</option>
-                   {(unitsForFilter.length ? unitsForFilter : allUnits).map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
-                 </select>
-              </div>
-              </>
-              )}
            </div>
-           <button onClick={() => activeTab === 'meters' ? loadMeters({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined }) : loadReadings({ site_id: siteFilter || undefined, building_id: buildingFilter || undefined, unit_id: unitFilter || undefined })} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-             <RefreshCw size={16} />
-           </button>
+
+           {isAdmin && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-50 dark:border-slate-700/50">
+               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl min-w-0">
+                  <MapPin size={14} className="text-slate-400 shrink-0" />
+                  <select value={siteFilter} onChange={e => {
+                    const v = e.target.value; setSiteFilter(v); setBuildingFilter(''); setUnitsForFilter([]); setBuildingsForFilter([])
+                    if (!v) { setBuildingsForFilter([]); setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
+                    listBuildings({ page: 1, per_page: 500, site_id: v }).then((res: any) => { const b = Array.isArray(res) ? res : (res?.data || []); setBuildingsForFilter(b) }).catch(console.error)
+                    if (activeTab === 'meters') { loadMeters({ site_id: v }) } else { loadReadings({ site_id: v }) }
+                  }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer w-full p-0">
+                    <option value="">All Sites</option>
+                    {allSites.map(s => <option key={s.id} value={s.id}>{s.name || s.code || s.id}</option>)}
+                  </select>
+               </div>
+
+               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl min-w-0">
+                  <Building2 size={14} className="text-slate-400 shrink-0" />
+                  <select value={buildingFilter} onChange={e => {
+                    const v = e.target.value; setBuildingFilter(v); setUnitsForFilter([])
+                    if (!v) { setUnitsForFilter([]); if (activeTab === 'meters') loadMeters(); else loadReadings(); return }
+                    listUnits({ building_id: v, page: 1, per_page: 500 }).then((res: any) => { setUnitsForFilter(Array.isArray(res) ? res : (res?.data || [])) }).catch(console.error)
+                    if (activeTab === 'meters') { loadMeters({ building_id: v, site_id: siteFilter }) } else { loadReadings({ building_id: v, site_id: siteFilter }) }
+                  }} className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer w-full p-0">
+                    <option value="">All Buildings</option>
+                    {buildingsForFilter.length ? buildingsForFilter.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>) : allBuildings.map(b => <option key={b.id} value={b.id}>{b.name || b.code || b.id}</option>)}
+                  </select>
+               </div>
+
+               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-xl min-w-0">
+                  <Filter size={14} className="text-slate-400 shrink-0" />
+                  <select 
+                   value={unitFilter} 
+                   onChange={e => {setUnitFilter(e.target.value); if (activeTab === 'meters') { loadMeters({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) } else { loadReadings({ unit_id: e.target.value, building_id: buildingFilter, site_id: siteFilter }) }}} 
+                   className="text-xs font-bold text-slate-500 bg-transparent border-none focus:ring-0 cursor-pointer w-full p-0"
+                  >
+                    <option value="">All Units</option>
+                    {(unitsForFilter.length ? unitsForFilter : allUnits).map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
+                  </select>
+               </div>
+            </div>
+           )}
         </div>
 
         {loading ? (

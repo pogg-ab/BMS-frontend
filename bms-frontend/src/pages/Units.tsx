@@ -7,6 +7,7 @@ import { listBuildings, getBuilding } from '../api/buildings'
 import api from '../api/axios'
 import { Search, LayoutGrid, List as ListIcon, Star, Maximize, Bed, MapPin, Building2, Edit2, Info, Plus, Upload, Trash2, X, Download } from 'lucide-react'
 import { downloadReport } from '../utils/export'
+import PermissionGate from '../components/PermissionGate'
 
 // Constants
 const UNIT_TYPES = [
@@ -306,29 +307,35 @@ export default function Units() {
       title="Property Units"
       subtitle="Manage physical assets, configurations, and occupancy status."
       actions={
-        <div className="flex items-center gap-3">
-          <input type="file" accept=".csv" ref={fileRef} className="hidden" onChange={handleBulkUpload} />
-          <button 
-            type="button"
-            className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200"
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload size={16} /> Bulk Upload
-          </button>
-          <button 
-            type="button"
-            className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200"
-            onClick={() => downloadReport('units')}
-          >
-            <Download size={16} /> Export CSV
-          </button>
-          <button 
-            type="button"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors shadow-sm shadow-indigo-600/20 text-sm font-semibold"
-            onClick={openCreate}
-          >
-            <Plus size={16} /> Create Unit
-          </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <PermissionGate permission="units:bulk_upload">
+            <input type="file" accept=".csv" ref={fileRef} className="hidden" onChange={handleBulkUpload} />
+            <button 
+              type="button"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload size={16} /> <span className="hidden xs:inline">Bulk</span>
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="reports:view">
+            <button 
+              type="button"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200"
+              onClick={() => downloadReport('units')}
+            >
+              <Download size={16} /> <span className="hidden xs:inline">Export</span>
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="units:create">
+            <button 
+              type="button"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors shadow-sm shadow-indigo-600/20 text-xs sm:text-sm font-semibold"
+              onClick={openCreate}
+            >
+              <Plus size={16} /> <span className="hidden xs:inline">Create</span>
+            </button>
+          </PermissionGate>
         </div>
       }
     >
@@ -368,23 +375,23 @@ export default function Units() {
 
         {/* Hero Banner (Only if a specific building is selected) */}
         {selectedBuildingId && currentBuilding && (
-          <div className="relative w-full h-[320px] rounded-[32px] overflow-hidden group shadow-lg">
+          <div className="relative w-full h-[200px] sm:h-[320px] rounded-[24px] sm:rounded-[32px] overflow-hidden group shadow-lg">
             <div 
               className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 group-hover:scale-105"
               style={{ backgroundImage: `url("${currentBuilding?.image_url ? `${API_BASE}${currentBuilding.image_url}` : 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop'}")` }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
 
-            <div className="absolute bottom-8 left-8">
-              <h1 className="text-4xl font-bold text-white tracking-tight mb-2 drop-shadow-md">{currentBuilding.name || currentBuilding.code}</h1>
-              <div className="flex items-center text-white/80 text-sm font-medium">
-                <MapPin size={16} className="mr-1.5 opacity-80" />
+            <div className="absolute bottom-6 left-6 sm:bottom-8 sm:left-8">
+              <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight mb-2 drop-shadow-md">{currentBuilding.name || currentBuilding.code}</h1>
+              <div className="flex items-center text-white/80 text-xs sm:text-sm font-medium">
+                <MapPin size={14} className="mr-1.5 opacity-80" />
                 {currentBuilding.address || 'Location Verified'}
               </div>
             </div>
             
-            <div className="absolute top-6 right-6">
-              <span className="bg-emerald-500/20 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+              <span className="bg-emerald-500/20 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Live System Context
               </span>
             </div>
@@ -392,8 +399,8 @@ export default function Units() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 mt-8">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 flex-1">
             <div className="relative">
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
@@ -401,41 +408,43 @@ export default function Units() {
                 placeholder="Search by unit number..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-11 pr-4 py-2.5 w-64 bg-white dark:bg-slate-800 border-none rounded-xl text-sm font-medium shadow-sm hover:shadow-md transition-shadow text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="pl-11 pr-4 py-2.5 w-full sm:w-64 bg-white dark:bg-slate-800 border-none rounded-xl text-sm font-medium shadow-sm hover:shadow-md transition-shadow text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
-            <select 
-              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-              value={floorFilter}
-              onChange={e => setFloorFilter(e.target.value)}
-            >
-              <option>All Floors</option>
-              {Array.from(new Set(units.map(u => String(u.floor ?? '')))).sort((a,b)=>Number(a)-Number(b)).map(f => (
-                <option key={f} value={f}>{f === '' ? 'Floor 0' : `Floor ${f}`}</option>
-              ))}
-            </select>
-            <select 
-              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option>Status: All</option>
-              <option>Status: Vacant</option>
-              <option>Status: Occupied</option>
-              <option>Status: Maintenance</option>
-            </select>
-            <select 
-              className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value)}
-            >
-              <option>Type: All</option>
-              {UNIT_TYPES.map(t => (
-                <option key={t.value} value={`Type: ${t.value}`}>{t.label}</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-3">
+              <select 
+                className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                value={floorFilter}
+                onChange={e => setFloorFilter(e.target.value)}
+              >
+                <option>All Floors</option>
+                {Array.from(new Set(units.map(u => String(u.floor ?? '')))).sort((a,b)=>Number(a)-Number(b)).map(f => (
+                  <option key={f} value={f}>{f === '' ? 'Floor 0' : `Floor ${f}`}</option>
+                ))}
+              </select>
+              <select 
+                className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option>Status: All</option>
+                <option>Status: Vacant</option>
+                <option>Status: Occupied</option>
+                <option>Status: Maintenance</option>
+              </select>
+              <select 
+                className="bg-white dark:bg-slate-800 border-none rounded-xl py-2.5 pl-4 pr-10 text-sm font-medium shadow-sm text-slate-700 dark:text-slate-200 cursor-pointer"
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value)}
+              >
+                <option>Type: All</option>
+                {UNIT_TYPES.map(t => (
+                  <option key={t.value} value={`Type: ${t.value}`}>{t.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm shrink-0">
+          <div className="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm self-end">
             <button className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 shadow-sm">
               <LayoutGrid size={18} />
             </button>
@@ -484,15 +493,21 @@ export default function Units() {
                         
                         {/* Hover Overlay Actions */}
                         <div className="absolute top-4 left-4 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(u)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Edit Unit">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => openDetails(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="View Details">
-                            <Info size={14} />
-                          </button>
-                          <button onClick={() => handleDelete(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-rose-600 transition-colors" title="Delete Unit">
-                            <Trash2 size={14} />
-                          </button>
+                          <PermissionGate permission="units:update">
+                            <button onClick={() => openEdit(u)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="Edit Unit">
+                              <Edit2 size={14} />
+                            </button>
+                          </PermissionGate>
+                          <PermissionGate permission="units:read">
+                            <button onClick={() => openDetails(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-indigo-600 transition-colors" title="View Details">
+                              <Info size={14} />
+                            </button>
+                          </PermissionGate>
+                          <PermissionGate permission="units:delete">
+                            <button onClick={() => handleDelete(u.id)} className="w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center text-slate-700 hover:text-rose-600 transition-colors" title="Delete Unit">
+                              <Trash2 size={14} />
+                            </button>
+                          </PermissionGate>
                         </div>
 
                         <div className="h-44 relative overflow-hidden">

@@ -1,7 +1,8 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Search, Bell, HelpCircle, Sun, Moon, LogOut } from 'lucide-react'
+import { Search, Bell, HelpCircle, Sun, Moon, LogOut, Menu } from 'lucide-react'
 import { useNotification } from '../contexts/NotificationContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { useLayout } from '../contexts/LayoutContext'
 import { logout } from '../auth/auth'
 
 interface TopHeaderBarProps {
@@ -13,6 +14,7 @@ export default function TopHeaderBar({ searchPlaceholder = 'Search leases, tenan
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useNotification()
+  const { toggleMobileSidebar } = useLayout()
 
   const navTabs = [
     { to: '/', label: 'Dashboard', match: ['/'] },
@@ -36,14 +38,21 @@ export default function TopHeaderBar({ searchPlaceholder = 'Search leases, tenan
   } catch {}
 
   return (
-    <div className="h-[60px] bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700/60 flex items-center justify-between px-6 sticky top-0 z-40">
-      {/* Search */}
-      <div className="flex items-center gap-6 flex-1">
-        <div className="relative w-full max-w-md">
+    <div className="h-[60px] bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700/60 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40">
+      {/* Search & Menu */}
+      <div className="flex items-center gap-3 lg:gap-6 flex-1">
+        <button 
+          onClick={toggleMobileSidebar}
+          className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div className="relative w-full max-w-xs lg:max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={searchPlaceholder}
+            placeholder={window.innerWidth < 640 ? "Search..." : searchPlaceholder}
             className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
           />
         </div>
@@ -70,7 +79,7 @@ export default function TopHeaderBar({ searchPlaceholder = 'Search leases, tenan
       </nav>
 
       {/* Right: notifications, help, user */}
-      <div className="flex items-center gap-4 ml-6">
+      <div className="flex items-center gap-1.5 lg:gap-4 ml-2 lg:ml-6">
         <NavLink to="/notifications" className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all">
           <Bell size={18} />
           {unreadCount > 0 && (
@@ -91,7 +100,7 @@ export default function TopHeaderBar({ searchPlaceholder = 'Search leases, tenan
         <NavLink 
           to="/profile"
           title="Support"
-          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+          className="hidden sm:block p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
         >
           <HelpCircle size={18} />
         </NavLink>
@@ -105,12 +114,12 @@ export default function TopHeaderBar({ searchPlaceholder = 'Search leases, tenan
         </button>
 
         {/* User Profile */}
-        <NavLink to="/profile" className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
+        <NavLink to="/profile" className="flex items-center gap-3 pl-2 lg:pl-4 border-l border-slate-200 dark:border-slate-700">
           <div className="text-right hidden lg:block">
             <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight">{userName}</div>
             <div className="text-[11px] text-slate-400">{userRole}</div>
           </div>
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+          <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm">
             {userName.charAt(0).toUpperCase()}
           </div>
         </NavLink>
