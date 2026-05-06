@@ -44,3 +44,8 @@ export async function getLoginHistory() {
   const res = await api.get('/auth/login-history');
   return res.data;
 }
+
+export async function changePassword(payload: any) {
+  const res = await api.post('/auth/change-password', payload);
+  return res.data;
+}

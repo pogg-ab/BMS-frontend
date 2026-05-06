@@ -1,10 +1,24 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import PageLayout from '../components/PageLayout'
-import { getProfile } from '../auth/auth'
+import { getProfile, changePassword } from '../auth/auth'
+import { useToast } from '../components/ToastProvider'
+import { Lock, Shield, Mail, User, CheckCircle, XCircle, Key, Eye, EyeOff } from 'lucide-react'
 
 export default function Profile() {
+  const toast = useToast()
   const [profile, setProfile] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -164,6 +178,121 @@ export default function Profile() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Security / Change Password Section ── */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/60 p-8">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
+            <Key className="w-5 h-5 text-slate-400" />
+            Security
+          </h3>
+          
+          {isChangingPassword ? (
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault()
+                if (newPassword !== confirmPassword) {
+                  return toast.addToast('New passwords do not match', 'error')
+                }
+                setIsSubmitting(true)
+                try {
+                  await changePassword({ currentPassword, newPassword })
+                  toast.addToast('Password updated successfully', 'success')
+                  setIsChangingPassword(false)
+                  setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+                } catch (err: any) {
+                  toast.addToast(err?.response?.data?.message || 'Failed to update password', 'error')
+                } finally {
+                  setIsSubmitting(false)
+                }
+              }}
+              className="max-w-md space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Current Password</label>
+                <div className="relative">
+                  <input 
+                    type={showCurrentPassword ? 'text' : 'password'} 
+                    required 
+                    value={currentPassword} 
+                    onChange={e => setCurrentPassword(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 pr-10"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">New Password</label>
+                <div className="relative">
+                  <input 
+                    type={showNewPassword ? 'text' : 'password'} 
+                    required 
+                    value={newPassword} 
+                    onChange={e => setNewPassword(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 pr-10"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Confirm New Password</label>
+                <div className="relative">
+                  <input 
+                    type={showConfirmPassword ? 'text' : 'password'} 
+                    required 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)} 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 pr-10"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-lg transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Updating...' : 'Update Password'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setIsChangingPassword(false)}
+                  className="text-slate-500 font-bold hover:bg-slate-100 py-2 px-6 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">Regularly updating your password helps keep your account secure.</p>
+              <button 
+                onClick={() => setIsChangingPassword(true)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-6 rounded-xl transition-all flex items-center gap-2"
+              >
+                <Lock size={16} /> Change Password
+              </button>
+            </div>
+          )}
         </div>
 
       </div>

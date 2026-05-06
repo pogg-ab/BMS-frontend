@@ -3,7 +3,7 @@ import { listUsers, deleteUser, activateUser, assignRole, createUser, updateUser
 import { listRoles } from '../api/roles'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
-import { Plus, Trash2, Edit2, Shield, User, Mail, Lock, CheckCircle, XCircle, MoreVertical, Search, X } from 'lucide-react'
+import { Plus, Trash2, Edit2, Shield, User, Mail, Lock, CheckCircle, XCircle, MoreVertical, Search, X, Eye, EyeOff } from 'lucide-react'
 import PermissionGate from '../components/PermissionGate'
 
 type UserRow = {
@@ -32,6 +32,7 @@ export default function Users() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [roleId, setRoleId] = useState<string | undefined>(undefined)
 
   async function load() {
@@ -103,7 +104,9 @@ export default function Users() {
     e.preventDefault()
     try {
       if (editing) {
-        await updateUser(editing.id, { name, email })
+        const updatePayload: any = { name, email }
+        if (password) updatePayload.password = password
+        await updateUser(editing.id, updatePayload)
         if (roleId) await assignRole({ user_id: editing.id, role_id: String(roleId) })
         toast.addToast('User updated successfully', 'success')
       } else {
@@ -304,15 +307,29 @@ export default function Users() {
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="sarah@bms.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                 </div>
               </div>
-              {!editing && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Initial Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                  {editing ? 'New Password (Leave blank to keep current)' : 'Initial Password'}
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    required={!editing} 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    placeholder="••••••••" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
-              )}
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Primary Role</label>
                 <div className="relative">
