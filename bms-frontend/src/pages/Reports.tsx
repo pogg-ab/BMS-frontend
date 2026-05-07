@@ -13,14 +13,18 @@ import {
   getFinanceAnalytics,
   getPropertyAnalytics,
   getLeaseAnalytics,
-  getPeopleAnalytics
+  getPeopleAnalytics,
+  getInvoiceStatusBreakdown,
+  getCollectionRateTrend,
+  getTenantPaymentHistory
 } from '../api/reports'
 import { Link } from 'react-router-dom'
 import { 
-  TrendingUp, Users, DollarSign, Home, 
+  LayoutDashboard, DollarSign, ShieldCheck, ClipboardList, Search,
+  TrendingUp, Users, Home, 
   ArrowUpRight, Calendar, PieChart as PieIcon, 
-  Download, Activity, ClipboardList, ShieldAlert, 
-  UserCheck, Briefcase
+  Download, Activity, ShieldAlert, 
+  UserCheck, Briefcase, FileText
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
@@ -28,7 +32,10 @@ import {
   Pie, Cell, Legend, LineChart, Line
 } from 'recharts'
 import { downloadReport } from '../utils/export'
+import ScheduleReportModal from '../components/ScheduleReportModal'
 import { getRoles } from '../utils/jwt'
+import { listSites } from '../api/sites'
+import { listOwners } from '../api/owners'
 
 function Money({ value }: { value: number }) {
   return <span className="font-bold">ETB {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -60,53 +67,94 @@ export default function Reports() {
   // Analytics States
   const [finAnalytics, setFinAnalytics] = useState<any>(null)
   const [propAnalytics, setPropAnalytics] = useState<any>(null)
-  const [leaseAnalytics, setLeaseAnalytics] = useState<any>(null)
   const [peopleAnalytics, setPeopleAnalytics] = useState<any>(null)
+  const [leaseAnalytics, setLeaseAnalytics] = useState<any>(null)
+  const [invoiceStatus, setInvoiceStatus] = useState<any[]>([])
+  const [collectionTrend, setCollectionTrend] = useState<any[]>([])
+  const [tenantHistory, setTenantHistory] = useState<any[]>([])
 
-  const handleExport = async () => {
+  // Filter States
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    buildingId: '',
+    ownerId: '',
+    siteId: ''
+  })
+  const [allBuildings, setAllBuildings] = useState<any[]>([])
+  const [allSites, setAllSites] = useState<any[]>([])
+  const [allOwners, setAllOwners] = useState<any[]>([])
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+
+  const handleExport = async (format: 'csv' | 'pdf' = 'csv') => {
     try {
       let type = activeTab as string;
       if (type === 'overview') type = 'revenue';
       if (type === 'property') type = 'buildings';
       if (type === 'people') type = 'tenants';
       
-      await downloadReport(type);
-      toast.addToast(`${type} report exported successfully`, 'success');
+      await downloadReport(type, format);
+      toast.addToast(`${type} ${format.toUpperCase()} report exported successfully`, 'success');
     } catch (e) {
       toast.addToast('Failed to export report', 'error');
     }
   }
 
-  useEffect(() => { loadData() }, [activeTab])
+  useEffect(() => {
+    async function init() {
+      try {
+        const [buildings, sites, ownersRes] = await Promise.all([
+          getPropertyReport({}), // Empty params to get all accessible buildings
+          listSites(),
+          listOwners()
+        ])
+        setAllBuildings(Array.isArray(buildings) ? buildings : [])
+        setAllSites(Array.isArray(sites) ? sites : [])
+        const ownersList = ownersRes?.data || ownersRes
+        setAllOwners(Array.isArray(ownersList) ? ownersList : [])
+      } catch (e) {
+        console.error('Failed to load filter data', e)
+      }
+    }
+    init()
+  }, [])
+
+  useEffect(() => { loadData() }, [activeTab, filters])
 
   async function loadData() {
     setLoading(true)
     try {
       if (activeTab === 'overview') {
-        const [dash, fin, occ] = await Promise.all([getDashboard(), getFinancial(), getOccupancy()])
+        const [dash, fin, occ] = await Promise.all([getDashboard(filters), getFinancial(filters), getOccupancy(filters)])
         setDashboard(dash)
         setFinancial(Array.isArray(fin) ? fin : [])
         setOccupancy(occ)
       } else if (activeTab === 'finance') {
-        const [fin, det, ana] = await Promise.all([getFinancial(), getDetailedFinancials(), getFinanceAnalytics()])
+        const [fin, det, ana, invStatus, collRate, history] = await Promise.all([
+          getFinancial(filters), getDetailedFinancials(filters), getFinanceAnalytics(filters),
+          getInvoiceStatusBreakdown(filters), getCollectionRateTrend(filters), getTenantPaymentHistory(filters)
+        ])
         setFinancial(Array.isArray(fin) ? fin : [])
         setDetailedFin(det)
         setFinAnalytics(ana)
+        setInvoiceStatus(Array.isArray(invStatus) ? invStatus : [])
+        setCollectionTrend(Array.isArray(collRate) ? collRate : [])
+        setTenantHistory(Array.isArray(history) ? history : [])
       } else if (activeTab === 'property') {
-        const [prop, occ, ana] = await Promise.all([getPropertyReport(), getOccupancy(), getPropertyAnalytics()])
+        const [prop, occ, ana] = await Promise.all([getPropertyReport(filters), getOccupancy(filters), getPropertyAnalytics(filters)])
         setProperties(prop)
         setOccupancy(occ)
         setPropAnalytics(ana)
       } else if (activeTab === 'people') {
-        const [p, ana] = await Promise.all([getPeopleReport(), getPeopleAnalytics()])
+        const [p, ana] = await Promise.all([getPeopleReport(filters), getPeopleAnalytics(filters)])
         setPeople(p)
         setPeopleAnalytics(ana)
       } else if (activeTab === 'leases') {
-        const [l, ana] = await Promise.all([getLeaseReport(), getLeaseAnalytics()])
+        const [l, ana] = await Promise.all([getLeaseReport(filters), getLeaseAnalytics(filters)])
         setLeases(l)
         setLeaseAnalytics(ana)
       } else if (activeTab === 'overdue') {
-        const o = await getOverdueDetails()
+        const o = await getOverdueDetails(filters)
         setOverdue(o)
       }
     } catch (e: any) {
@@ -135,16 +183,107 @@ export default function Reports() {
       actions={
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button 
-            onClick={handleExport}
+            onClick={() => handleExport('pdf')}
+            className="button-secondary text-xs font-bold gap-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 px-3 sm:px-4 py-2"
+          >
+            <FileText size={14} /> <span className="hidden xs:inline">Export PDF</span>
+            <span className="xs:hidden">PDF</span>
+          </button>
+          <button 
+            onClick={() => handleExport('csv')}
             className="button-secondary text-xs font-bold gap-2 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2"
           >
             <Download size={14} /> <span className="hidden xs:inline">Export CSV</span>
-            <span className="xs:hidden">Export</span>
+            <span className="xs:hidden">CSV</span>
+          </button>
+          <button 
+            className="button-primary text-xs font-bold gap-2 px-3 sm:px-4 py-2"
+            onClick={() => setShowScheduleModal(true)}
+          >
+            <Calendar size={14} /> <span className="hidden xs:inline">Schedule</span>
           </button>
         </div>
       }
     >
       <div className="space-y-8 pb-20">
+        
+        {/* Filters Bar */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-4">
+           <div className="flex items-center gap-2">
+             <label className="text-[10px] font-black uppercase text-slate-400">From</label>
+             <input 
+               type="date" 
+               className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-xs font-bold px-3 py-2 focus:ring-2 ring-indigo-500/20"
+               value={filters.startDate}
+               onChange={(e) => setFilters({...filters, startDate: e.target.value})}
+             />
+           </div>
+           <div className="flex items-center gap-2">
+             <label className="text-[10px] font-black uppercase text-slate-400">To</label>
+             <input 
+               type="date" 
+               className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-xs font-bold px-3 py-2 focus:ring-2 ring-indigo-500/20"
+               value={filters.endDate}
+               onChange={(e) => setFilters({...filters, endDate: e.target.value})}
+             />
+           </div>
+           <div className="flex items-center gap-2 min-w-[140px]">
+             <label className="text-[10px] font-black uppercase text-slate-400">Site</label>
+             <select 
+               className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-xs font-bold px-3 py-2 focus:ring-2 ring-indigo-500/20 w-full"
+               value={filters.siteId}
+               onChange={(e) => setFilters({...filters, siteId: e.target.value})}
+             >
+               <option value="">All Sites</option>
+               {allSites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+             </select>
+           </div>
+           <div className="flex items-center gap-2 min-w-[140px]">
+             <label className="text-[10px] font-black uppercase text-slate-400">Owner</label>
+             <select 
+               className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-xs font-bold px-3 py-2 focus:ring-2 ring-indigo-500/20 w-full"
+               value={filters.ownerId}
+               onChange={(e) => setFilters({...filters, ownerId: e.target.value})}
+             >
+               <option value="">All Owners</option>
+               {allOwners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+             </select>
+           </div>
+           <div className="flex items-center gap-2 min-w-[150px]">
+             <label className="text-[10px] font-black uppercase text-slate-400">Building</label>
+             <select 
+               className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-xs font-bold px-3 py-2 focus:ring-2 ring-indigo-500/20 w-full"
+               value={filters.buildingId}
+               onChange={(e) => setFilters({...filters, buildingId: e.target.value})}
+             >
+               <option value="">All Buildings</option>
+               {allBuildings
+                 .filter(p => {
+                   const matchesSite = !filters.siteId || p.siteId === filters.siteId || p.site?.id === filters.siteId;
+                   const matchesOwner = !filters.ownerId || p.ownerId === filters.ownerId || p.owner?.id === filters.ownerId;
+                   return matchesSite && matchesOwner;
+                 })
+                 .map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+               }
+             </select>
+           </div>
+            <div className="ml-auto flex items-center gap-2">
+              <button 
+                onClick={loadData}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm active:scale-95"
+              >
+                Apply Filters
+              </button>
+              <button 
+                onClick={() => {
+                  setFilters({ buildingId: '', startDate: '', endDate: '', siteId: '', ownerId: '' });
+                }}
+                className="bg-slate-100 dark:bg-slate-800 text-slate-500 px-3 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
+              >
+                Clear
+              </button>
+            </div>
+        </div>
         
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-2xl w-fit overflow-x-auto max-w-full no-scrollbar">
@@ -176,7 +315,7 @@ export default function Reports() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             {activeTab === 'overview' && <OverviewTab dashboard={dashboard} financial={financial} occupancy={occupancy} />}
-            {activeTab === 'finance' && <FinanceTab financial={financial} detailedFin={detailedFin} analytics={finAnalytics} />}
+            {activeTab === 'finance' && <FinanceTab financial={financial} detailedFin={detailedFin} analytics={finAnalytics} invoiceStatus={invoiceStatus} collectionTrend={collectionTrend} tenantHistory={tenantHistory} />}
             {activeTab === 'property' && <PropertyTab properties={properties} occupancy={occupancy} analytics={propAnalytics} />}
             {activeTab === 'people' && <PeopleTab people={people} analytics={peopleAnalytics} />}
             {activeTab === 'leases' && <LeaseTab leases={leases} analytics={leaseAnalytics} />}
@@ -184,6 +323,7 @@ export default function Reports() {
           </div>
         )}
 
+        {showScheduleModal && <ScheduleReportModal onClose={() => setShowScheduleModal(false)} />}
       </div>
     </PageLayout>
   )
@@ -267,92 +407,296 @@ function OverviewTab({ dashboard, financial, occupancy }: any) {
   )
 }
 
-function FinanceTab({ financial, detailedFin, analytics }: any) {
+function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collectionTrend, tenantHistory }: any) {
+  const [activeSubTab, setActiveSubTab] = useState('overview');
+  const [historySearch, setHistorySearch] = useState('')
+  
+  const filteredHistory = tenantHistory?.filter((h: any) => 
+    !historySearch || h.tenant_name?.toLowerCase().includes(historySearch.toLowerCase()) || h.invoice_no?.toLowerCase().includes(historySearch.toLowerCase())
+  ) || []
+
+  const globalRate = collectionTrend?.length > 0 
+    ? Math.round(collectionTrend.reduce((s: number, r: any) => s + (r.collected || 0), 0) / Math.max(collectionTrend.reduce((s: number, r: any) => s + (r.invoiced || 0), 0), 1) * 100)
+    : 0
+
+  const totalInvoiced = financial?.reduce((acc: number, curr: any) => acc + (curr.invoiced || 0), 0) || 0;
+  const totalPaid = financial?.reduce((acc: number, curr: any) => acc + (curr.paid || 0), 0) || 0;
+  const totalOutstanding = totalInvoiced - totalPaid;
+
+  const subTabs = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'revenue', label: 'Revenue Drilldown', icon: DollarSign },
+    { id: 'collections', label: 'Collections & Aging', icon: ShieldCheck },
+    { id: 'history', label: 'Transaction Ledger', icon: ClipboardList },
+  ]
+
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Category Breakdown */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h3 className="text-lg font-bold mb-6">Revenue by Category</h3>
-          <div className="h-64 relative">
-            {(!analytics?.categoryRevenue || analytics.categoryRevenue.every((d: any) => d.value === 0)) ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                <PieIcon size={40} className="mb-2 opacity-20" />
-                <p className="text-xs font-bold uppercase tracking-widest">No Revenue Data</p>
-              </div>
-            ) : (
+    <div className="space-y-6">
+      {/* Sub-tab Navigation */}
+      <div className="flex gap-2 p-1.5 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl w-fit border border-slate-200/50 dark:border-slate-800/50">
+        {subTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeSubTab === tab.id 
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === 'overview' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <StatCard title="Total Billing" value={`ETB ${totalInvoiced.toLocaleString()}`} icon={DollarSign} color="indigo" trend="+12% vs last month" />
+            <StatCard title="Total Collected" value={`ETB ${totalPaid.toLocaleString()}`} icon={ShieldCheck} color="emerald" trend={`${globalRate}% Rate`} />
+            <StatCard title="Net Outstanding" value={`ETB ${totalOutstanding.toLocaleString()}`} icon={ShieldAlert} color="rose" trend="Action required" />
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="text-lg font-bold mb-6">Financial Performance Trend</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={financial} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradInvoiced" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="gradPaid" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                  <Tooltip contentStyle={{borderRadius:'20px', border:'none', boxShadow:'0 20px 25px -5px rgb(0 0 0 / 0.1)'}} />
+                  <Legend verticalAlign="top" align="right" iconType="circle" />
+                  <Area type="monotone" dataKey="invoiced" name="Invoiced" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#gradInvoiced)" />
+                  <Area type="monotone" dataKey="paid" name="Collected" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#gradPaid)" />
+                  <Line type="monotone" dataKey="outstanding" name="Outstanding" stroke="#ef4444" strokeWidth={2} strokeDasharray="6 4" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'revenue' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="text-lg font-bold mb-6">Revenue by Building</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analytics?.revenueByBuilding || []} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:11, fontWeight:'bold'}} width={80} />
+                  <Tooltip cursor={{fill: 'transparent'}} />
+                  <Bar dataKey="value" name="Total" fill="#4f46e5" radius={[0, 8, 8, 0]} barSize={16} />
+                  <Bar dataKey="paid" name="Paid" fill="#10b981" radius={[0, 8, 8, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-8 space-y-4">
+              {analytics?.revenueByBuilding?.map((b: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                  <div>
+                    <p className="text-sm font-bold">{b.name}</p>
+                    <p className="text-[10px] text-slate-400">Total: ETB {b.value?.toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-emerald-600">ETB {b.paid?.toLocaleString()}</p>
+                    <p className="text-[10px] text-rose-500 font-bold">Outstanding: ETB {b.outstanding?.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="text-lg font-bold mb-6">Revenue Mix (Category)</h3>
+            <div className="h-72 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={analytics?.categoryRevenue || []}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={8}
                     dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
                     {analytics?.categoryRevenue?.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
+                  <Legend verticalAlign="bottom" height={36}/>
                 </PieChart>
               </ResponsiveContainer>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global</p>
+                <p className="text-xl font-black">Revenue</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'collections' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-lg font-bold">Monthly Collection Rate</h3>
+              <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-2xl">
+                <span className="text-2xl font-black text-emerald-600">{globalRate}%</span>
+                <span className="text-[10px] ml-1 font-bold text-emerald-500 uppercase">Avg</span>
+              </div>
+            </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={collectionTrend}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                  <Tooltip formatter={(val: any) => `${val}%`} />
+                  <Line type="monotone" dataKey="rate" name="Rate" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
+            <h3 className="text-lg font-bold mb-8">Payment Status Breakdown</h3>
+            <div className="h-64 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={invoiceStatus}
+                    innerRadius={0}
+                    outerRadius={90}
+                    dataKey="value"
+                  >
+                    {invoiceStatus.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.name === 'Paid' ? '#10b981' : entry.name === 'Partial' ? '#f59e0b' : '#ef4444'} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mt-8">
+              {invoiceStatus.map((s: any) => (
+                <div key={s.name} className="text-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">{s.name}</p>
+                  <p className="text-lg font-black">{s.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm col-span-1 lg:col-span-2">
+            <h3 className="text-lg font-bold mb-8">Overdue Aging Breakdown</h3>
+            {(!analytics?.overdueAging || analytics.overdueAging.length === 0) ? (
+              <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                <ShieldCheck size={40} className="mb-2 opacity-20 text-emerald-500" />
+                <p className="text-xs font-bold uppercase tracking-widest">No Overdue Invoices</p>
+                <p className="text-[10px] mt-1 font-medium">All invoices for this period are fully paid.</p>
+              </div>
+            ) : (
+              <>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics?.overdueAging || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="bucket" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:11, fontWeight:'bold'}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                      <Tooltip formatter={(val: any) => `ETB ${val.toLocaleString()}`} />
+                      <Bar dataKey="amount" name="Outstanding" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                  {analytics.overdueAging.map((a: any) => (
+                    <div key={a.bucket} className="p-6 rounded-3xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/20">
+                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{a.bucket}</p>
+                      <p className="text-xl font-black text-rose-600 mt-1">ETB {a.amount?.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">{a.count} Invoices</p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
+      )}
 
-        {/* Collection Efficiency */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-          <h3 className="text-lg font-bold mb-6">Collection Efficiency</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics?.efficiency || []} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
-                <XAxis type="number" axisLine={false} tickLine={false} hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:12, fontWeight:'bold'}} width={70} />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
-                  {analytics?.efficiency?.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#f43f5e'} />
+      {activeSubTab === 'history' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/20">
+              <h3 className="text-lg font-bold">Global Payment Ledger</h3>
+              <div className="relative group">
+                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input 
+                  type="text"
+                  placeholder="Search tenant or invoice..."
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold pl-10 pr-4 py-2.5 focus:ring-4 ring-indigo-500/10 w-72 transition-all"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <th className="px-6 py-5">Tenant / Unit</th>
+                    <th className="px-6 py-5">Invoice #</th>
+                    <th className="px-6 py-5">Due Date</th>
+                    <th className="px-6 py-5 text-right">Amount</th>
+                    <th className="px-6 py-5 text-right">Paid</th>
+                    <th className="px-6 py-5 text-right">Balance</th>
+                    <th className="px-6 py-5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  {filteredHistory.map((h: any, i: number) => (
+                    <tr key={i} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-900/5 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-bold">{h.tenant_name}</p>
+                        <p className="text-[10px] text-slate-400">{h.building_name} · {h.unit_number}</p>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-500">{h.invoice_no}</td>
+                      <td className="px-6 py-4 text-xs font-medium">{new Date(h.due_date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-sm text-right font-medium">ETB {h.amount?.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-right text-emerald-600 font-bold">ETB {h.paid_amount?.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-right font-black" style={{color: h.balance > 0 ? '#ef4444' : '#10b981'}}>
+                        ETB {h.balance?.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg ${
+                          h.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                          h.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>{h.status?.toUpperCase()}</span>
+                      </td>
+                    </tr>
                   ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Payment Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-            <h3 className="text-lg font-bold">Recent Payments Audit</h3>
-            <Link to="/finance?tab=payments" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors bg-indigo-50 dark:bg-slate-900 px-3 py-1.5 rounded-lg">View All Transactions</Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                <th className="px-8 py-4">Tenant</th>
-                <th className="px-8 py-4">Date</th>
-                <th className="px-8 py-4">Reference</th>
-                <th className="px-8 py-4 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {detailedFin?.recentPayments?.map((p: any) => (
-                <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10">
-                  <td className="px-8 py-5 text-sm font-bold">{p.invoice?.tenant?.first_name} {p.invoice?.tenant?.last_name}</td>
-                  <td className="px-8 py-5 text-xs text-slate-500">{new Date(p.created_at).toLocaleDateString()}</td>
-                  <td className="px-8 py-5 text-xs font-mono">{p.reference_no}</td>
-                  <td className="px-8 py-5 text-right font-black text-emerald-600">ETB {p.amount.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
