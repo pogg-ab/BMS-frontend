@@ -255,19 +255,19 @@ export default function Sites() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <form id="site-form" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Name</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Name <span className="text-red-500">*</span></label>
                   <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Headquarters" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">City</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">City <span className="text-red-500">*</span></label>
                   <input required value={city} onChange={e => setCity(e.target.value)} placeholder="Addis Ababa" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Subcity</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Subcity <span className="text-red-500">*</span></label>
                   <input required value={subcity} onChange={e => setSubcity(e.target.value)} placeholder="Bole" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Location</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Site Location <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input required value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Addis Ababa" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />

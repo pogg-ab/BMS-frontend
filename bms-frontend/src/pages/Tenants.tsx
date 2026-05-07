@@ -393,7 +393,10 @@ export default function Tenants() {
         const lRes = await financeApi.getTenantLedger(String(id))
         setLedger(lRes)
       } catch { setLedger([]) } finally { setLedgerLoading(false) }
-      try { await handleListDocs() } catch { setDocsList([]) }
+      try { 
+        setDocsList([]) // Clear previous docs while loading
+        await handleListDocs(id) 
+      } catch { setDocsList([]) }
     } catch (e: any) {
       console.error(e)
       // Fallback: if a lightweight object was passed, display it
@@ -441,7 +444,7 @@ export default function Tenants() {
       const res = await createDocument(fd)
       toast.addToast('Document uploaded', 'success')
       // refresh list for selected tenant
-      try { await handleListDocs() } catch { /* ignore */ }
+      try { await handleListDocs(selectedTenantId) } catch { /* ignore */ }
       return res
     } catch (e: any) {
       console.error('Upload error', e)
@@ -463,9 +466,13 @@ export default function Tenants() {
     try {
       // If tenantId overridden, use it; else use selectedTenantId
       const tenantId = tenantIdOverride || selectedTenantId
-      if (tenantId) console.debug('Listing documents for tenant (tenant_id)', tenantId)
-      else console.debug('Listing all documents (no tenant filter)')
-      const params = tenantId ? { tenant_id: tenantId } : undefined
+      if (!tenantId) {
+        setDocsList([])
+        return
+      }
+      
+      console.debug('Listing documents for tenant (tenant_id)', tenantId)
+      const params = { tenant_id: tenantId }
       const res: any = await listDocuments(params)
       const list = Array.isArray(res) ? res : (res?.data || res || [])
       console.debug('Documents list response', list)
@@ -498,7 +505,7 @@ export default function Tenants() {
       await verifyDocument(id, { verified: true })
       toast.addToast('Document verified', 'success')
       // refresh list to reflect verification state
-      try { await handleListDocs() } catch { /* ignore */ }
+      try { await handleListDocs(selectedTenantId) } catch { /* ignore */ }
     } catch (e: any) {
       console.error('Verify failed', e)
       const server = e?.response?.data
@@ -521,7 +528,7 @@ export default function Tenants() {
     try {
       await createAndVerifyFromTenant(detailTenant.id, { type })
       toast.addToast('Document verified', 'success')
-      try { await handleListDocs(detailTenant.id) } catch { /* ignore */ }
+      try { await openDetail(detailTenant.id) } catch { /* ignore */ }
     } catch (e: any) {
       console.error('Verify tenant image failed', e)
       const server = e?.response?.data
@@ -889,23 +896,23 @@ export default function Tenants() {
               <form onSubmit={handleRegister} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">First Name <span className="text-red-500">*</span></label>
                     <input required placeholder="Helena" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Last Name <span className="text-red-500">*</span></label>
                     <input required placeholder="Thorne" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address <span className="text-red-500">*</span></label>
                   <input required type="email" placeholder="helena.thorne@example.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number <span className="text-red-500">*</span></label>
                     <input required placeholder="+1 234 567 890" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                   </div>
                   <div className="space-y-1.5">
@@ -920,7 +927,7 @@ export default function Tenants() {
 
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password <span className="text-red-500">*</span></label>
                   <input required type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none" />
                 </div>
 
@@ -1263,7 +1270,7 @@ export default function Tenants() {
                         <FileText size={24} className="text-indigo-600" /> Documents
                       </h3>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleListDocs(detailTenant?.id)} className="button-secondary">Refresh</button>
+                        <button onClick={() => openDetail(detailTenant?.id)} className="button-secondary">Refresh</button>
                       </div>
                     </div>
 
@@ -1280,7 +1287,10 @@ export default function Tenants() {
                         extraDocs.push({ id: 'tenant-id', type: 'ID / Passport', file_url: detailTenant.id_image, verified: detailTenant.id_image_verified ?? false });
                       }
 
-                      const displayDocs = [...extraDocs, ...docsList];
+                      const displayDocs = [
+                        ...extraDocs.filter(ex => !docsList.some(dl => dl.file_url === ex.file_url && dl.verified)),
+                        ...docsList
+                      ];
 
                       if (displayDocs.length === 0) {
                         return (
@@ -1304,9 +1314,24 @@ export default function Tenants() {
                                   <a href={doc.file_url.startsWith('/') ? `${API_BASE}${doc.file_url}` : doc.file_url} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-100 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer">View</a>
                                 )}
                                 {!doc.verified && (
-                                  (typeof doc.id === 'string' && !String(doc.id).startsWith('tenant-')) ? (
-                                    <button onClick={() => handleVerifyDocument(doc.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl">Verify</button>
-                                  ) : null
+                                  <button 
+                                    onClick={() => {
+                                      if (typeof doc.id === 'string' && String(doc.id).startsWith('tenant-')) {
+                                        const typeRaw = doc.id.replace('tenant-', '');
+                                        const typeMap: Record<string, string> = {
+                                          'id': 'ID',
+                                          'license': 'CONTRACT',
+                                          'profile': 'PROFILE'
+                                        };
+                                        handleVerifyTenantImage(typeMap[typeRaw] || typeRaw.toUpperCase());
+                                      } else {
+                                        handleVerifyDocument(doc.id);
+                                      }
+                                    }} 
+                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-all active:scale-95"
+                                  >
+                                    Verify
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -1407,21 +1432,21 @@ export default function Tenants() {
             <form onSubmit={handleEditTenant} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name <span className="text-red-500">*</span></label>
                   <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name <span className="text-red-500">*</span></label>
                   <input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email <span className="text-red-500">*</span></label>
                   <input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone <span className="text-red-500">*</span></label>
                   <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="w-full h-12 px-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold outline-none" required />
                 </div>
               </div>

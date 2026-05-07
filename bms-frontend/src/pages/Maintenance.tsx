@@ -1024,7 +1024,7 @@ export default function Maintenance() {
                   <h3 className="font-semibold mb-4 text-lg">Assign Work Order</h3>
                   <form onSubmit={handleCreateWorkOrder} className="space-y-3">
                     <div>
-                      <label className="form-label">Request</label>
+                      <label className="form-label">Request <span className="text-red-500">*</span></label>
                       <select
                         value={woRequestId}
                         onChange={e => setWoRequestId(e.target.value)}
@@ -1044,7 +1044,7 @@ export default function Maintenance() {
                     </div>
 
                     <div>
-                      <label className="form-label">Contractor</label>
+                      <label className="form-label">Contractor <span className="text-red-500">*</span></label>
                       <select
                         value={woContractorId}
                         onChange={e => setWoContractorId(e.target.value)}
@@ -1088,7 +1088,7 @@ export default function Maintenance() {
                     </div>
 
                     <div>
-                      <label className="form-label">Scheduled Date</label>
+                      <label className="form-label">Scheduled Date <span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={woScheduledDate}
@@ -1207,7 +1207,7 @@ export default function Maintenance() {
               <h3 className="text-xl font-bold mb-4">{editingContractor ? 'Edit Contractor' : 'Add Contractor'}</h3>
               <form onSubmit={handleCreateContractor} className="space-y-4">
                 <div>
-                  <label className="form-label">Name</label>
+                  <label className="form-label">Name <span className="text-red-500">*</span></label>
                   <input
                     placeholder="Contractor name"
                     value={conName}
@@ -1217,7 +1217,7 @@ export default function Maintenance() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Phone</label>
+                  <label className="form-label">Phone <span className="text-red-500">*</span></label>
                   <input
                     placeholder="+251..."
                     value={conPhone}
@@ -1227,7 +1227,7 @@ export default function Maintenance() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Specialization</label>
+                  <label className="form-label">Specialization <span className="text-red-500">*</span></label>
                   <select
                     value={conSpec}
                     onChange={e => setConSpec(e.target.value)}
@@ -1340,7 +1340,7 @@ export default function Maintenance() {
               <h3 className="text-xl font-bold mb-4">Complete Work Order</h3>
               <form onSubmit={handleSubmitCompletion} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Actual Cost (Birr)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Actual Cost (Birr) <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     value={actualCost}
@@ -1438,7 +1438,7 @@ export default function Maintenance() {
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-6 tracking-tight text-lg">New Recurring Schedule</h3>
                 <form onSubmit={handleCreateSchedule} className="space-y-4">
                   <div>
-                    <label className="form-label">Schedule Name</label>
+                    <label className="form-label">Schedule Name <span className="text-red-500">*</span></label>
                     <input
                       placeholder="e.g. Quarterly Elevator Inspection"
                       value={schName}
@@ -1463,7 +1463,7 @@ export default function Maintenance() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">Frequency (Days)</label>
+                      <label className="form-label">Frequency (Days) <span className="text-red-500">*</span></label>
                       <input
                         type="number"
                         value={schFreq}
@@ -1473,7 +1473,7 @@ export default function Maintenance() {
                       />
                     </div>
                     <div>
-                      <label className="form-label">Next Due Date</label>
+                      <label className="form-label">Next Due Date <span className="text-red-500">*</span></label>
                       <input
                         type="date"
                         value={schDate}

@@ -337,11 +337,11 @@ export default function Amenities() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Amenity Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Amenity Name <span className="text-red-500">*</span></label>
                 <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Swimming Pool" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Category</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Category <span className="text-red-500">*</span></label>
                 <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm">
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

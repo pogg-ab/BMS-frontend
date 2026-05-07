@@ -260,7 +260,7 @@ export default function Tenders() {
             <form onSubmit={handleCreateTender} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="form-label">Tender Title</label>
+                  <label className="form-label">Tender Title <span className="text-red-500">*</span></label>
                   <input className="form-input" required value={tenderData.title} onChange={e => setTenderData({...tenderData, title: e.target.value})} placeholder="e.g. Premium Office Space - East Wing" />
                 </div>
                 <div className="col-span-2">
@@ -268,25 +268,25 @@ export default function Tenders() {
                   <textarea className="form-input min-h-[80px]" value={tenderData.description} onChange={e => setTenderData({...tenderData, description: e.target.value})} placeholder="Details about the unit and requirements..." />
                 </div>
                 <div>
-                  <label className="form-label">Building</label>
+                  <label className="form-label">Building <span className="text-red-500">*</span></label>
                   <select className="form-select" required value={tenderData.building_id} onChange={e => setTenderData({...tenderData, building_id: e.target.value})}>
                     <option value="">-- Select --</option>
                     {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Unit</label>
+                  <label className="form-label">Unit <span className="text-red-500">*</span></label>
                   <select className="form-select" required value={tenderData.unit_id} onChange={e => setTenderData({...tenderData, unit_id: e.target.value})}>
                     <option value="">-- Select --</option>
                     {units.map(u => <option key={u.id} value={u.id}>{u.unit_number}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Min Bid (Base Rent)</label>
+                  <label className="form-label">Min Bid (Base Rent) <span className="text-red-500">*</span></label>
                   <input type="number" className="form-input" required value={tenderData.minimum_acceptable_bid} onChange={e => setTenderData({...tenderData, minimum_acceptable_bid: e.target.value})} />
                 </div>
                 <div>
-                  <label className="form-label">Closing Date</label>
+                  <label className="form-label">Closing Date <span className="text-red-500">*</span></label>
                   <input type="datetime-local" className="form-input" required value={tenderData.closing_date} onChange={e => setTenderData({...tenderData, closing_date: e.target.value})} />
                 </div>
               </div>
@@ -310,11 +310,11 @@ export default function Tenders() {
                 <div className="text-xl font-bold text-indigo-700 dark:text-indigo-400">ETB {Number(selectedTender.minimum_acceptable_bid).toLocaleString()}</div>
               </div>
               <div>
-                <label className="form-label">Proposed Monthly Rent</label>
+                <label className="form-label">Proposed Monthly Rent <span className="text-red-500">*</span></label>
                 <input type="number" className="form-input" required value={bidData.proposed_rent} onChange={e => setBidData({...bidData, proposed_rent: e.target.value})} />
               </div>
               <div>
-                <label className="form-label">Desired Move-in Date</label>
+                <label className="form-label">Desired Move-in Date <span className="text-red-500">*</span></label>
                 <input type="date" className="form-input" required value={bidData.proposed_start_date} onChange={e => setBidData({...bidData, proposed_start_date: e.target.value})} />
               </div>
               <div>

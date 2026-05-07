@@ -162,15 +162,15 @@ export default function Settings() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Company Legal Name</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Company Legal Name <span className="text-red-500">*</span></label>
                     <input required value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">TIN Number</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">TIN Number <span className="text-red-500">*</span></label>
                     <input required value={tinNumber} onChange={e => setTinNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">VAT Number</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">VAT Number <span className="text-red-500">*</span></label>
                     <input required value={vatNumber} onChange={e => setVatNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                   </div>
                 </div>

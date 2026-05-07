@@ -460,7 +460,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Financial Performance Trend</h3>
+            <h3 className="text-lg font-bold mb-6">Monthly Revenue Report</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={financial} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -492,7 +492,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
       {activeSubTab === 'revenue' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Revenue by Building</h3>
+            <h3 className="text-lg font-bold mb-6">Building Revenue Report</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analytics?.revenueByBuilding || []} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -554,7 +554,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg font-bold">Monthly Collection Rate</h3>
+              <h3 className="text-lg font-bold">Collection Rate Report</h3>
               <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-2xl">
                 <span className="text-2xl font-black text-emerald-600">{globalRate}%</span>
                 <span className="text-[10px] ml-1 font-bold text-emerald-500 uppercase">Avg</span>
@@ -574,7 +574,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-8">Payment Status Breakdown</h3>
+            <h3 className="text-lg font-bold mb-8">Paid vs Unpaid Report</h3>
             <div className="h-64 relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -604,7 +604,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm col-span-1 lg:col-span-2">
-            <h3 className="text-lg font-bold mb-8">Overdue Aging Breakdown</h3>
+            <h3 className="text-lg font-bold mb-8">Overdue Report</h3>
             {(!analytics?.overdueAging || analytics.overdueAging.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <ShieldCheck size={40} className="mb-2 opacity-20 text-emerald-500" />
@@ -643,7 +643,7 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
             <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/20">
-              <h3 className="text-lg font-bold">Global Payment Ledger</h3>
+              <h3 className="text-lg font-bold">Tenant Payment History</h3>
               <div className="relative group">
                 <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                 <input 

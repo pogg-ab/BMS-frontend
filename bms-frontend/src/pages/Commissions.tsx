@@ -291,7 +291,7 @@ export default function Commissions() {
               </div>
               <form onSubmit={handleCreateRule} className="p-6 space-y-4">
                 <div>
-                  <label className="form-label">Nominee Company</label>
+                  <label className="form-label">Nominee Company <span className="text-red-500">*</span></label>
                   <select className="form-select" required value={ruleData.nominee_id} onChange={e => setRuleData({...ruleData, nominee_id: e.target.value})}>
                     <option value="">-- Select Company --</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -322,7 +322,7 @@ export default function Commissions() {
                   </div>
                 </div>
                 <div>
-                  <label className="form-label">{ruleData.type === 'PERCENTAGE' ? 'Rate (%)' : 'Amount (ETB)'}</label>
+                  <label className="form-label">{ruleData.type === 'PERCENTAGE' ? 'Rate (%)' : 'Amount (ETB)'} <span className="text-red-500">*</span></label>
                   <input type="number" step="0.01" className="form-input" required value={ruleData.rate} onChange={e => setRuleData({...ruleData, rate: e.target.value})} />
                 </div>
                 <button type="submit" className="w-full button py-4 text-sm mt-4">Save Rule</button>
@@ -348,7 +348,7 @@ export default function Commissions() {
                   <div className="text-xs text-emerald-600 mt-1">{selectedForPayment.length} line items selected</div>
                 </div>
                 <div>
-                  <label className="form-label">Payment Reference / Batch No.</label>
+                  <label className="form-label">Payment Reference / Batch No. <span className="text-red-500">*</span></label>
                   <input className="form-input" required value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="e.g. CBE-SETTLE-001" />
                 </div>
                 <button type="submit" className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all mt-4">

@@ -243,14 +243,14 @@ export default function Visitors() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="+251..." value={phone} onChange={e => setPhone(e.target.value)} />
@@ -262,7 +262,7 @@ export default function Visitors() {
                   </div>
                   {!isTenant && (
                     <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site / Entrance <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <FiMapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <select className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold pl-10 focus:ring-4 focus:ring-indigo-500/10 outline-none" required value={siteId} onChange={e => setSiteId(e.target.value)}>
@@ -302,7 +302,7 @@ export default function Visitors() {
                     <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" placeholder="AA-B12345" value={vehicleNumber} onChange={e => setVehicleNumber(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purpose of Visit</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purpose of Visit <span className="text-red-500">*</span></label>
                     <input className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 outline-none" required placeholder="Maintenance, Delivery, etc." value={purpose} onChange={e => setPurpose(e.target.value)} />
                   </div>
                   <div className="lg:col-span-3">

@@ -383,7 +383,7 @@ export default function Utilities() {
             <form onSubmit={handleCreateMeter} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Serial Number</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Serial Number <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input required value={meterForm.serial_number} onChange={e => setMeterForm({ ...meterForm, serial_number: e.target.value })} placeholder="SN-XXXX-XXXX" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm" />
@@ -430,7 +430,7 @@ export default function Utilities() {
                   </select>
                 </div>
                 <div>
-                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned Unit</label>
+                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Assigned Unit <span className="text-red-500">*</span></label>
                   <select value={meterForm.unit_id} onChange={e => setMeterForm({ ...meterForm, unit_id: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer" required>
                     <option value="">None / Common</option>
                     {allUnits.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number || u.id}</option>)}
@@ -464,7 +464,7 @@ export default function Utilities() {
             </div>
             <form onSubmit={handleCreateReading} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Select Meter</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Select Meter <span className="text-red-500">*</span></label>
                 <select required value={readingForm.meter_id} onChange={e => setReadingForm({ ...readingForm, meter_id: e.target.value })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm appearance-none cursor-pointer">
                   <option value="">Select source...</option>
                   {meters.map(m => <option key={m.id} value={String(m.id)}>{m.meter_type.toUpperCase()} · SN {m.serial_number} (Unit {m.unit_id})</option>)}
@@ -472,7 +472,7 @@ export default function Utilities() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Current Value</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Current Value <span className="text-red-500">*</span></label>
                   <input required value={readingForm.reading_value} onChange={e => setReadingForm({ ...readingForm, reading_value: e.target.value })} placeholder="0.00" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black" />
                 </div>
                 <div>

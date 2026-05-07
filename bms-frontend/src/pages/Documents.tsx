@@ -271,7 +271,7 @@ export default function Documents() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Module ID</label>
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Module ID <span className="text-red-500">*</span></label>
                   <select
                     value={uploadModuleId}
                     onChange={e => setUploadModuleId(e.target.value)}

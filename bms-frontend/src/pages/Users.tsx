@@ -294,23 +294,21 @@ export default function Users() {
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Full Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Full Name <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sarah Connor" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="sarah@bms.com" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                  {editing ? 'New Password (Leave blank to keep current)' : 'Initial Password'}
-                </label>
+                  {editing ? 'New Password (Leave blank to keep current)' : <>Initial Password <span className="text-red-500">*</span></>}
                 <div className="relative">
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input 

@@ -382,7 +382,7 @@ export default function Assets() {
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="form-label">Asset Name & Details</label>
+                  <label className="form-label">Asset Name & Details <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
@@ -437,7 +437,7 @@ export default function Assets() {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="form-label text-slate-500 text-[11px]">Parent Building</label>
+                      <label className="form-label text-slate-500 text-[11px]">Parent Building <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400" size={16} />
                         <select value={buildingId} onChange={e => {setBuildingId(e.target.value); setUnitId('')}} className="form-select pl-11 bg-white border-indigo-100 rounded-xl py-2.5 text-xs font-bold">

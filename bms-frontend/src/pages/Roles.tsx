@@ -234,7 +234,7 @@ export default function Roles() {
             </div>
             <form onSubmit={handleRoleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Role Identifier</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Role Identifier <span className="text-red-500">*</span></label>
                 <input required value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="e.g. front_desk" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm" />
               </div>
               <div>

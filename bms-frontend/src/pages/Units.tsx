@@ -581,11 +581,11 @@ export default function Units() {
               <form id="unit-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit Number</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Unit Number <span className="text-red-500">*</span></label>
                     <input value={unitNumber} onChange={e => setUnitNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" required />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Building</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Building <span className="text-red-500">*</span></label>
                     <select value={formBuildingId} onChange={e => setFormBuildingId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" required>
                       <option value="">Select building</option>
                       {buildingsList.map(b => <option key={b.id} value={b.id}>{b.name || b.code}</option>)}
@@ -595,7 +595,7 @@ export default function Units() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Type <span className="text-red-500">*</span></label>
                     <select 
                       value={unitType} 
                       onChange={e => {
@@ -612,7 +612,7 @@ export default function Units() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Status <span className="text-red-500">*</span></label>
                     <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
                       {UNIT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
@@ -621,19 +621,19 @@ export default function Units() {
 
                 <div className="grid grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Floor</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Floor <span className="text-red-500">*</span></label>
                     <input type="number" value={floor as any} onChange={e => setFloor(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Beds</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Beds <span className="text-red-500">*</span></label>
                     <input type="number" value={bedrooms as any} onChange={e => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm disabled:opacity-50" required disabled={unitType === 'SHOP' || unitType === 'OFFICE'} />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Baths</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Baths <span className="text-red-500">*</span></label>
                     <input type="number" value={bathrooms as any} onChange={e => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm disabled:opacity-50" required disabled={unitType === 'SHOP' || unitType === 'OFFICE'} />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sqm</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sqm <span className="text-red-500">*</span></label>
                     <input type="number" value={sizeSqm as any} onChange={e => setSizeSqm(e.target.value ? Number(e.target.value) : '')} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
                   </div>
                 </div>

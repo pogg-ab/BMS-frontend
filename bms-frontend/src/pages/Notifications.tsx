@@ -396,11 +396,11 @@ export default function Notifications() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Subject</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Subject <span className="text-red-500">*</span></label>
                   <input value={annTitle} onChange={e => setAnnTitle(e.target.value)} required placeholder="e.g. Scheduled Water Maintenance" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition-all font-medium" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Detailed Message</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Detailed Message <span className="text-red-500">*</span></label>
                   <textarea value={annMessage} onChange={e => setAnnMessage(e.target.value)} required rows={5} placeholder="Describe the announcement details..." className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-indigo-500 transition-all font-medium resize-none" />
                 </div>
                 <button

@@ -242,7 +242,7 @@ export default function Owners() {
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Full Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Full Name <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input 
@@ -255,7 +255,7 @@ export default function Owners() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email Address <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input 
@@ -284,7 +284,7 @@ export default function Owners() {
               {/* Password field — create only */}
               {!editing && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Login Password</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Login Password <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 

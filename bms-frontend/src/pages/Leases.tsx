@@ -738,7 +738,7 @@ export default function Leases() {
           </div>
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="form-label">Tenant</label>
+              <label className="form-label">Tenant <span className="text-red-500">*</span></label>
               <select value={tenantId} onChange={e => setTenantId(e.target.value)} className="form-select" required>
                 <option value="">Select tenant</option>
                 {tenants.map((t: any) => (<option key={t.id} value={String(t.id)}>{tenantLabel(t)}</option>))}
@@ -746,7 +746,7 @@ export default function Leases() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="form-label">Building</label>
+                <label className="form-label">Building <span className="text-red-500">*</span></label>
                 <select 
                   value={leaseBuildingId} 
                   onChange={e => {
@@ -762,7 +762,7 @@ export default function Leases() {
                 </select>
               </div>
               <div>
-                <label className="form-label">Unit</label>
+                <label className="form-label">Unit <span className="text-red-500">*</span></label>
                 <select 
                   value={unitId} 
                   onChange={e => { 
@@ -786,17 +786,17 @@ export default function Leases() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="form-label">Start Date</label>
+                <label className="form-label">Start Date <span className="text-red-500">*</span></label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="form-input" required />
               </div>
               <div>
-                <label className="form-label">End Date</label>
+                <label className="form-label">End Date <span className="text-red-500">*</span></label>
                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="form-input" required />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="form-label">Rent Amount (ETB)</label>
+                <label className="form-label">Rent Amount (ETB) <span className="text-red-500">*</span></label>
                 <input placeholder="0.00" value={rent} onChange={e => setRent(e.target.value)} className="form-input" required />
               </div>
               <div>

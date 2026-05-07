@@ -230,7 +230,7 @@ export default function QR() {
                   <form onSubmit={handleGenerate} className="space-y-4">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                        Target {issueMode === 'unit' ? 'Unit' : 'Building'}
+                        Target {issueMode === 'unit' ? 'Unit' : 'Building'} <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         {issueMode === 'unit' ? (

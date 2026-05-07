@@ -26,6 +26,8 @@ type Building = {
   status?: string
   city?: string
   subcity?: string
+  site?: any
+  owner?: any
 }
 
 export default function Buildings() {
@@ -51,7 +53,7 @@ export default function Buildings() {
   const [description, setDescription] = useState<string>('')
   const [latitude, setLatitude] = useState<string | number>('')
   const [longitude, setLongitude] = useState<string | number>('')
-  const [status, setStatus] = useState<string>('ACTIVE')
+  const [status, setStatus] = useState<string>('active')
   const imageRef = useRef<HTMLInputElement | null>(null)
 
   const [sites, setSites] = useState<any[]>([])
@@ -114,19 +116,19 @@ export default function Buildings() {
     const totalUnits = buildings.reduce((s, b) => s + ((b as any).total_units || b.units_count || 0), 0)
     const occupiedUnits = buildings.reduce((s, b) => s + ((b as any).occupied_units || 0), 0)
     const avgOccupancy = totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : '0'
-    const activeCount = buildings.filter(b => (b as any).status === 'ACTIVE' || b.is_active).length
+    const activeCount = buildings.filter(b => (b as any).status?.toLowerCase() === 'active' || b.is_active).length
     return { totalUnits, occupiedUnits, avgOccupancy, activeCount, totalBuildings: buildings.length }
   }, [buildings])
 
   function openCreate() {
-    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setDescription(''); setLatitude(''); setLongitude(''); setStatus('ACTIVE'); setShowForm(true)
+    setEditing(null); setName(''); setCode(''); setAddress(''); setSiteId(''); setOwnerId(''); setType('residential'); setImageUrl(''); setDescription(''); setLatitude(''); setLongitude(''); setStatus('active'); setShowForm(true)
   }
 
   function openEdit(b: Building) {
     setEditing(b); setName(b.name || ''); setCode(b.code || ''); setAddress(b.address || '')
-    setSiteId(b.siteId || (b as any).site_id || ''); setOwnerId(b.ownerId || (b as any).owner_id || '')
+    setSiteId(b.siteId || (b as any).site_id || b.site?.id || ''); setOwnerId(b.ownerId || (b as any).owner_id || b.owner?.id || '')
     setType(b.type || 'residential'); setImageUrl(b.image_url || ''); setDescription((b as any).description || '')
-    setLatitude((b as any).latitude || ''); setLongitude((b as any).longitude || ''); setStatus((b as any).status || 'ACTIVE')
+    setLatitude((b as any).latitude || ''); setLongitude((b as any).longitude || ''); setStatus((b as any).status?.toLowerCase() || 'active')
     setShowForm(true)
   }
 
@@ -193,8 +195,8 @@ export default function Buildings() {
   }
 
   function getBuildingStatus(b: any) {
-    if (b.status) return b.status
-    return b.is_active ? 'ACTIVE' : 'INACTIVE'
+    if (b.status) return b.status.toLowerCase()
+    return b.is_active ? 'active' : 'inactive'
   }
 
   const apiBase = (import.meta as any).env.VITE_API_BASE_URL || 'https://bms.skylinkict.com'
@@ -274,10 +276,10 @@ export default function Buildings() {
                     {/* Status Badge Overlay */}
                     <div className="absolute top-3 left-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold backdrop-blur-sm ${
-                        status === 'ACTIVE' ? 'bg-emerald-500/90 text-white' : status === 'MAINTENANCE' ? 'bg-rose-500/90 text-white' : 'bg-slate-500/90 text-white'
+                        status?.toLowerCase() === 'active' ? 'bg-emerald-500/90 text-white' : status?.toLowerCase() === 'maintenance' ? 'bg-rose-500/90 text-white' : 'bg-slate-500/90 text-white'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${status === 'ACTIVE' ? 'bg-white' : status === 'MAINTENANCE' ? 'bg-white' : 'bg-white/60'}`} />
-                        {status}
+                        <span className={`w-1.5 h-1.5 rounded-full ${status?.toLowerCase() === 'active' ? 'bg-white' : status?.toLowerCase() === 'maintenance' ? 'bg-white' : 'bg-white/60'}`} />
+                        {status?.toUpperCase()}
                       </span>
                     </div>
                     {/* Action Buttons (hover) */}
@@ -373,24 +375,24 @@ export default function Buildings() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Building Name</label>
+                  <label className="form-label">Building Name <span className="text-rose-500">*</span></label>
                   <input required value={name} onChange={e => setName(e.target.value)} className="form-input" placeholder="e.g. Skyline Tower" />
                 </div>
                 <div>
-                  <label className="form-label">Building Code</label>
+                  <label className="form-label">Building Code <span className="text-rose-500">*</span></label>
                   <input required value={code} onChange={e => setCode(e.target.value)} className="form-input" placeholder="BLD-01" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Site</label>
+                  <label className="form-label">Site <span className="text-rose-500">*</span></label>
                   <select value={siteId} onChange={e => setSiteId(e.target.value)} className="form-select" required>
                     <option value="">Select site</option>
                     {sites.map((s: any) => <option key={s.id} value={s.id}>{s.name || s.id}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Owner</label>
+                  <label className="form-label">Owner <span className="text-rose-500">*</span></label>
                   <select value={ownerId} onChange={e => setOwnerId(e.target.value)} className="form-select" required>
                     <option value="">Select owner</option>
                     {owners.map((o: any) => <option key={o.id} value={o.id}>{o.name || o.id}</option>)}
@@ -399,7 +401,7 @@ export default function Buildings() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Type</label>
+                  <label className="form-label">Type <span className="text-red-500">*</span></label>
                   <select value={type} onChange={e => setType(e.target.value)} className="form-select">
                     <option value="residential">Residential</option>
                     <option value="commercial">Commercial</option>
@@ -407,7 +409,7 @@ export default function Buildings() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Address</label>
+                  <label className="form-label">Address <span className="text-rose-500">*</span></label>
                   <input required value={address} onChange={e => setAddress(e.target.value)} className="form-input" />
                 </div>
               </div>

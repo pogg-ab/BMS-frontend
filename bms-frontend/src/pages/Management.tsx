@@ -314,7 +314,7 @@ export default function Management() {
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Company Name</label>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Company Name <span className="text-red-500">*</span></label>
                     <input className="input-field w-full" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Commercial Nominees PLC" />
                   </div>
                   <div>
@@ -418,7 +418,7 @@ export default function Management() {
                 </div>
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Select Building</label>
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Select Building <span className="text-red-500">*</span></label>
                 <select className="w-full bg-slate-50 dark:bg-slate-900 border-0 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required value={asBuildingId} onChange={e => setAsBuildingId(e.target.value)}>
                   <option value="">-- Select --</option>
                   {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -426,7 +426,7 @@ export default function Management() {
               </div>
               {asScope === 'UNIT' && (
                 <div>
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Select Unit</label>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Select Unit <span className="text-red-500">*</span></label>
                   <select className="w-full bg-slate-50 dark:bg-slate-900 border-0 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required value={asUnitId} onChange={e => setAsUnitId(e.target.value)}>
                     <option value="">-- Select --</option>
                     {units.map(u => <option key={u.id} value={u.id}>{u.unit_number}</option>)}

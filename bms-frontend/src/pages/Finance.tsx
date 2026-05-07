@@ -803,7 +803,7 @@ export default function Finance() {
                     </div>
                   </div>
                   <div>
-                    <label className="form-label">Select Lease</label>
+                    <label className="form-label">Select Lease <span className="text-red-500">*</span></label>
                     <select 
                       className="form-select" 
                       value={invLeaseId} 
@@ -834,7 +834,7 @@ export default function Finance() {
                     </select>
                   </div>
                   <div>
-                    <label className="form-label">Due Date</label>
+                    <label className="form-label">Due Date <span className="text-red-500">*</span></label>
                     <input 
                       type="date" 
                       className="form-input" 
@@ -860,16 +860,7 @@ export default function Finance() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={invDueDate}
-                    onChange={e => setInvDueDate(e.target.value)}
-                    className="form-input"
-                    required
-                  />
-                </div>
+
 
                 {/* Line items */}
                 <div>
