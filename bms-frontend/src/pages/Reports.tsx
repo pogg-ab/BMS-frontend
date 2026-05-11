@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import PageLayout from '../components/PageLayout'
 import { useToast } from '../components/ToastProvider'
 import { 
@@ -19,13 +19,64 @@ import {
   getTenantPaymentHistory
 } from '../api/reports'
 import { Link } from 'react-router-dom'
+import { toPng } from 'html-to-image'
 import { 
   LayoutDashboard, DollarSign, ShieldCheck, ClipboardList, Search,
   TrendingUp, Users, Home, 
   ArrowUpRight, Calendar, PieChart as PieIcon, 
   Download, Activity, ShieldAlert, 
-  UserCheck, Briefcase, FileText
+  UserCheck, Briefcase, FileText,
+  RefreshCw, FileImage, FileSpreadsheet, ChevronRight,
+  Filter, MoreVertical, Maximize2
 } from 'lucide-react'
+
+// --- Utility: Smart Export ---
+const exportToCSV = (data: any[], baseName: string, filters: any) => {
+  if (!data || data.length === 0) return;
+  
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => headers.map(header => JSON.stringify(row[header] ?? '')).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  
+  // Smart Naming
+  const filterSuffix = [
+    filters.buildingId ? `Bldg-${filters.buildingId}` : '',
+    filters.startDate ? `From-${filters.startDate}` : '',
+    filters.endDate ? `To-${filters.endDate}` : ''
+  ].filter(Boolean).join('_');
+  
+  const fileName = `${baseName}${filterSuffix ? '_' + filterSuffix : ''}.csv`;
+  
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const exportToImage = async (ref: any, baseName: string, filters: any) => {
+  if (!ref.current) return;
+  try {
+    const dataUrl = await toPng(ref.current, { backgroundColor: '#ffffff', quality: 1, pixelRatio: 2 });
+    const link = document.createElement('a');
+    
+    const filterSuffix = [
+      filters.buildingId ? `Bldg-${filters.buildingId}` : '',
+      filters.startDate ? `From-${filters.startDate}` : ''
+    ].filter(Boolean).join('_');
+
+    link.download = `${baseName}${filterSuffix ? '_' + filterSuffix : ''}.png`;
+    link.href = dataUrl;
+    link.click();
+  } catch (err) {
+    console.error('Export image failed', err);
+  }
+};
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
   CartesianGrid, Tooltip, BarChart, Bar, PieChart, 
@@ -42,6 +93,93 @@ function Money({ value }: { value: number }) {
 }
 
 type TabType = 'overview' | 'finance' | 'property' | 'people' | 'leases' | 'overdue'
+
+const ReportContainer = ({ title, children, chartRef, data, filters, baseName, listComponent, defaultView = 'chart', hideToggle = false }: any) => {
+  const [viewMode, setViewMode] = useState<'chart' | 'list'>(defaultView);
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-[32px] p-8 border border-slate-100 dark:border-slate-700 shadow-sm transition-all duration-500 overflow-hidden group relative">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h3 className="text-lg font-black tracking-tight">{title}</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+            {viewMode === 'chart' ? 'Visual Analytics' : 'Detailed Data Ledger'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {!hideToggle && (
+            <button 
+              onClick={() => setViewMode(viewMode === 'chart' ? 'list' : 'chart')}
+              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-indigo-600 transition-all active:scale-95 shadow-sm"
+              title="Toggle List/Chart"
+            >
+              <RefreshCw size={16} className={`transition-transform duration-500 ${viewMode === 'list' ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+          
+          <button 
+            onClick={() => viewMode === 'chart' ? exportToImage(chartRef, baseName, filters) : exportToCSV(data, baseName, filters)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black transition-all hover:bg-indigo-100 active:scale-95 shadow-sm"
+          >
+            {viewMode === 'chart' ? <FileImage size={14} /> : <FileSpreadsheet size={14} />}
+            Export {viewMode === 'chart' ? 'PNG' : 'CSV'}
+          </button>
+        </div>
+      </div>
+
+      <div className={`relative ${hideToggle && viewMode === 'list' ? '' : 'min-h-[350px]'}`}>
+        <div className={`transition-all duration-700 ${viewMode === 'chart' ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none absolute inset-0'}`} ref={chartRef}>
+          {children}
+        </div>
+        <div className={`transition-all duration-700 ${viewMode === 'list' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none absolute inset-0'}`}>
+          {viewMode === 'list' && (listComponent || <div className="text-center py-20 text-slate-400 font-bold text-xs italic">Raw data ledger for this report is being prepared...</div>)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReportTable = ({ data, columns }: { data: any[], columns: { header: string, key: string, format?: (val: any) => any }[] }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <ClipboardList size={40} className="mb-4 opacity-20" />
+        <p className="text-xs font-black uppercase tracking-widest">No matching records found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto -mx-4 px-4">
+      <table className="w-full text-left border-separate border-spacing-y-2">
+        <thead>
+          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {columns.map(col => (
+              <th key={col.header} className="px-4 pb-4">{col.header}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.slice(0, 10).map((row, idx) => (
+            <tr key={idx} className="group/row bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors">
+              {columns.map(col => (
+                <td key={col.key} className="px-4 py-4 text-xs font-bold text-slate-600 dark:text-slate-300 first:rounded-l-2xl last:rounded-r-2xl">
+                  {col.format ? col.format(row[col.key]) : row[col.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {data.length > 10 && (
+        <div className="mt-6 text-center">
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Showing first 10 of {data.length} records</p>
+          <p className="text-[9px] text-indigo-500 font-bold mt-1">Export to CSV to see all records</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -171,7 +309,7 @@ export default function Reports() {
     { id: 'property', name: 'Property Mix', icon: Home },
     { id: 'people', name: 'Visitor/Tenant Insights', icon: Users },
     { id: 'leases', name: 'Lease Intelligence', icon: ClipboardList },
-    { id: 'overdue', name: 'Delinquency & Eviction', icon: ShieldAlert },
+    { id: 'overdue', name: 'Overdue Report', icon: ShieldAlert },
   ]
   
   const tabs = isFinanceOnly ? allTabs.filter(t => t.id === 'finance') : allTabs
@@ -259,8 +397,14 @@ export default function Reports() {
                <option value="">All Buildings</option>
                {allBuildings
                  .filter(p => {
-                   const matchesSite = !filters.siteId || p.siteId === filters.siteId || p.site?.id === filters.siteId;
-                   const matchesOwner = !filters.ownerId || p.ownerId === filters.ownerId || p.owner?.id === filters.ownerId;
+                   const matchesSite = !filters.siteId || 
+                     p.siteId === filters.siteId || 
+                     p.site_id === filters.siteId || 
+                     p.site?.id === filters.siteId;
+                   const matchesOwner = !filters.ownerId || 
+                     p.ownerId === filters.ownerId || 
+                     p.owner_id === filters.ownerId || 
+                     p.owner?.id === filters.ownerId;
                    return matchesSite && matchesOwner;
                  })
                  .map(p => <option key={p.id} value={p.id}>{p.name}</option>)
@@ -314,8 +458,8 @@ export default function Reports() {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {activeTab === 'overview' && <OverviewTab dashboard={dashboard} financial={financial} occupancy={occupancy} />}
-            {activeTab === 'finance' && <FinanceTab financial={financial} detailedFin={detailedFin} analytics={finAnalytics} invoiceStatus={invoiceStatus} collectionTrend={collectionTrend} tenantHistory={tenantHistory} />}
+            {activeTab === 'overview' && <OverviewTab dashboard={dashboard} financial={financial} occupancy={occupancy} filters={filters} detailedFin={detailedFin} />}
+            {activeTab === 'finance' && <FinanceTab financial={financial} detailedFin={detailedFin} analytics={finAnalytics} invoiceStatus={invoiceStatus} collectionTrend={collectionTrend} tenantHistory={tenantHistory} filters={filters} overdue={overdue} />}
             {activeTab === 'property' && <PropertyTab properties={properties} occupancy={occupancy} analytics={propAnalytics} />}
             {activeTab === 'people' && <PeopleTab people={people} analytics={peopleAnalytics} />}
             {activeTab === 'leases' && <LeaseTab leases={leases} analytics={leaseAnalytics} />}
@@ -329,21 +473,46 @@ export default function Reports() {
   )
 }
 
-function OverviewTab({ dashboard, financial, occupancy }: any) {
+function OverviewTab({ dashboard, financial, occupancy, filters, detailedFin }: any) {
+  const revMomentumRef = useRef(null);
+
   return (
     <div className="space-y-8">
       {/* KPI Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Occupancy Rate" value={`${dashboard?.occupancy_rate?.toFixed(1) ?? '0'}%`} icon={TrendingUp} color="indigo" trend="+2.4%" />
-        <StatCard title="Total Revenue" value={<Money value={dashboard?.total_revenue ?? 0} />} icon={DollarSign} color="emerald" trend="+12%" />
+        <StatCard 
+          title="Total Revenue" 
+          value={`ETB ${(dashboard?.total_revenue || 0).toLocaleString()}`} 
+          icon={DollarSign} 
+          color="emerald" 
+          trend="+12%" 
+        />
         <StatCard title="Total Units" value={dashboard?.total_units ?? '0'} icon={Home} color="amber" />
         <StatCard title="Active Leases" value={dashboard?.occupied_leases ?? '0'} icon={Users} color="rose" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-8 shadow-sm h-full">
-              <h3 className="text-lg font-bold mb-6">Revenue Momentum</h3>
+            <ReportContainer 
+              title="Revenue Momentum" 
+              chartRef={revMomentumRef}
+              data={detailedFin?.invoices || []}
+              filters={filters}
+              baseName="Revenue_Momentum_Ledger"
+              listComponent={
+                <ReportTable 
+                  data={detailedFin?.invoices || []} 
+                  columns={[
+                    { header: 'Date', key: 'due_date', format: (v) => new Date(v).toLocaleDateString() },
+                    { header: 'Tenant', key: 'tenant_name' },
+                    { header: 'Building', key: 'building' },
+                    { header: 'Total', key: 'total_amount', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Status', key: 'status' }
+                  ]} 
+                />
+              }
+            >
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={financial} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -361,7 +530,7 @@ function OverviewTab({ dashboard, financial, occupancy }: any) {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </ReportContainer>
         </div>
         <div className="lg:col-span-1">
             <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-8 shadow-sm h-full">
@@ -391,14 +560,7 @@ function OverviewTab({ dashboard, financial, occupancy }: any) {
                   </div>
                </div>
                <div className="mt-8 space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
-                    <span className="text-xs font-bold text-slate-500">Vacant Units</span>
-                    <span className="text-sm font-black text-rose-500">{occupancy?.vacant_units || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
-                    <span className="text-xs font-bold text-slate-500">Expiring 30D</span>
-                    <span className="text-sm font-black text-amber-500">{occupancy?.expiring_soon || 0}</span>
-                  </div>
+                  {/* Vacant and Expiring insights removed as requested */}
                </div>
             </div>
         </div>
@@ -407,21 +569,38 @@ function OverviewTab({ dashboard, financial, occupancy }: any) {
   )
 }
 
-function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collectionTrend, tenantHistory }: any) {
+function FinanceTab({ financial, detailedFin, analytics: finAnalytics, invoiceStatus, collectionTrend, tenantHistory, filters, overdue }: any) {
   const [activeSubTab, setActiveSubTab] = useState('overview');
-  const [historySearch, setHistorySearch] = useState('')
   
-  const filteredHistory = tenantHistory?.filter((h: any) => 
-    !historySearch || h.tenant_name?.toLowerCase().includes(historySearch.toLowerCase()) || h.invoice_no?.toLowerCase().includes(historySearch.toLowerCase())
-  ) || []
+  // Sub-Sub-Tab States
+  const [revenueSubTab, setRevenueSubTab] = useState('building');
+  const [collectionsSubTab, setCollectionsSubTab] = useState('rate');
 
-  const globalRate = collectionTrend?.length > 0 
-    ? Math.round(collectionTrend.reduce((s: number, r: any) => s + (r.collected || 0), 0) / Math.max(collectionTrend.reduce((s: number, r: any) => s + (r.invoiced || 0), 0), 1) * 100)
-    : 0
+  const revTrendRef = useRef(null);
+  const bldgRevRef = useRef(null);
+  const revMixRef = useRef(null);
+  const collRateRef = useRef(null);
+  const statusPieRef = useRef(null);
+  const agingBarRef = useRef(null);
+  const dailyActivityRef = useRef(null);
 
-  const totalInvoiced = financial?.reduce((acc: number, curr: any) => acc + (curr.invoiced || 0), 0) || 0;
-  const totalPaid = financial?.reduce((acc: number, curr: any) => acc + (curr.paid || 0), 0) || 0;
-  const totalOutstanding = totalInvoiced - totalPaid;
+  const SubSubNav = ({ tabs, active, onChange }: any) => (
+    <div className="flex items-center gap-1 bg-slate-100/50 dark:bg-slate-900/50 p-1 rounded-2xl w-fit mb-8">
+      {tabs.map((tab: any) => (
+        <button
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            active === tab.id 
+              ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' 
+              : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
 
   const subTabs = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -431,36 +610,73 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 animate-in fade-in duration-700">
       {/* Sub-tab Navigation */}
-      <div className="flex gap-2 p-1.5 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl w-fit border border-slate-200/50 dark:border-slate-800/50">
+      <div className="flex gap-2 p-1.5 bg-slate-100/50 dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl w-fit border border-slate-200/50 dark:border-slate-800/50 shadow-sm">
         {subTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-2 px-6 py-3.5 rounded-xl text-xs font-black transition-all ${
               activeSubTab === tab.id 
-                ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 translate-y-[-2px]' 
+                : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
             }`}
           >
-            <tab.icon size={14} />
+            <tab.icon size={16} />
             {tab.label}
           </button>
         ))}
       </div>
 
       {activeSubTab === 'overview' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* KPI Cards */}
+        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard title="Total Billing" value={`ETB ${totalInvoiced.toLocaleString()}`} icon={DollarSign} color="indigo" trend="+12% vs last month" />
-            <StatCard title="Total Collected" value={`ETB ${totalPaid.toLocaleString()}`} icon={ShieldCheck} color="emerald" trend={`${globalRate}% Rate`} />
-            <StatCard title="Net Outstanding" value={`ETB ${totalOutstanding.toLocaleString()}`} icon={ShieldAlert} color="rose" trend="Action required" />
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-8 rounded-[32px] text-white shadow-2xl shadow-indigo-500/20 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                <TrendingUp size={80} />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Total Invoiced</p>
+              <h4 className="text-3xl font-black mt-2">ETB {(financial?.reduce((acc: number, c: any) => acc + (c.invoiced || 0), 0) || 0).toLocaleString()}</h4>
+              <div className="flex items-center gap-2 mt-4 text-[10px] font-bold bg-white/10 w-fit px-3 py-1.5 rounded-full">
+                <ArrowUpRight size={12} /> +12.5% vs last period
+              </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Collected Revenue</p>
+              <h4 className="text-3xl font-black mt-2 text-emerald-500">ETB {(financial?.reduce((acc: number, c: any) => acc + (c.paid || 0), 0) || 0).toLocaleString()}</h4>
+              <div className="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full mt-6 overflow-hidden">
+                <div 
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                  style={{width: `${Math.min(((financial?.reduce((acc: number, c: any) => acc + (c.paid || 0), 0) || 0) / (financial?.reduce((acc: number, c: any) => acc + (c.invoiced || 0), 0) || 1)) * 100, 100)}%`}}
+                />
+              </div>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden group">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Net Outstanding</p>
+              <h4 className="text-3xl font-black mt-2 text-rose-500">ETB {(financial?.reduce((acc: number, c: any) => acc + (c.outstanding || 0), 0) || 0).toLocaleString()}</h4>
+            </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Monthly Revenue Report</h3>
+          <ReportContainer 
+            title="Monthly Revenue Trend" 
+            chartRef={revTrendRef}
+            data={collectionTrend}
+            filters={filters}
+            baseName="Monthly_Revenue_Audit"
+            listComponent={
+              <ReportTable 
+                data={collectionTrend} 
+                columns={[
+                  { header: 'Month', key: 'month' },
+                  { header: 'Target Invoiced', key: 'invoiced', format: (v) => `ETB ${v?.toLocaleString()}` },
+                  { header: 'Actual Collected', key: 'collected', format: (v) => `ETB ${v?.toLocaleString()}` },
+                  { header: 'Growth %', key: 'growth', format: (v) => `${v > 0 ? '+' : ''}${v}%` },
+                  { header: 'Gap', key: 'outstanding', format: (v) => `ETB ${v?.toLocaleString()}` }
+                ]} 
+              />
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={financial} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -481,220 +697,275 @@ function FinanceTab({ financial, detailedFin, analytics, invoiceStatus, collecti
                   <Legend verticalAlign="top" align="right" iconType="circle" />
                   <Area type="monotone" dataKey="invoiced" name="Invoiced" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#gradInvoiced)" />
                   <Area type="monotone" dataKey="paid" name="Collected" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#gradPaid)" />
-                  <Line type="monotone" dataKey="outstanding" name="Outstanding" stroke="#ef4444" strokeWidth={2} strokeDasharray="6 4" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ReportContainer>
         </div>
       )}
 
       {activeSubTab === 'revenue' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Building Revenue Report</h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.revenueByBuilding || []} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:11, fontWeight:'bold'}} width={80} />
-                  <Tooltip cursor={{fill: 'transparent'}} />
-                  <Bar dataKey="value" name="Total" fill="#4f46e5" radius={[0, 8, 8, 0]} barSize={16} />
-                  <Bar dataKey="paid" name="Paid" fill="#10b981" radius={[0, 8, 8, 0]} barSize={16} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-8 space-y-4">
-              {analytics?.revenueByBuilding?.map((b: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
-                  <div>
-                    <p className="text-sm font-bold">{b.name}</p>
-                    <p className="text-[10px] text-slate-400">Total: ETB {b.value?.toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-emerald-600">ETB {b.paid?.toLocaleString()}</p>
-                    <p className="text-[10px] text-rose-500 font-bold">Outstanding: ETB {b.outstanding?.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
+          <SubSubNav 
+            tabs={[
+              { id: 'building', label: 'Building Revenue Report' },
+              { id: 'mix', label: 'Revenue Mix Report' }
+            ]} 
+            active={revenueSubTab} 
+            onChange={setRevenueSubTab} 
+          />
 
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-6">Revenue Mix (Category)</h3>
-            <div className="h-72 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analytics?.categoryRevenue || []}
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={8}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {analytics?.categoryRevenue?.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={36}/>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global</p>
-                <p className="text-xl font-black">Revenue</p>
+              {revenueSubTab === 'building' && (
+                <ReportContainer 
+                  title="Building Revenue Report" 
+                  chartRef={bldgRevRef}
+                  data={finAnalytics?.revenueByBuilding || []}
+                  filters={filters}
+                  baseName="Building_Revenue"
+                  listComponent={
+                    <ReportTable 
+                    data={finAnalytics?.revenueByBuilding || []} 
+                    columns={[
+                      { header: 'Building', key: 'name' },
+                      { header: 'Units', key: 'total_units' },
+                      { header: 'Total Invoiced', key: 'value', format: (v) => `ETB ${v?.toLocaleString()}` },
+                      { header: 'Paid', key: 'paid', format: (v) => `ETB ${v?.toLocaleString()}` },
+                      { header: 'Outstanding', key: 'outstanding', format: (v) => `ETB ${v?.toLocaleString()}` },
+                      { header: 'Collection Efficiency', key: 'efficiency', format: (v) => `${v}%` }
+                    ]} 
+                  />
+                  }
+                >
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={finAnalytics?.revenueByBuilding || []} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10, fontWeight:'bold'}} angle={-45} textAnchor="end" height={60} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                        <Tooltip contentStyle={{borderRadius:'16px', border:'none', boxShadow:'0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                        <Line type="monotone" dataKey="value" name="Revenue" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4, fill: '#4f46e5' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </ReportContainer>
+              )}
+
+          {revenueSubTab === 'mix' && (
+            <ReportContainer 
+              title="Revenue Mix Report" 
+              chartRef={revMixRef}
+              data={finAnalytics?.categoryRevenue || []}
+              filters={filters}
+              baseName="Revenue_Mix_Analysis"
+              listComponent={
+                <ReportTable 
+                  data={finAnalytics?.categoryRevenue || []} 
+                  columns={[
+                    { header: 'Category Type', key: 'name' },
+                    { header: 'Revenue Volume', key: 'value', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Share of Portfolio', key: 'percentage', format: (v) => `${v}%` },
+                    { header: 'Invoice Count', key: 'count' }
+                  ]} 
+                />
+              }
+            >
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={finAnalytics?.categoryRevenue || []}
+                      innerRadius={80}
+                      outerRadius={120}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {(finAnalytics?.categoryRevenue || []).map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </div>
+            </ReportContainer>
+          )}
         </div>
       )}
 
       {activeSubTab === 'collections' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg font-bold">Collection Rate Report</h3>
-              <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-2xl">
-                <span className="text-2xl font-black text-emerald-600">{globalRate}%</span>
-                <span className="text-[10px] ml-1 font-bold text-emerald-500 uppercase">Avg</span>
-              </div>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={collectionTrend}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
-                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
-                  <Tooltip formatter={(val: any) => `${val}%`} />
-                  <Line type="monotone" dataKey="rate" name="Rate" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
+          <SubSubNav 
+            tabs={[
+              { id: 'rate', label: 'Collection Rate Report' },
+              { id: 'status', label: 'Paid vs Unpaid Report' },
+              { id: 'overdue', label: 'Overdue Report' }
+            ]} 
+            active={collectionsSubTab} 
+            onChange={setCollectionsSubTab} 
+          />
 
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm">
-            <h3 className="text-lg font-bold mb-8">Paid vs Unpaid Report</h3>
-            <div className="h-64 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={invoiceStatus}
-                    innerRadius={0}
-                    outerRadius={90}
-                    dataKey="value"
-                  >
-                    {invoiceStatus.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.name === 'Paid' ? '#10b981' : entry.name === 'Partial' ? '#f59e0b' : '#ef4444'} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="grid grid-cols-3 gap-4 mt-8">
-              {invoiceStatus.map((s: any) => (
-                <div key={s.name} className="text-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">{s.name}</p>
-                  <p className="text-lg font-black">{s.value}</p>
+          {collectionsSubTab === 'rate' && (
+            <ReportContainer 
+              title="Collection Rate Report" 
+              chartRef={collRateRef}
+              data={collectionTrend}
+              filters={filters}
+              baseName="Collection_Rate"
+              listComponent={
+                <ReportTable 
+                  data={collectionTrend || []} 
+                  columns={[
+                    { header: 'Month', key: 'month' },
+                    { header: 'Total Invoiced', key: 'invoiced', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Total Collected', key: 'collected', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Outstanding', key: 'outstanding', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Collection Rate', key: 'rate', format: (v) => `${v}%` }
+                  ]} 
+                />
+              }
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Collection Rate</p>
+                  <p className="text-xl font-black text-indigo-600 mt-1">
+                    {Math.round(collectionTrend.reduce((acc: number, c: any) => acc + (c.rate || 0), 0) / (collectionTrend.length || 1))}%
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-100 dark:border-slate-700 shadow-sm col-span-1 lg:col-span-2">
-            <h3 className="text-lg font-bold mb-8">Overdue Report</h3>
-            {(!analytics?.overdueAging || analytics.overdueAging.length === 0) ? (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                <ShieldCheck size={40} className="mb-2 opacity-20 text-emerald-500" />
-                <p className="text-xs font-bold uppercase tracking-widest">No Overdue Invoices</p>
-                <p className="text-[10px] mt-1 font-medium">All invoices for this period are fully paid.</p>
               </div>
-            ) : (
-              <>
-                <div className="h-64">
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={collectionTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} unit="%" />
+                    <Tooltip contentStyle={{borderRadius:'16px', border:'none', boxShadow:'0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                    <Area type="monotone" dataKey="rate" name="Rate %" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRate)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </ReportContainer>
+          )}
+
+          {collectionsSubTab === 'status' && (
+            <ReportContainer 
+              title="Paid vs Unpaid Report" 
+              chartRef={statusPieRef}
+              data={detailedFin?.invoices || []}
+              filters={filters}
+              baseName="Payment_Status"
+              listComponent={
+                <ReportTable 
+                  data={detailedFin?.invoices || []} 
+                  columns={[
+                    { header: 'Tenant', key: 'tenant_name' },
+                    { header: 'Invoice #', key: 'invoice_no' },
+                    { header: 'Amount', key: 'total_amount', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Paid', key: 'amount_paid', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Balance', key: 'balance', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Status', key: 'status', format: (v) => v?.toLowerCase() }
+                  ]} 
+                />
+              }
+            >
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={invoiceStatus} cx="50%" cy="50%" innerRadius={80} outerRadius={120} paddingAngle={8} dataKey="value">
+                      {invoiceStatus.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" align="center" />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </ReportContainer>
+          )}
+
+          {collectionsSubTab === 'overdue' && (
+            <ReportContainer 
+              title="Overdue Report" 
+              chartRef={agingBarRef}
+            data={overdue || []}
+            filters={filters}
+            baseName="Overdue_Aging_Ledger"
+            listComponent={
+              <ReportTable 
+                data={overdue || []} 
+                columns={[
+                  { header: 'Tenant', key: 'tenant_name' },
+                  { header: 'Unit', key: 'unit_name' },
+                  { header: 'Days Overdue', key: 'days_overdue', format: (v) => `${v} Days` },
+                  { header: 'Late Fee', key: 'late_fee_amount', format: (v) => `ETB ${v?.toLocaleString()}` },
+                  { header: 'Balance', key: 'balance', format: (v) => `ETB ${v?.toLocaleString()}` }
+                ]} 
+              />
+            }
+            >
+              {(!finAnalytics?.overdueAging || finAnalytics.overdueAging.length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-80 text-slate-400">
+                  <ShieldCheck size={40} className="mb-2 opacity-20 text-emerald-500" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No Overdue Invoices</p>
+                </div>
+              ) : (
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics?.overdueAging || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <BarChart data={finAnalytics?.overdueAging || []}>
                       <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="bucket" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:11, fontWeight:'bold'}} />
+                      <XAxis dataKey="range" axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:11}} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill:'#94a3b8', fontSize:10}} />
-                      <Tooltip formatter={(val: any) => `ETB ${val.toLocaleString()}`} />
+                      <Tooltip />
                       <Bar dataKey="amount" name="Outstanding" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={40} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-                  {analytics.overdueAging.map((a: any) => (
-                    <div key={a.bucket} className="p-6 rounded-3xl bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-900/20">
-                      <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">{a.bucket}</p>
-                      <p className="text-xl font-black text-rose-600 mt-1">ETB {a.amount?.toLocaleString()}</p>
-                      <p className="text-[10px] text-slate-400 font-bold">{a.count} Invoices</p>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+              )}
+            </ReportContainer>
+          )}
         </div>
       )}
 
+      {/* 4. TRANSACTION LEDGER */}
       {activeSubTab === 'history' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-700 flex flex-wrap justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/20">
-              <h3 className="text-lg font-bold">Tenant Payment History</h3>
-              <div className="relative group">
-                <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                <input 
-                  type="text"
-                  placeholder="Search tenant or invoice..."
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold pl-10 pr-4 py-2.5 focus:ring-4 ring-indigo-500/10 w-72 transition-all"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
+          <ReportContainer 
+            title="Tenant Payment History" 
+            chartRef={dailyActivityRef}
+            data={tenantHistory}
+            filters={filters}
+            baseName="Tenant_Payment_Ledger"
+            defaultView="list"
+            hideToggle={true}
+            listComponent={
+                <ReportTable 
+                  data={tenantHistory} 
+                  columns={[
+                    { header: 'Tenant', key: 'tenant_name' },
+                    { header: 'Invoice #', key: 'invoice_no' },
+                    { header: 'Building', key: 'building_name' },
+                    { header: 'Payment Date', key: 'last_payment_date', format: (v) => v ? new Date(v).toLocaleDateString() : 'No Payment' },
+                    { header: 'Amount', key: 'amount', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Paid', key: 'paid_amount', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Balance', key: 'balance', format: (v) => `ETB ${v?.toLocaleString()}` },
+                    { header: 'Status', key: 'status' }
+                  ]} 
                 />
-              </div>
+            }
+          >
+            <div className="h-80 flex flex-col items-center justify-center text-slate-400">
+              <Activity size={40} className="mb-4 opacity-20 text-indigo-500" />
+              <h3 className="text-lg font-black tracking-tight">Daily Payment Activity</h3>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Timeline visualization for the selected period</p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    <th className="px-6 py-5">Tenant / Unit</th>
-                    <th className="px-6 py-5">Invoice #</th>
-                    <th className="px-6 py-5">Due Date</th>
-                    <th className="px-6 py-5 text-right">Amount</th>
-                    <th className="px-6 py-5 text-right">Paid</th>
-                    <th className="px-6 py-5 text-right">Balance</th>
-                    <th className="px-6 py-5">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {filteredHistory.map((h: any, i: number) => (
-                    <tr key={i} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-900/5 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-bold">{h.tenant_name}</p>
-                        <p className="text-[10px] text-slate-400">{h.building_name} · {h.unit_number}</p>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-mono text-slate-500">{h.invoice_no}</td>
-                      <td className="px-6 py-4 text-xs font-medium">{new Date(h.due_date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-right font-medium">ETB {h.amount?.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-right text-emerald-600 font-bold">ETB {h.paid_amount?.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-sm text-right font-black" style={{color: h.balance > 0 ? '#ef4444' : '#10b981'}}>
-                        ETB {h.balance?.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg ${
-                          h.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-                          h.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>{h.status?.toUpperCase()}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </ReportContainer>
         </div>
       )}
     </div>

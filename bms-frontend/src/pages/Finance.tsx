@@ -1847,7 +1847,7 @@ export default function Finance() {
                       <BarChart data={analytics.buildingStats} layout="vertical" margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                         <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(value) => `${(value/1000)}k`} />
-                        <YAxis type="category" dataKey="buildingId" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} width={120} />
+                        <YAxis type="category" dataKey="buildingName" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} width={120} />
                         <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => [`ETB ${Number(value).toLocaleString()}`, 'Outstanding']} />
                         <Bar dataKey="outstanding" fill="#f43f5e" radius={[0, 6, 6, 0]} barSize={24} />
                       </BarChart>
@@ -1863,14 +1863,14 @@ export default function Finance() {
                   <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-900/80">
                       <tr>
-                        <th className="px-6 py-4">Building ID</th>
+                        <th className="px-6 py-4">Building Name</th>
                         <th className="px-6 py-4 text-right">Total Revenue Generated</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                       {hubData.rev && hubData.rev.length > 0 ? hubData.rev.map((r: any, i: number) => (
                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <td className="px-6 py-4 font-medium">{r.building_id || 'Unknown'}</td>
+                          <td className="px-6 py-4 font-medium">{r.building_name || r.building_id || 'Unknown'}</td>
                           <td className="px-6 py-4 text-emerald-600 font-semibold text-right">{fmtMoney(r.total_revenue)}</td>
                         </tr>
                       )) : (
